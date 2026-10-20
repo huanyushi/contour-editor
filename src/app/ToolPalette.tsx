@@ -1,0 +1,163 @@
+import type { Dispatch, ReactNode } from 'react'
+import {
+  CircleDot,
+  Hand,
+  List,
+  MousePointer2,
+  PaintBucket,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sigma,
+  Waypoints,
+} from 'lucide-react'
+import type { ContourAction, ContourState } from '../features/contour/model'
+import type { DrawingTool } from '../features/contour/ContourCanvas'
+
+interface Props {
+  state: ContourState
+  dispatch: Dispatch<ContourAction>
+  tool: DrawingTool
+  setTool: (tool: DrawingTool) => void
+  busy: boolean
+  collapsed: boolean
+  onCollapse: () => void
+  objectsOpen: boolean
+  onObjects: () => void
+  onInspect: () => void
+}
+
+const tools: { id: DrawingTool; icon: ReactNode; name: string; hint: string }[] = [
+  {
+    id: 'select',
+    icon: <MousePointer2 className="ui-icon" aria-hidden="true" />,
+    name: '选择工具',
+    hint: '选择 · 点击对象，拖动调整位置',
+  },
+  {
+    id: 'pan',
+    icon: <Hand className="ui-icon" aria-hidden="true" />,
+    name: '平移工具',
+    hint: '平移 · 拖动画布移动视野',
+  },
+  {
+    id: 'add',
+    icon: <Waypoints className="ui-icon" aria-hidden="true" />,
+    name: '添加顶点',
+    hint: '围道端点 · 点击追加端点',
+  },
+  {
+    id: 'marker',
+    icon: <CircleDot className="ui-icon" aria-hidden="true" />,
+    name: '独立点工具',
+    hint: '独立点 · 点击放置标记点',
+  },
+  {
+    id: 'line',
+    icon: (
+      <svg className="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 19 19 5" />
+      </svg>
+    ),
+    name: '直线工具',
+    hint: '直线 · 从围道末端追加直线',
+  },
+  {
+    id: 'arc',
+    icon: (
+      <svg className="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 18a8 8 0 0 1 16 0" />
+      </svg>
+    ),
+    name: '圆弧工具',
+    hint: '圆弧 · 选中路径段后点击第三经过点',
+  },
+  {
+    id: 'formula',
+    icon: <Sigma className="ui-icon" aria-hidden="true" />,
+    name: '公式工具',
+    hint: '公式 · 点击放置，在属性中编辑 LaTeX',
+  },
+]
+
+export function ToolPalette({
+  state,
+  dispatch,
+  tool,
+  setTool,
+  busy,
+  collapsed,
+  onCollapse,
+  objectsOpen,
+  onObjects,
+  onInspect,
+}: Props) {
+  return (
+    <aside className={`tool-palette ${collapsed ? 'collapsed' : ''}`} aria-label="绘图工具">
+      <fieldset className="tool-controls" inert={busy} hidden={collapsed}>
+        <div
+          className="drawing-tools"
+          role="toolbar"
+          aria-label="绘图工具选择"
+          aria-orientation="vertical"
+        >
+          {tools.map((item) => (
+            <button
+              key={item.id}
+              className={`tool-button ${tool === item.id ? 'active' : ''}`}
+              aria-label={item.name}
+              aria-pressed={tool === item.id}
+              title={item.hint}
+              data-tooltip={item.hint}
+              onClick={() => {
+                setTool(item.id)
+                if (item.id === 'arc')
+                  dispatch({ type: 'selectSegment', id: state.selectedSegmentId })
+              }}
+            >
+              {item.icon}
+            </button>
+          ))}
+          <button
+            className="tool-button"
+            aria-label="围道属性"
+            title="围道属性 · 编辑填充和整体线条"
+            data-tooltip="围道属性 · 编辑填充和整体线条"
+            aria-controls="properties-panel"
+            onClick={() => {
+              setTool('select')
+              dispatch({ type: 'selectObject', selection: { kind: 'contour' } })
+              onInspect()
+            }}
+          >
+            <PaintBucket className="ui-icon" aria-hidden="true" />
+          </button>
+        </div>
+      </fieldset>
+      <div className="rail-bottom">
+        <button
+          className="tool-button"
+          aria-label="对象列表"
+          title="展开或收起对象列表"
+          aria-expanded={objectsOpen}
+          aria-controls="object-panel"
+          onClick={onObjects}
+        >
+          <List className="ui-icon" aria-hidden="true" />
+        </button>
+        <button
+          className="rail-collapse"
+          aria-label={collapsed ? '展开绘图工具' : '收起绘图工具'}
+          title={collapsed ? '展开绘图工具' : '收起绘图工具'}
+          aria-expanded={!collapsed}
+          onClick={onCollapse}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="ui-icon" aria-hidden="true" />
+          ) : (
+            <PanelLeftClose className="ui-icon" aria-hidden="true" />
+          )}
+        </button>
+      </div>
+    </aside>
+  )
+}

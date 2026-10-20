@@ -7,13 +7,15 @@ export const MAX_PROJECT_BYTES = 2_000_000
 export const MAX_VERTICES = 1000
 export const MAX_MARKERS = 1000
 export const MAX_FORMULAS = 200
+export const MAX_CONNECTIONS = 2000
 
 export interface ProjectFile {
   format: 'complex-contour-editor'
-  version: 1
+  version: 1 | 2
   document: {
     vertices: Vertex[]
     segments: PathSegment[]
+    connections?: PathSegment[]
     markers: SceneObject[]
     formulas: SceneObject[]
     closed: boolean
@@ -28,10 +30,11 @@ export interface ProjectFile {
 export function serializeProject(state: ContourState): string {
   const project: ProjectFile = {
     format: 'complex-contour-editor',
-    version: 1,
+    version: state.connections.length ? 2 : 1,
     document: {
       vertices: state.vertices,
       segments: state.segments,
+      ...(state.connections.length ? { connections: state.connections } : {}),
       markers: state.markers,
       formulas: state.formulas,
       closed: state.closed,
@@ -54,6 +57,8 @@ export function serializeProject(state: ContourState): string {
 }
 
 export function projectCapacityError(state: ContourState): string {
+  if (state.connections.length > MAX_CONNECTIONS)
+    return `独立路径段最多 ${MAX_CONNECTIONS} 条，请先删除部分路径段。`
   if (state.vertices.length > MAX_VERTICES)
     return `围道端点最多 ${MAX_VERTICES} 个，请先删除部分端点。`
   if (state.markers.length > MAX_MARKERS)

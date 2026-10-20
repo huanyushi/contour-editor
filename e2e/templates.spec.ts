@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 import type { ProjectFile } from '../src/features/project/project'
-import { openSection, selectObject } from './navigation'
+import { openSection, selectObject, setCustomColor } from './navigation'
 
 async function download(page: Page, name: string) {
   const pending = page.waitForEvent('download')
@@ -168,6 +168,7 @@ test(
     const saved = JSON.parse((await download(page, '保存项目')).toString()) as ProjectFile
     const viewport = saved.document.view.viewport!
     await page.locator('summary[aria-label="导出图像"]').click()
+    await page.getByLabel('导出范围').selectOption('view')
     await page.getByRole('checkbox', { name: '导出坐标轴' }).uncheck()
     for (const [name, mime] of [
       ['导出 SVG', 'image/svg+xml'],
@@ -220,7 +221,7 @@ test(
       '锁定两轴 1:1',
     ])
       await page.getByRole('checkbox', { name, exact: true }).uncheck()
-    await page.getByLabel('坐标轴颜色', { exact: true }).fill('#123456')
+    await setCustomColor(page, '坐标轴颜色', '#123456')
     await page.getByLabel('坐标轴箭头', { exact: true }).selectOption('open')
     await page.getByLabel('实轴标签', { exact: true }).fill('x')
     await page.getByLabel('虚轴标签', { exact: true }).fill('y')

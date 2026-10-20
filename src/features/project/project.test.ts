@@ -83,7 +83,7 @@ describe('versioned project files', () => {
     const edited = contourReducer(state, {
       type: 'addFormula',
       id: 'extra',
-      point: { re: 0, im: 0 },
+      point: { re: 10, im: 10 },
     })
     expect(edited.formulas).toHaveLength(200)
     expect(edited.error).toContain('200')
@@ -126,7 +126,7 @@ describe('versioned project files', () => {
     )
   })
 
-  it('rejects duplicate IDs and broken ordered endpoint references', () => {
+  it('rejects duplicate IDs and missing endpoint references', () => {
     const duplicate = fixture()
     duplicate.document.vertices[1].id = 'a'
     expect(() => parseProject(JSON.stringify(duplicate))).toThrow(/重复/)

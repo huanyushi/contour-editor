@@ -78,14 +78,6 @@ export function ViewPanel({
             dispatch({ type: 'viewport', value: { ...view, centerRe: p.re, centerIm: p.im } })
           }
         />
-        <button
-          className="full-width secondary"
-          onClick={() =>
-            dispatch({ type: 'viewport', value: { ...view, centerRe: 0, centerIm: 0 } })
-          }
-        >
-          回到原点
-        </button>
         <button className="full-width secondary" onClick={onAddVertex}>
           在原点追加顶点
         </button>

@@ -8,6 +8,8 @@ import { ObjectList } from '../features/contour/ObjectList'
 import { ViewPanel } from '../features/contour/ViewPanel'
 import { useSliderHistory } from '../features/contour/useSliderHistory'
 import { createVertex } from '../features/contour/createVertex'
+import { transientLock } from '../components/transientLock'
+import { useOutsideDismiss } from '../components/useOutsideDismiss'
 
 interface PanelProps {
   state: ContourState
@@ -93,6 +95,7 @@ export function ApplicationMenu({
   onClearDraft: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const menuRef = useOutsideDismiss<HTMLDivElement>(open, setOpen)
   const run = (action: EditorAction) => {
     dispatch(action)
     setOpen(false)
@@ -100,6 +103,7 @@ export function ApplicationMenu({
   }
   return (
     <div
+      ref={menuRef}
       className="application-menu"
       onKeyDown={(event) => {
         if (event.key === 'Escape' && open) {
@@ -115,12 +119,12 @@ export function ApplicationMenu({
         title="应用设置"
         aria-expanded={open}
         aria-controls="application-options"
-        disabled={busy}
+        {...transientLock(busy)}
         onClick={() => setOpen(!open)}
       >
         <Settings className="ui-icon" aria-hidden="true" />
       </button>
-      <div id="application-options" className="application-options" hidden={!open}>
+      <div id="application-options" className="application-options" hidden={!open} inert={busy}>
         <button
           onClick={() => {
             setOpen(false)

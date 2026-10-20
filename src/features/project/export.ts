@@ -1,4 +1,5 @@
 export interface ExportOptions {
+  region: 'content' | 'view'
   background: 'white' | 'transparent'
   axes: boolean
   grid: boolean
@@ -6,6 +7,7 @@ export interface ExportOptions {
   scale: 1 | 2 | 3
 }
 export const defaultExportOptions = (): ExportOptions => ({
+  region: 'content',
   background: 'white',
   axes: true,
   grid: false,
@@ -44,9 +46,14 @@ export function serializeSvg(source: SVGSVGElement, options: ExportOptions): str
   }
   svg.removeAttribute('xmlns')
   svg.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', SVG_NS)
-  svg.setAttribute('width', '800')
-  svg.setAttribute('height', '600')
-  svg.setAttribute('viewBox', '0 0 800 600')
+  const viewBox = (svg.getAttribute('viewBox') ?? '')
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number)
+  if (viewBox.length !== 4 || !viewBox.every(Number.isFinite) || viewBox[2] <= 0 || viewBox[3] <= 0)
+    throw new Error('SVG 导出区域必须具有有效的正尺寸。')
+  svg.setAttribute('width', String(viewBox[2]))
+  svg.setAttribute('height', String(viewBox[3]))
   svg.setAttribute('overflow', 'hidden')
   svg.setAttribute('role', 'img')
   svg.setAttribute('aria-label', '复平面围道')
@@ -77,9 +84,20 @@ export function renderPng(svgText: string, scale: 1 | 2 | 3): Promise<Blob> {
     }
     image.onload = () => {
       try {
+        const width = Math.ceil(image.naturalWidth * scale)
+        const height = Math.ceil(image.naturalHeight * scale)
+        if (
+          ![width, height].every(Number.isFinite) ||
+          width <= 0 ||
+          height <= 0 ||
+          width > 16384 ||
+          height > 16384 ||
+          width * height > 64_000_000
+        )
+          throw new Error('PNG 尺寸超出安全范围（单边最多 16384 像素，总计最多 6400 万像素）。')
         const canvas = document.createElement('canvas')
-        canvas.width = 800 * scale
-        canvas.height = 600 * scale
+        canvas.width = width
+        canvas.height = height
         const context = canvas.getContext('2d')
         if (!context) throw new Error('浏览器不支持 Canvas 图像导出。')
         context.drawImage(image, 0, 0, canvas.width, canvas.height)

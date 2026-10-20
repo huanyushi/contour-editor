@@ -23,9 +23,11 @@ import {
   type LabelSettings,
   type PointStyle,
   type Selection,
+  type SelectionItem,
   type StrokeStyle,
 } from './appearance'
-import type { ContourState } from './model'
+import type { ContourState, PathSegment } from './model'
+import { findSegment, scenePoints, sceneSegments } from './sceneObjects'
 
 export interface SceneObject extends ComplexPoint {
   id: string
@@ -36,8 +38,10 @@ export interface WorkspaceState {
   viewport: Viewport
   axes: AxesSettings
   selection: Selection
+  selectionSource: 'click' | 'marquee'
   markers: SceneObject[]
   formulas: SceneObject[]
+  connections: PathSegment[]
   appearance: { stroke: StrokeStyle; fill: FillStyle }
   snap: boolean
   grid: boolean
@@ -49,12 +53,12 @@ export type WorkspaceAction =
   | { type: 'zoomView'; anchor: SvgPoint; factor: number }
   | { type: 'axes'; patch: Partial<AxesSettings> }
   | { type: 'viewError'; message: string }
-  | { type: 'selectObject'; selection: Selection }
+  | { type: 'selectObject'; selection: SelectionItem }
   | { type: 'addMarker' | 'addFormula'; id: string; point: ComplexPoint }
   | { type: 'moveObject'; kind: 'marker' | 'formula'; id: string; point: ComplexPoint }
   | { type: 'removeObject'; kind: 'marker' | 'formula'; id: string }
-  | { type: 'label'; target: Selection; label: LabelSettings }
-  | { type: 'pointStyle'; target: Selection; patch: Partial<PointStyle> }
+  | { type: 'label'; target: SelectionItem; label: LabelSettings }
+  | { type: 'pointStyle'; target: SelectionItem; patch: Partial<PointStyle> }
   | { type: 'stroke'; id?: string; patch: Partial<StrokeStyle> }
   | { type: 'fill'; patch: Partial<FillStyle> }
   | { type: 'toggleSnap' | 'toggleGrid' | 'toggleHandles' }
@@ -64,8 +68,10 @@ export function createWorkspaceState(): WorkspaceState {
     viewport: defaultViewport(),
     axes: defaultAxes(),
     selection: { kind: 'vertex', id: 'a' },
+    selectionSource: 'click',
     markers: [],
     formulas: [],
+    connections: [],
     appearance: { stroke: defaultStroke(), fill: defaultFill() },
     snap: true,
     grid: true,
@@ -117,7 +123,7 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
         (selection.kind === 'vertex'
           ? state.vertices
           : selection.kind === 'segment'
-            ? state.segments
+            ? sceneSegments(state)
             : selection.kind === 'marker'
               ? state.markers
               : state.formulas
@@ -126,6 +132,7 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
       return {
         ...state,
         selection,
+        selectionSource: 'click',
         ...(selection.kind === 'vertex' ? { selectedId: selection.id } : {}),
         ...(selection.kind === 'segment' ? { selectedSegmentId: selection.id } : {}),
         error: '',
@@ -133,13 +140,30 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
     }
     case 'addMarker':
     case 'addFormula': {
-      if (
-        !isValidPoint(action.point) ||
-        [...state.markers, ...state.formulas].some((object) => object.id === action.id)
-      )
-        return state
+      if (!isValidPoint(action.point)) return state
       const kind = action.type === 'addMarker' ? 'marker' : 'formula'
       const key = kind === 'marker' ? 'markers' : 'formulas'
+      const existing = (kind === 'marker' ? scenePoints(state) : state.formulas).find(
+        (point) => point.re === action.point.re && point.im === action.point.im,
+      )
+      if (existing)
+        return workspaceReducer(state, {
+          type: 'selectObject',
+          selection: {
+            kind:
+              kind === 'marker' && state.vertices.some((v) => v.id === existing.id)
+                ? 'vertex'
+                : kind,
+            id: existing.id,
+          },
+        })
+      if (
+        !/^[a-zA-Z0-9_-]{1,80}$/.test(action.id) ||
+        [...scenePoints(state), ...sceneSegments(state), ...state.formulas].some(
+          (object) => object.id === action.id,
+        )
+      )
+        return state
       const object: SceneObject = {
         ...action.point,
         id: action.id,
@@ -153,6 +177,7 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
         ...state,
         [key]: [...state[key], object],
         selection: { kind, id: object.id },
+        selectionSource: 'click',
         error: '',
       }
     }
@@ -169,10 +194,20 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
     }
     case 'removeObject': {
       const key = action.kind === 'marker' ? 'markers' : 'formulas'
+      const connections =
+        action.kind === 'marker'
+          ? state.connections.filter((s) => s.startId !== action.id && s.endId !== action.id)
+          : state.connections
+      const segments = [...state.segments, ...connections]
       return {
         ...state,
         [key]: state[key].filter((item) => item.id !== action.id),
+        connections,
+        selectedSegmentId: segments.some((s) => s.id === state.selectedSegmentId)
+          ? state.selectedSegmentId
+          : (segments[0]?.id ?? ''),
         selection: { kind: 'contour' },
+        selectionSource: 'click',
         error: '',
       }
     }
@@ -186,13 +221,17 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
         !validColor(label.color)
       )
         return { ...state, error: '标签属性超出有效范围。' }
+      const rendering = renderMath(label.tex)
+      if (rendering.error) return { ...state, error: rendering.error }
       const target = action.target
       if (target.kind === 'contour') return state
       const key =
         target.kind === 'vertex'
           ? 'vertices'
           : target.kind === 'segment'
-            ? 'segments'
+            ? state.connections.some((s) => s.id === target.id)
+              ? 'connections'
+              : 'segments'
             : target.kind === 'marker'
               ? 'markers'
               : 'formulas'
@@ -219,7 +258,8 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
       }
     }
     case 'stroke': {
-      const segment = state.segments.find((item) => item.id === action.id)
+      const segment = action.id ? findSegment(state, action.id) : undefined
+      const key = state.connections.some((s) => s.id === action.id) ? 'connections' : 'segments'
       const style = {
         ...state.appearance.stroke,
         ...(action.id ? segment?.style : {}),
@@ -229,7 +269,7 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
       return action.id
         ? {
             ...state,
-            segments: state.segments.map((item) =>
+            [key]: state[key].map((item) =>
               item.id === action.id ? { ...item, style: { ...item.style, ...action.patch } } : item,
             ),
             error: '',

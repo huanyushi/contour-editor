@@ -5,22 +5,26 @@ import {
   useState,
   type Dispatch,
   type PointerEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from 'react'
-import { fromSvg, type ComplexPoint, type SvgPoint } from '../../lib/geometry'
+import { fromSvg, toSvg, type ComplexPoint, type SvgPoint } from '../../lib/geometry'
 import { snapToInteger } from '../../lib/snap'
 import { panViewport, type Viewport } from '../../lib/viewport'
-import { LABEL_OFFSET_LIMIT, type LabelSettings } from './appearance'
+import { LABEL_OFFSET_LIMIT, type LabelSettings, type SelectionItem } from './appearance'
 import { createVertex } from './createVertex'
 import type { DrawingTool } from './ContourCanvas'
 import type { ContourState } from './model'
 import type { EditorAction, GestureOwner } from './history'
+import { itemsWithinRect, rectangle, type SelectionRect } from './selectionGeometry'
+import { translationAnchor } from './selectionTransform'
+import { scenePoints } from './sceneObjects'
 
 type PointKind = 'vertex' | 'through' | 'marker' | 'formula'
 type LabelKind = 'vertex' | 'segment' | 'marker'
 interface Drag {
   pointerId: number
-  kind: PointKind | 'label' | 'pan'
+  kind: PointKind | 'label' | 'pan' | 'marquee' | 'selection'
   id: string
   start: SvgPoint
   client: SvgPoint
@@ -30,6 +34,10 @@ interface Drag {
   label?: LabelSettings
   labelKind?: LabelKind
   implicitLabel?: boolean
+  end?: SvgPoint
+  additive?: boolean
+  selectionStart?: ContourState
+  clickItem?: SelectionItem
 }
 interface Props {
   state: ContourState
@@ -58,6 +66,8 @@ export function useCanvasInteraction({
   const [spaceHeld, setSpaceHeld] = useState(false)
   const [panActive, setPanActive] = useState(false)
   const [pointerFocus, setPointerFocus] = useState(false)
+  const [marquee, setMarquee] = useState<SelectionRect | null>(null)
+  const [modifierHeld, setModifierHeld] = useState(false)
 
   const svgPoint = useCallback(
     (clientX: number, clientY: number): SvgPoint | null => {
@@ -74,18 +84,43 @@ export function useCanvasInteraction({
   )
 
   const finish = useCallback(
-    (pointerId?: number) => {
+    (pointerId?: number, cancelled = false) => {
       const current = drag.current
       if (!current || (pointerId !== undefined && current.pointerId !== pointerId)) return
       drag.current = null
       setPanActive(false)
+      setMarquee(null)
+      let inspect = current.kind !== 'pan' && current.kind !== 'marquee'
+      if (current.kind === 'marquee' && !cancelled) {
+        if (!current.moved && current.clickItem) {
+          dispatch({ type: 'toggleSelection', item: current.clickItem })
+          inspect = true
+        } else {
+          const items = current.moved
+            ? itemsWithinRect(state, rectangle(current.start, current.end ?? current.start))
+            : []
+          dispatch({ type: 'selectMany', items, additive: current.additive, source: 'marquee' })
+          inspect = items.length > 0
+        }
+      }
       dispatch({ type: 'endGesture', owner: 'canvas' })
       if (svgRef.current?.hasPointerCapture(current.pointerId))
         svgRef.current.releasePointerCapture(current.pointerId)
-      if (current.kind !== 'pan') onInspect?.()
+      if (inspect) onInspect?.()
     },
-    [dispatch, svgRef, onInspect],
+    [dispatch, svgRef, onInspect, state],
   )
+
+  const cancel = useCallback(() => {
+    const current = drag.current
+    if (!current) return
+    drag.current = null
+    setPanActive(false)
+    setMarquee(null)
+    dispatch({ type: 'cancelGesture', owner: 'canvas' })
+    if (svgRef.current?.hasPointerCapture(current.pointerId))
+      svgRef.current.releasePointerCapture(current.pointerId)
+  }, [dispatch, svgRef])
 
   useEffect(() => {
     const svg = svgRef.current
@@ -104,6 +139,7 @@ export function useCanvasInteraction({
         })
     }
     const down = (event: KeyboardEvent) => {
+      if (event.key === 'Control' || event.key === 'Meta') setModifierHeld(true)
       if (
         event.code !== 'Space' ||
         event.isComposing ||
@@ -127,15 +163,17 @@ export function useCanvasInteraction({
       setSpaceHeld(true)
     }
     const up = (event: KeyboardEvent) => {
+      if (event.key === 'Control' || event.key === 'Meta') setModifierHeld(false)
       if (event.code === 'Space') {
         space.current = false
         setSpaceHeld(false)
       }
     }
     const blur = () => {
+      setModifierHeld(false)
       space.current = false
       setSpaceHeld(false)
-      finish()
+      finish(undefined, true)
     }
     svg.addEventListener('wheel', wheel, { passive: false })
     window.addEventListener('keydown', down)
@@ -199,31 +237,97 @@ export function useCanvasInteraction({
       offset: point ? { re: raw.re - point.re, im: raw.im - point.im } : { re: 0, im: 0 },
       view: state.viewport,
       moved: false,
+      additive: event.ctrlKey || event.metaKey,
       label,
       labelKind,
       implicitLabel:
         labelKind === 'vertex' && !state.vertices.find((vertex) => vertex.id === id)?.label,
+      selectionStart: kind === 'selection' ? state : undefined,
     }
     dispatch({ type: 'beginGesture', owner: 'canvas' })
     if (kind === 'pan') setPanActive(true)
+    if (kind === 'marquee') setMarquee(rectangle(start, start))
     svgRef.current?.setPointerCapture(event.pointerId)
+  }
+
+  function toggle(event: PointerEvent<SVGElement>, item: SelectionItem): boolean {
+    if (!(event.ctrlKey || event.metaKey)) return false
+    event.preventDefault()
+    event.stopPropagation()
+    svgRef.current?.focus({ preventScroll: true })
+    dispatch({ type: 'toggleSelection', item })
+    onInspect?.()
+    return true
+  }
+
+  function marqueeClick(event: PointerEvent<SVGElement>, item: SelectionItem) {
+    capture(event, 'marquee', '')
+    if (drag.current?.kind === 'marquee') drag.current.clickItem = item
+  }
+
+  function pointClick(event: PointerEvent<SVGElement>, id: string, kind: 'vertex' | 'marker') {
+    event.preventDefault()
+    event.stopPropagation()
+    svgRef.current?.focus({ preventScroll: true })
+    const start = state.selection
+    if (
+      (start.kind === 'vertex' || start.kind === 'marker') &&
+      start.part !== 'label' &&
+      start.id !== id
+    )
+      dispatch({ type: 'connectPoints', startId: start.id, endId: id })
+    else dispatch({ type: 'selectObject', selection: { kind, id } })
+    onInspect?.()
+  }
+
+  function nearby<T extends ComplexPoint>(objects: T[], location: SvgPoint): T | undefined {
+    const matrix = svgRef.current?.getScreenCTM()
+    if (!matrix) return undefined
+    return objects.find((object) => {
+      const p = toSvg(object, state.viewport)
+      return (
+        Math.hypot(
+          (p.x - location.x) * Math.hypot(matrix.a, matrix.b),
+          (p.y - location.y) * Math.hypot(matrix.c, matrix.d),
+        ) <= 8
+      )
+    })
   }
 
   return {
     adding: tool !== 'select' && tool !== 'pan',
     panning: tool === 'pan' || spaceHeld || panActive,
     pointerFocus,
+    marquee,
+    showSelection: tool === 'marquee' && state.selectionSource === 'marquee',
+    selectionDragEnabled: !modifierHeld,
+    beginSelectionDrag: (event: PointerEvent<SVGRectElement>) => {
+      if (tool === 'marquee' && event.button === 0 && !event.ctrlKey && !event.metaKey)
+        capture(event, 'selection', '', translationAnchor(state))
+    },
+    deleteSelection: () => dispatch({ type: 'deleteSelection' }),
+    clearSelection: () => dispatch({ type: 'clearSelection' }),
     selectContour: (event: PointerEvent<SVGPathElement>) => {
-      if (tool !== 'select' || event.button !== 0 || !event.isPrimary || gestureOwner !== null)
+      if (event.button !== 0 || !event.isPrimary || gestureOwner !== null) return
+      if (tool === 'marquee' && (event.ctrlKey || event.metaKey)) {
+        marqueeClick(event, { kind: 'contour' })
         return
+      }
+      if (tool !== 'select') return
+      if (toggle(event, { kind: 'contour' })) return
       event.stopPropagation()
       svgRef.current?.focus({ preventScroll: true })
       dispatch({ type: 'selectObject', selection: { kind: 'contour' } })
       onInspect?.()
     },
     selectSegment: (event: PointerEvent<SVGPathElement>, id: string) => {
-      if (tool !== 'select' || event.button !== 0 || !event.isPrimary || gestureOwner !== null)
+      if (event.button !== 0 || !event.isPrimary || gestureOwner !== null) return
+      if (tool === 'marquee' && (event.ctrlKey || event.metaKey)) {
+        marqueeClick(event, { kind: 'segment', id })
         return
+      }
+      if (tool !== 'select' && tool !== 'line') return
+      if (toggle(event, { kind: 'segment', id })) return
       event.stopPropagation()
       dispatch({ type: 'selectSegment', id })
       onInspect?.()
@@ -234,7 +338,29 @@ export function useCanvasInteraction({
       id: string,
       point: ComplexPoint,
     ) => {
-      if ((tool === 'select' || tool === 'add') && event.button === 0)
+      if (event.button !== 0 || !event.isPrimary || gestureOwner !== null) return
+      if (tool === 'line' && (kind === 'vertex' || kind === 'marker')) {
+        pointClick(event, id, kind)
+        return
+      }
+      if (tool === 'marquee' && (event.ctrlKey || event.metaKey)) {
+        marqueeClick(event, { kind: kind === 'through' ? 'segment' : kind, id })
+        return
+      }
+      if (
+        tool === 'select' &&
+        event.button === 0 &&
+        event.isPrimary &&
+        gestureOwner === null &&
+        toggle(event, { kind: kind === 'through' ? 'segment' : kind, id })
+      )
+        return
+      if (
+        tool === 'select' ||
+        tool === 'add' ||
+        (tool === 'marker' && (kind === 'marker' || kind === 'vertex')) ||
+        (tool === 'formula' && kind === 'formula')
+      )
         capture(event, kind, id, point)
     },
     beginLabelDrag: (
@@ -243,12 +369,38 @@ export function useCanvasInteraction({
       id: string,
       label: LabelSettings,
     ) => {
+      if (
+        tool === 'marquee' &&
+        event.button === 0 &&
+        event.isPrimary &&
+        gestureOwner === null &&
+        (event.ctrlKey || event.metaKey)
+      ) {
+        marqueeClick(event, { kind, id, part: 'label' })
+        return
+      }
+      if (
+        tool === 'select' &&
+        event.button === 0 &&
+        event.isPrimary &&
+        gestureOwner === null &&
+        toggle(event, { kind, id, part: 'label' })
+      )
+        return
       if (tool === 'select' && event.button === 0)
         capture(event, 'label', id, undefined, label, kind)
     },
     handlers: {
       onBlur: () => setPointerFocus(false),
-      onKeyDown: () => setPointerFocus(false),
+      onKeyDown: (event: ReactKeyboardEvent<SVGSVGElement>) => {
+        if (event.key === 'Tab') setPointerFocus(false)
+        else if (event.key === 'Delete' || event.key === 'Backspace') setPointerFocus(true)
+        if (event.key === 'Escape' && drag.current) {
+          event.preventDefault()
+          event.stopPropagation()
+          cancel()
+        }
+      },
       onPointerEnter: () => {
         hover.current = true
       },
@@ -257,6 +409,8 @@ export function useCanvasInteraction({
         onPointerPosition?.(null)
       },
       onPointerDownCapture: (event: PointerEvent<SVGSVGElement>) => {
+        if (event.target instanceof Element && event.target.closest('[data-selection-toolbar]'))
+          return
         setPointerFocus(true)
         if ((event.button === 0 && (tool === 'pan' || space.current)) || event.button === 1)
           capture(event, 'pan', '')
@@ -265,21 +419,50 @@ export function useCanvasInteraction({
         if (event.button !== 0 || !event.isPrimary || drag.current || gestureOwner !== null) return
         svgRef.current?.focus({ preventScroll: true })
         if (tool === 'select') return
+        if (tool === 'marquee') {
+          capture(event, 'marquee', '')
+          return
+        }
         const location = svgPoint(event.clientX, event.clientY)
         if (!location) return
         const point = snapped(location, event.altKey)
+        if (tool === 'line') {
+          const existing = nearby(scenePoints(state), location)
+          if (existing)
+            pointClick(
+              event,
+              existing.id,
+              state.vertices.some((v) => v.id === existing.id) ? 'vertex' : 'marker',
+            )
+          return
+        }
         if (tool === 'arc') onArcPoint(point)
         else if (tool === 'marker' || tool === 'formula') {
+          const existing =
+            tool === 'marker'
+              ? nearby(scenePoints(state), location)
+              : nearby(state.formulas, location)
+          if (existing) {
+            const kind =
+              tool === 'formula'
+                ? 'formula'
+                : state.vertices.some((v) => v.id === existing.id)
+                  ? 'vertex'
+                  : 'marker'
+            capture(event, kind, existing.id, existing)
+            return
+          }
           dispatch({
             type: tool === 'marker' ? 'addMarker' : 'addFormula',
             id: createVertex(point, state).id,
             point,
           })
           onInspect?.()
-        } else if (tool === 'line' || tool === 'add') {
-          dispatch({ type: 'add', vertex: createVertex(point, state) })
-          if (tool === 'line')
-            dispatch({ type: 'selectSegment', id: state.segments[state.segments.length - 1].id })
+        } else if (tool === 'add') {
+          dispatch({
+            type: 'add',
+            vertex: createVertex(point, state),
+          })
           onInspect?.()
         }
       },
@@ -297,6 +480,25 @@ export function useCanvasInteraction({
         const point = svgPoint(event.clientX, event.clientY)
         if (!point) return
         current.moved = true
+        if (current.kind === 'selection' && current.selectionStart) {
+          const from = current.selectionStart
+          const anchor = translationAnchor(from)
+          const start = anchor ?? fromSvg(current.start, current.view)
+          const target = anchor
+            ? snapped(point, event.altKey, current.view, current.offset)
+            : fromSvg(point, current.view)
+          dispatch({
+            type: 'translateSelection',
+            from,
+            delta: { re: target.re - start.re, im: target.im - start.im },
+          })
+          return
+        }
+        if (current.kind === 'marquee') {
+          current.end = point
+          setMarquee(rectangle(current.start, point))
+          return
+        }
         if (current.kind === 'pan') {
           dispatch({
             type: 'viewport',
@@ -335,8 +537,8 @@ export function useCanvasInteraction({
           dispatch({ type: 'moveObject', kind: current.kind, id: current.id, point: math })
       },
       onPointerUp: (event: PointerEvent<SVGSVGElement>) => finish(event.pointerId),
-      onPointerCancel: (event: PointerEvent<SVGSVGElement>) => finish(event.pointerId),
-      onLostPointerCapture: (event: PointerEvent<SVGSVGElement>) => finish(event.pointerId),
+      onPointerCancel: (event: PointerEvent<SVGSVGElement>) => finish(event.pointerId, true),
+      onLostPointerCapture: (event: PointerEvent<SVGSVGElement>) => finish(event.pointerId, true),
     },
   }
 }

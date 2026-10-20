@@ -16,13 +16,16 @@ import { TemplatePanel } from '../features/contour/TemplatePanel'
 import type { ContourTemplate } from '../features/contour/templates'
 import { fitScene } from '../features/contour/sceneView'
 import { createVertex } from '../features/contour/createVertex'
+import { useSelectionShortcuts } from '../features/contour/useSelectionShortcuts'
+import { transientLock } from '../components/transientLock'
 
 const hints: Record<DrawingTool, string> = {
   select: '选择 · 点击对象编辑，拖动调整位置',
   pan: '平移 · 拖动画布，滚轮缩放',
+  marquee: '框选 · 拖动选择区域，Ctrl / ⌘ 追加，Delete 删除',
   add: '围道端点 · 点击追加端点',
   marker: '独立点 · 点击放置标记点',
-  line: '直线 · 点击追加直线',
+  line: '线段 · 依次选择两个点',
   arc: '圆弧 · 选中路径段后点击第三经过点',
   formula: '公式 · 点击放置，在属性中编辑 LaTeX',
 }
@@ -57,6 +60,7 @@ export default function App() {
   const busy = history.gesture !== null || reading
   const draft = useLocalDraft(state, busy, startup)
   useHistoryShortcuts(dispatch, busy)
+  useSelectionShortcuts(dispatch, state.selection, busy)
   useEffect(() => {
     let wasNarrow = narrowScreen()
     const resize = () => {
@@ -80,6 +84,7 @@ export default function App() {
     }
   }
   const chooseTool = (next: DrawingTool) => {
+    dispatch({ type: 'clearSelection' })
     setTool(next)
     if (narrowScreen()) {
       setInspectorOpen(false)
@@ -148,6 +153,13 @@ export default function App() {
       className="app-shell"
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return
+        if (
+          state.selection.kind === 'multiple' ||
+          ((tool === 'marquee' || tool === 'line') && state.selection.kind !== 'none')
+        ) {
+          dispatch({ type: 'clearSelection' })
+          return
+        }
         const panel = (event.target as HTMLElement).closest('.side-panel')?.id
         if (panel === 'template-panel' && templatesOpen) closeTemplates()
         else if (panel === 'object-panel' && objectsOpen) closeObjects()
@@ -172,7 +184,8 @@ export default function App() {
             <button
               aria-label="撤销"
               title="撤销 · Ctrl / ⌘ + Z"
-              disabled={!history.past.length || busy}
+              disabled={!history.past.length}
+              {...transientLock(busy)}
               onClick={() => dispatch({ type: 'undo' })}
             >
               <Undo2 className="ui-icon" aria-hidden="true" />
@@ -180,7 +193,8 @@ export default function App() {
             <button
               aria-label="重做"
               title="重做 · Ctrl / ⌘ + Shift + Z，或 Ctrl + Y"
-              disabled={!history.future.length || busy}
+              disabled={!history.future.length}
+              {...transientLock(busy)}
               onClick={() => dispatch({ type: 'redo' })}
             >
               <Redo2 className="ui-icon" aria-hidden="true" />
@@ -218,9 +232,13 @@ export default function App() {
           setTool={chooseTool}
           busy={busy}
           collapsed={toolsCollapsed}
-          onCollapse={() => setToolsCollapsed(!toolsCollapsed)}
+          onCollapse={() => {
+            if (state.selectionSource === 'marquee') dispatch({ type: 'clearSelection' })
+            setToolsCollapsed(!toolsCollapsed)
+          }}
           objectsOpen={objectsOpen}
           onObjects={() => {
+            if (state.selectionSource === 'marquee') dispatch({ type: 'clearSelection' })
             setObjectsOpen(!objectsOpen)
             setTemplatesOpen(false)
             if (narrowScreen()) {
@@ -230,6 +248,7 @@ export default function App() {
           }}
           templatesOpen={templatesOpen}
           onTemplates={() => {
+            if (state.selectionSource === 'marquee') dispatch({ type: 'clearSelection' })
             if (templatesOpen) closeTemplates()
             else {
               setTemplatesOpen(true)
@@ -265,7 +284,7 @@ export default function App() {
                 title="展开对象属性"
                 aria-expanded="false"
                 aria-controls="properties-panel"
-                disabled={busy}
+                {...transientLock(busy)}
                 onClick={inspectAndFocus}
               >
                 <PanelRightOpen className="ui-icon" aria-hidden="true" /> <span>属性</span>

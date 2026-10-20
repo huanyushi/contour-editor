@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { MathText } from '../../components/MathText'
 import { ColorField, RangeField } from '../../components/StyleInputs'
 import { renderMath } from '../../lib/math'
-import { LABEL_OFFSET_LIMIT, type LabelSettings } from './appearance'
+import type { LabelSettings } from './appearance'
+
+const LABEL_OFFSET_SLIDER_LIMIT = 100
 
 export function LabelForm({
   value,
@@ -74,16 +76,20 @@ export function LabelForm({
             label="水平偏移"
             name="标签水平偏移"
             value={draft.dx}
-            min={-LABEL_OFFSET_LIMIT}
-            max={LABEL_OFFSET_LIMIT}
+            min={Math.min(-LABEL_OFFSET_SLIDER_LIMIT, draft.dx)}
+            max={Math.max(LABEL_OFFSET_SLIDER_LIMIT, draft.dx)}
+            step={1}
+            wheelStep={1}
             onChange={(dx) => change({ dx })}
           />
           <RangeField
             label="垂直偏移"
             name="标签垂直偏移"
             value={draft.dy}
-            min={-LABEL_OFFSET_LIMIT}
-            max={LABEL_OFFSET_LIMIT}
+            min={Math.min(-LABEL_OFFSET_SLIDER_LIMIT, draft.dy)}
+            max={Math.max(LABEL_OFFSET_SLIDER_LIMIT, draft.dy)}
+            step={1}
+            wheelStep={1}
             onChange={(dy) => change({ dy })}
           />
           <label className="check-row">

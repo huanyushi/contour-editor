@@ -5,6 +5,26 @@ import { createHistory, historyReducer } from './history'
 import { defaultLabel } from './appearance'
 
 describe('document history', () => {
+  it('cancels only the owned gesture and preserves the pre-drag document and redo stack', () => {
+    let history = historyReducer(createHistory(), {
+      type: 'move',
+      id: 'a',
+      point: { re: -2, im: 1 },
+    })
+    history = historyReducer(history, { type: 'undo' })
+    const before = history
+    history = historyReducer(history, { type: 'beginGesture', owner: 'canvas' })
+    history = historyReducer(history, { type: 'move', id: 'b', point: { re: 2, im: -1 } })
+    expect(historyReducer(history, { type: 'cancelGesture', owner: 'slider-keyboard' })).toBe(
+      history,
+    )
+    history = historyReducer(history, { type: 'cancelGesture', owner: 'canvas' })
+    expect(history.present).toEqual(before.present)
+    expect(history.past).toEqual(before.past)
+    expect(history.future).toEqual(before.future)
+    expect(history.gesture).toBeNull()
+    expect(historyReducer(history, { type: 'redo' }).present.vertices[0].re).toBe(-2)
+  })
   it('preserves automatic labeling and redo after an appearance slider returns to its starting value', () => {
     let history = historyReducer(createHistory(createArcFixture()), { type: 'reverse' })
     history = historyReducer(history, { type: 'undo' })

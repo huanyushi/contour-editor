@@ -1,8 +1,9 @@
 import type { Dispatch } from 'react'
-import { Maximize, Minus, Plus, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { LocateFixed, Maximize, Minus, Plus, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { defaultViewport, type CanvasSize } from '../../lib/viewport'
 import type { ContourAction, ContourState } from './model'
 import { fitScene } from './sceneView'
+import { transientLock } from '../../components/transientLock'
 
 export function ViewToolbar({
   state,
@@ -24,7 +25,7 @@ export function ViewToolbar({
       <button
         aria-label="放大视图"
         title="放大视图"
-        disabled={busy}
+        {...transientLock(busy)}
         onClick={() => dispatch({ type: 'zoomView', anchor: { x: 400, y: 300 }, factor: 1.25 })}
       >
         <Plus className="ui-icon" aria-hidden="true" />
@@ -32,7 +33,7 @@ export function ViewToolbar({
       <button
         aria-label="缩小视图"
         title="缩小视图"
-        disabled={busy}
+        {...transientLock(busy)}
         onClick={() => dispatch({ type: 'zoomView', anchor: { x: 400, y: 300 }, factor: 0.8 })}
       >
         <Minus className="ui-icon" aria-hidden="true" />
@@ -44,7 +45,7 @@ export function ViewToolbar({
       <button
         aria-label="适应图形"
         title="适应图形"
-        disabled={busy}
+        {...transientLock(busy)}
         onClick={() => {
           const value = fitScene(state, size)
           dispatch(
@@ -60,9 +61,19 @@ export function ViewToolbar({
         <Maximize className="ui-icon" aria-hidden="true" />
       </button>
       <button
+        aria-label="回到原点"
+        title="回到原点 · 保留当前缩放和比例"
+        {...transientLock(busy)}
+        onClick={() =>
+          dispatch({ type: 'viewport', value: { ...state.viewport, centerRe: 0, centerIm: 0 } })
+        }
+      >
+        <LocateFixed className="ui-icon" aria-hidden="true" />
+      </button>
+      <button
         aria-label="重置视图"
         title="重置视图"
-        disabled={busy}
+        {...transientLock(busy)}
         onClick={() => dispatch({ type: 'viewport', value: defaultViewport() })}
       >
         <RotateCcw className="ui-icon" aria-hidden="true" />
@@ -72,7 +83,7 @@ export function ViewToolbar({
         title="视图设置"
         aria-expanded={settingsOpen}
         aria-controls="view-settings"
-        disabled={busy}
+        {...transientLock(busy)}
         onClick={onSettings}
       >
         <SlidersHorizontal className="ui-icon" aria-hidden="true" />

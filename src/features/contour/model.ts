@@ -5,6 +5,10 @@ import { canProjectScene } from './sceneView'
 import type { LabelSettings, PointStyle, StrokeStyle } from './appearance'
 import { workspaceReducer, type WorkspaceAction, type WorkspaceState } from './workspace'
 import { createRectangleState } from './templates'
+import { activeSegments, isSingleCycle, singleChainEnds } from './pathTopology'
+import { deleteItems, selectionReducer, type SelectionAction } from './selectionModel'
+import { translateSelection } from './selectionTransform'
+import { findPoint, findSegment, scenePoints, sceneSegments } from './sceneObjects'
 
 export interface Vertex extends ComplexPoint {
   id: string
@@ -24,7 +28,7 @@ export type PathSegment = LineSegment | CircularArcSegment
 
 export interface ContourState extends WorkspaceState {
   vertices: Vertex[]
-  /** Includes a retained closing segment even while the contour is open. */
+  /** Complete paths retain a closing edge while open; cut components contain only actual edges. */
   segments: PathSegment[]
   selectedId: string
   selectedSegmentId: string
@@ -35,11 +39,15 @@ export interface ContourState extends WorkspaceState {
 export type ContourAction =
   | { type: 'loadProject'; state: ContourState }
   | WorkspaceAction
+  | SelectionAction
+  | { type: 'translateSelection'; from: ContourState; delta: ComplexPoint }
   | { type: 'select' | 'selectSegment'; id: string }
   | { type: 'move' | 'moveThrough'; id: string; point: ComplexPoint }
   | { type: 'setArc'; id: string; through: ComplexPoint }
   | { type: 'setLine'; id: string }
   | { type: 'add'; vertex: Vertex }
+  | { type: 'connectPoints'; startId: string; endId: string }
+  | { type: 'deleteSegment'; id: string }
   | { type: 'delete' | 'toggleClosed' | 'reverse' }
 
 export function createInitialState(): ContourState {
@@ -48,12 +56,53 @@ export function createInitialState(): ContourState {
 }
 
 export function canClose(state: Pick<ContourState, 'vertices' | 'segments'>): boolean {
-  return state.vertices.length >= 3 || state.segments.some((segment) => segment.kind === 'arc')
+  return (
+    (isSingleCycle(state) || singleChainEnds(state) !== null) &&
+    (state.vertices.length >= 3 || state.segments.some((segment) => segment.kind === 'arc'))
+  )
+}
+
+function lineFactory(state: ContourState, extraId = '') {
+  const used = new Set(
+    [...scenePoints(state), ...sceneSegments(state), ...state.formulas].map((o) => o.id),
+  )
+  used.add(extraId)
+  return (startId: string, endId: string, preferred: string): LineSegment => {
+    let id = preferred
+    for (let index = 0; used.has(id) || id.length > 80; index++) id = `edge-new-${index}`
+    used.add(id)
+    return { id, kind: 'line', startId, endId }
+  }
+}
+
+function updateSegment(
+  state: ContourState,
+  id: string,
+  update: (segment: PathSegment) => PathSegment,
+): ContourState {
+  const key = state.connections.some((s) => s.id === id) ? 'connections' : 'segments'
+  return { ...state, [key]: state[key].map((s) => (s.id === id ? update(s) : s)) }
 }
 
 function acceptGeometry(previous: ContourState, candidate: ContourState): ContourState {
-  const vertices = new Map(candidate.vertices.map((vertex) => [vertex.id, vertex]))
-  for (const segment of candidate.segments) {
+  const vertices = new Map(scenePoints(candidate).map((vertex) => [vertex.id, vertex]))
+  const lines = new Set(
+    candidate.segments
+      .filter((s) => s.kind === 'line')
+      .map((s) => [s.startId, s.endId].sort().join(':')),
+  )
+  for (const segment of candidate.connections) {
+    const start = vertices.get(segment.startId),
+      end = vertices.get(segment.endId)
+    if (!start || !end || start.id === end.id || (start.re === end.re && start.im === end.im))
+      return { ...previous, error: '独立路径段需要两个位置不同的现有端点。' }
+    if (segment.kind === 'line') {
+      const pair = [segment.startId, segment.endId].sort().join(':')
+      if (lines.has(pair)) return { ...previous, error: '这两个端点之间已存在直线段。' }
+      lines.add(pair)
+    }
+  }
+  for (const segment of sceneSegments(candidate)) {
     if (segment.kind !== 'arc') continue
     const result = arcThrough(
       vertices.get(segment.startId)!,
@@ -70,6 +119,7 @@ export function contourReducer(state: ContourState, action: ContourAction): Cont
   if (
     next.vertices === state.vertices &&
     next.segments === state.segments &&
+    next.connections === state.connections &&
     next.markers === state.markers &&
     next.formulas === state.formulas &&
     next.appearance === state.appearance &&
@@ -91,21 +141,41 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
   switch (action.type) {
     case 'loadProject':
       return action.state
+    case 'translateSelection': {
+      const moved = translateSelection(action.from, action.delta)
+      if (moved.error) return { ...state, error: moved.error }
+      return acceptGeometry(state, {
+        ...state,
+        vertices: moved.vertices,
+        segments: moved.segments,
+        connections: moved.connections,
+        markers: moved.markers,
+        formulas: moved.formulas,
+      })
+    }
+    case 'selectMany':
+    case 'toggleSelection':
+    case 'clearSelection':
+    case 'deleteSelection':
+    case 'selectionStyle':
+      return selectionReducer(state, action)
     case 'select':
       return state.vertices.some((p) => p.id === action.id)
         ? {
             ...state,
             selectedId: action.id,
             selection: { kind: 'vertex', id: action.id },
+            selectionSource: 'click',
             error: '',
           }
         : state
     case 'selectSegment':
-      return state.segments.some((s) => s.id === action.id)
+      return findSegment(state, action.id)
         ? {
             ...state,
             selectedSegmentId: action.id,
             selection: { kind: 'segment', id: action.id },
+            selectionSource: 'click',
             error: '',
           }
         : state
@@ -116,92 +186,158 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
         vertices: state.vertices.map((p) => (p.id === action.id ? { ...p, ...action.point } : p)),
       })
     case 'moveThrough':
-      return acceptGeometry(state, {
-        ...state,
-        segments: state.segments.map((s) =>
-          s.id === action.id && s.kind === 'arc' ? { ...s, through: action.point } : s,
+      return acceptGeometry(
+        state,
+        updateSegment(state, action.id, (s) =>
+          s.kind === 'arc' ? { ...s, through: action.point } : s,
         ),
-      })
+      )
     case 'setArc':
-      return acceptGeometry(state, {
-        ...state,
-        segments: state.segments.map((s) =>
-          s.id === action.id ? { ...s, kind: 'arc', through: action.through } : s,
-        ),
-      })
+      if (!findSegment(state, action.id))
+        return { ...state, error: '请先选择一条路径段，再指定圆弧经过点。' }
+      return acceptGeometry(
+        state,
+        updateSegment(state, action.id, (s) => ({ ...s, kind: 'arc', through: action.through })),
+      )
     case 'setLine':
-      return acceptGeometry(state, {
-        ...state,
-        segments: state.segments.map((s) =>
-          s.id === action.id
-            ? {
-                id: s.id,
-                kind: 'line',
-                startId: s.startId,
-                endId: s.endId,
-                ...(s.style ? { style: s.style } : {}),
-                ...(s.label ? { label: s.label } : {}),
-              }
-            : s,
-        ),
-      })
-    case 'add': {
-      if (!isValidPoint(action.vertex) || state.vertices.some((p) => p.id === action.vertex.id))
+      return acceptGeometry(
+        state,
+        updateSegment(state, action.id, (s) => ({
+          id: s.id,
+          kind: 'line',
+          startId: s.startId,
+          endId: s.endId,
+          ...(s.style ? { style: s.style } : {}),
+          ...(s.label ? { label: s.label } : {}),
+        })),
+      )
+    case 'connectPoints': {
+      const start = findPoint(state, action.startId),
+        end = findPoint(state, action.endId)
+      if (!start || !end || start.id === end.id || (start.re === end.re && start.im === end.im))
         return state
-      const closing = state.segments[state.segments.length - 1]
-      return acceptGeometry(state, {
+      const existing = sceneSegments(state).find(
+        (s) =>
+          s.kind === 'line' &&
+          ((s.startId === start.id && s.endId === end.id) ||
+            (s.startId === end.id && s.endId === start.id)),
+      )
+      if (existing) {
+        const active = activeSegments(state)
+        // Materialize a retained closing edge without closing or filling the contour.
+        const next =
+          !active.includes(existing) && !state.connections.includes(existing)
+            ? { ...state, segments: active, connections: [...state.connections, existing] }
+            : state
+        return reduceContour(next, { type: 'selectSegment', id: existing.id })
+      }
+      const connection = lineFactory(state)(start.id, end.id, 'connection-0')
+      return {
         ...state,
-        vertices: [...state.vertices, action.vertex],
-        selectedId: action.vertex.id,
-        selection: { kind: 'vertex', id: action.vertex.id },
-        segments: [
-          ...state.segments.slice(0, -1),
-          { id: closing.id, kind: 'line', startId: closing.startId, endId: action.vertex.id },
-          {
-            id: `edge-${action.vertex.id}`,
-            kind: 'line',
-            startId: action.vertex.id,
-            endId: state.vertices[0].id,
-          },
-        ],
-      })
+        connections: [...state.connections, connection],
+        selectedSegmentId: connection.id,
+        selection: { kind: 'segment', id: connection.id },
+        selectionSource: 'click',
+        error: '',
+      }
     }
-    case 'delete': {
-      if (state.vertices.length <= 2) return state
-      const index = state.vertices.findIndex((p) => p.id === state.selectedId)
-      if (index < 0) return state
-      const incoming = state.segments[(index + state.segments.length - 1) % state.segments.length]
-      const outgoing = state.segments[index]
-      const vertices = state.vertices.filter((p) => p.id !== state.selectedId)
-      const segments = state.segments
-        .filter((s) => s.id !== outgoing.id)
-        .map((s): PathSegment =>
-          s.id === incoming.id
-            ? { id: s.id, kind: 'line', startId: s.startId, endId: outgoing.endId }
-            : s,
+    case 'add': {
+      if (!isValidPoint(action.vertex)) return state
+      const existing = scenePoints(state).find(
+        (p) => p.re === action.vertex.re && p.im === action.vertex.im,
+      )
+      if (existing)
+        return workspaceReducer(state, {
+          type: 'selectObject',
+          selection: {
+            kind: state.vertices.some((v) => v.id === existing.id) ? 'vertex' : 'marker',
+            id: existing.id,
+          },
+        })
+      if (
+        !/^[a-zA-Z0-9_-]{1,80}$/.test(action.vertex.id) ||
+        [...scenePoints(state), ...sceneSegments(state), ...state.formulas].some(
+          (p) => p.id === action.vertex.id,
         )
+      )
+        return state
+      const line = lineFactory(state, action.vertex.id)
+      const closing = isSingleCycle(state) ? state.segments[state.segments.length - 1] : undefined
+      const vertices = [...state.vertices, action.vertex]
+      let segments = state.segments
+      let added: PathSegment | undefined
+      if (closing) {
+        added = { id: closing.id, kind: 'line', startId: closing.startId, endId: action.vertex.id }
+        segments = [
+          ...segments.slice(0, -1),
+          added,
+          line(action.vertex.id, closing.endId, `edge-${action.vertex.id}`),
+        ]
+      } else if (state.vertices.length === 1) {
+        added = line(state.vertices[0].id, action.vertex.id, `edge-${state.vertices[0].id}`)
+        segments = [added, line(action.vertex.id, state.vertices[0].id, `edge-${action.vertex.id}`)]
+      } else if (state.vertices.length) {
+        const outgoing = new Set(activeSegments(state).map((s) => s.startId))
+        const end =
+          state.vertices.find((v) => v.id === state.selectedId && !outgoing.has(v.id)) ??
+          [...state.vertices].reverse().find((v) => !outgoing.has(v.id))
+        if (end) {
+          added = line(end.id, action.vertex.id, `edge-${action.vertex.id}`)
+          segments = [...segments, added]
+        }
+      }
       return acceptGeometry(state, {
         ...state,
         vertices,
+        selectedId: action.vertex.id,
+        selectedSegmentId: added?.id ?? state.selectedSegmentId,
+        selection: { kind: 'vertex', id: action.vertex.id },
+        selectionSource: 'click',
         segments,
-        selectedId: vertices[Math.min(index, vertices.length - 1)].id,
-        selection: { kind: 'vertex', id: vertices[Math.min(index, vertices.length - 1)].id },
-        selectedSegmentId:
-          state.selectedSegmentId === outgoing.id ? incoming.id : state.selectedSegmentId,
       })
     }
-    case 'toggleClosed':
-      return canClose(state) ? { ...state, closed: !state.closed, error: '' } : state
+    case 'delete':
+      return deleteItems(state, [{ kind: 'vertex', id: state.selectedId }])
+    case 'deleteSegment':
+      return deleteItems(state, [{ kind: 'segment', id: action.id }])
+    case 'toggleClosed': {
+      if (!canClose(state)) return state
+      if (isSingleCycle(state)) return { ...state, closed: !state.closed, error: '' }
+      const ends = singleChainEnds(state)!
+      const connection = state.connections.find(
+        (s) =>
+          s.kind === 'line' &&
+          ((s.startId === ends.endId && s.endId === ends.startId) ||
+            (s.startId === ends.startId && s.endId === ends.endId)),
+      )
+      const closing = connection
+        ? connection.startId === ends.endId
+          ? connection
+          : { ...connection, startId: ends.endId, endId: ends.startId }
+        : lineFactory(state)(ends.endId, ends.startId, 'edge-close')
+      return acceptGeometry(state, {
+        ...state,
+        segments: [...state.segments, closing],
+        connections: connection
+          ? state.connections.filter((s) => s.id !== connection.id)
+          : state.connections,
+        closed: true,
+        error: '',
+      })
+    }
     case 'reverse': {
       const vertices = [...state.vertices].reverse()
       // n-1 active edges reverse first; the retained closing edge remains last.
-      const segments = [
-        ...state.segments.slice(0, -1).reverse(),
-        state.segments[state.segments.length - 1],
-      ].map((segment) => ({ ...segment, startId: segment.endId, endId: segment.startId }))
+      const segments = (
+        isSingleCycle(state)
+          ? [...state.segments.slice(0, -1).reverse(), state.segments[state.segments.length - 1]]
+          : [...state.segments].reverse()
+      ).map((segment) => ({ ...segment, startId: segment.endId, endId: segment.startId }))
       return { ...state, vertices, segments, error: '' }
     }
     default:
-      return workspaceReducer(state, action)
+      return action.type === 'moveObject'
+        ? acceptGeometry(state, workspaceReducer(state, action))
+        : workspaceReducer(state, action)
   }
 }

@@ -1,0 +1,25 @@
+/* Keep inspector UI text consistent without sizing formula previews or canvas math. */
+.properties-panel,
+.view-settings {
+  font-size: 12px;
+}
+
+:is(.properties-panel, .view-settings) label,
+:is(.properties-panel, .view-settings) input,
+:is(.properties-panel, .view-settings) select,
+:is(.properties-panel, .view-settings) textarea,
+:is(.properties-panel, .view-settings) button,
+:is(.properties-panel, .view-settings) .coordinate-fields label,
+:is(.properties-panel, .view-settings) .field-row select,
+:is(.properties-panel, .view-settings) .endpoint-actions button,
+:is(.properties-panel, .view-settings) .geometry-values,
+:is(.properties-panel, .view-settings) .arc-details > summary {
+  font-size: 12px;
+}
+
+:is(.properties-panel, .view-settings) .coordinate-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25em;
+  line-height: 1.5;
+}

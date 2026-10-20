@@ -10,6 +10,10 @@ import { MathLabel } from './MathLabel'
 import { DraggableLabel } from './DraggableLabel'
 import { AxesLayer } from './AxesLayer'
 import type { useCanvasInteraction } from './useCanvasInteraction'
+import { isSelected, selectionItems } from './selectionModel'
+import { selectionBounds } from './selectionGeometry'
+import { SelectionOverlay } from './SelectionOverlay'
+import { findPoint } from './sceneObjects'
 
 interface Props {
   state: ContourState
@@ -22,11 +26,16 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
   const bounds = canvasBounds(size)
   const geometry = buildContourGeometry(state)
   const fill = state.appearance.fill
+  const selectedItems = selectionItems(state.selection)
+  const selectedBounds =
+    interaction?.showSelection && !interaction.marquee
+      ? selectionBounds(state, selectedItems)
+      : null
   const selectedLabel = (id: string) =>
     state.handles &&
-    state.selection.kind !== 'contour' &&
-    state.selection.id === id &&
-    state.selection.part === 'label'
+    selectionItems(state.selection).some(
+      (item) => item.kind !== 'contour' && item.id === id && item.part === 'label',
+    )
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -72,15 +81,9 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
       />
       {geometry.segments.map(({ segment, path, arrow, arc }) => {
         const style = { ...state.appearance.stroke, ...segment.style }
-        const selected = state.selection.kind === 'segment' && state.selection.id === segment.id
-        const start = toSvg(
-          state.vertices.find((point) => point.id === segment.startId)!,
-          state.viewport,
-        )
-        const end = toSvg(
-          state.vertices.find((point) => point.id === segment.endId)!,
-          state.viewport,
-        )
+        const selected = isSelected(state.selection, { kind: 'segment', id: segment.id })
+        const start = toSvg(findPoint(state, segment.startId)!, state.viewport)
+        const end = toSvg(findPoint(state, segment.endId)!, state.viewport)
         const midpoint = arc
           ? toSvg(pointOnArc(arc, 0.5), state.viewport)
           : { x: start.x / 2 + end.x / 2, y: start.y / 2 + end.y / 2 }
@@ -161,7 +164,7 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
       })}
       {state.vertices.map((vertex, index) => {
         const point = toSvg(vertex, state.viewport)
-        const selected = state.selection.kind === 'vertex' && state.selection.id === vertex.id
+        const selected = isSelected(state.selection, { kind: 'vertex', id: vertex.id })
         const style = vertex.pointStyle ?? defaultPointStyle()
         const label = vertex.label ?? defaultLabel(`z_{${index + 1}}`)
         return (
@@ -238,7 +241,7 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
         })}
       {state.markers.map((object) => {
         const point = toSvg(object, state.viewport)
-        const selected = state.selection.kind === 'marker' && state.selection.id === object.id
+        const selected = isSelected(state.selection, { kind: 'marker', id: object.id })
         return (
           <g
             key={object.id}
@@ -276,7 +279,7 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
       {state.formulas.map((object) => {
         const point = toSvg(object, state.viewport),
           dimensions = renderMath(object.label.tex)
-        const selected = state.selection.kind === 'formula' && state.selection.id === object.id
+        const selected = isSelected(state.selection, { kind: 'formula', id: object.id })
         return (
           <g
             key={object.id}
@@ -300,6 +303,32 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
           </g>
         )
       })}
+      {interaction?.marquee && (
+        <rect
+          data-export-omit=""
+          data-testid="marquee-rectangle"
+          x={interaction.marquee.left}
+          y={interaction.marquee.top}
+          width={interaction.marquee.right - interaction.marquee.left}
+          height={interaction.marquee.bottom - interaction.marquee.top}
+          fill="#238b8b18"
+          stroke="#238b8b"
+          strokeWidth="1.5"
+          strokeDasharray="5 3"
+          pointerEvents="none"
+        />
+      )}
+      {interaction && selectedBounds && (
+        <SelectionOverlay
+          bounds={selectedBounds}
+          count={selectedItems.length}
+          size={size}
+          onDelete={interaction.deleteSelection}
+          onClear={interaction.clearSelection}
+          onDrag={interaction.beginSelectionDrag}
+          dragEnabled={interaction.selectionDragEnabled}
+        />
+      )}
     </svg>
   )
 }

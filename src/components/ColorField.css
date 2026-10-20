@@ -1,0 +1,77 @@
+.color-field {
+  margin: 10px 0;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.color-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.color-field-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #6c8286;
+  font-size: 11px;
+}
+
+.color-field-preview {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #d8e2e4;
+  border-radius: 3px;
+}
+
+.color-field-presets {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.color-field-swatch {
+  min-width: 0;
+  height: 28px;
+  padding: 3px;
+}
+
+.color-field-swatch > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.color-field-swatch[aria-pressed='true'] {
+  border-color: #237b6d;
+  box-shadow: 0 0 0 1px #237b6d;
+  background: #edf5f3;
+}
+
+.color-field-more {
+  margin-top: 6px;
+  padding: 4px 8px;
+  color: #176b5c;
+  font-size: 11px;
+}
+
+.color-field-custom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  color: #58706d;
+  font-size: 11px;
+}
+
+.color-field button:focus-visible,
+.color-field input:focus-visible {
+  outline: 3px solid #8fc8bd;
+  outline-offset: 2px;
+}

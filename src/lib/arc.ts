@@ -102,6 +102,20 @@ export function pointOnArc(arc: CircularArc, t: number): ComplexPoint {
   }
 }
 
+/** Endpoints and cardinal extrema of the swept arc, including arcs larger than a semicircle. */
+export function arcExtrema(arc: CircularArc): ComplexPoint[] {
+  const points = [pointOnArc(arc, 0), pointOnArc(arc, 1)]
+  for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+    const distance = positiveAngle(arc.sweep > 0 ? angle - arc.startAngle : arc.startAngle - angle)
+    if (distance <= Math.abs(arc.sweep) + EPSILON)
+      points.push({
+        re: arc.center.re + arc.radius * Math.cos(angle),
+        im: arc.center.im + arc.radius * Math.sin(angle),
+      })
+  }
+  return points
+}
+
 export function tangentOnArc(arc: CircularArc, t: number): ComplexPoint {
   const angle = arc.startAngle + arc.sweep * t
   const direction = Math.sign(arc.sweep)

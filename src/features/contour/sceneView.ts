@@ -1,4 +1,4 @@
-import { arcThrough, pointOnArc } from '../../lib/arc'
+import { arcExtrema, arcThrough, pointOnArc } from '../../lib/arc'
 import { fromSvg, toSvg, type ComplexPoint } from '../../lib/geometry'
 import {
   exportSize,
@@ -11,18 +11,18 @@ import {
 import { renderMath } from '../../lib/math'
 import { defaultLabel, type LabelSettings } from './appearance'
 import type { ContourState } from './model'
+import { scenePoints, sceneSegments, visibleSceneSegments } from './sceneObjects'
 
 export function canProjectScene(state: ContourState, view: Viewport): boolean {
   if (!validViewport(view)) return false
   const points: ComplexPoint[] = [...state.vertices, ...state.markers, ...state.formulas]
-  const vertices = new Map(state.vertices.map((point) => [point.id, point]))
-  for (const segment of state.segments) {
+  const vertices = new Map(scenePoints(state).map((point) => [point.id, point]))
+  for (const segment of sceneSegments(state)) {
+    const start = vertices.get(segment.startId),
+      end = vertices.get(segment.endId)
+    if (!start || !end) return false
     if (segment.kind !== 'arc') continue
-    const result = arcThrough(
-      vertices.get(segment.startId)!,
-      vertices.get(segment.endId)!,
-      segment.through,
-    )
+    const result = arcThrough(start, end, segment.through)
     if (!result.ok || !Number.isFinite(result.arc.radius * Math.max(view.scaleX, view.scaleY)))
       return false
     points.push(segment.through, pointOnArc(result.arc, 0.5))
@@ -39,6 +39,7 @@ export function fitScene(state: ContourState, size: CanvasSize = exportSize): Vi
   const availableHeight = Math.max(1, size.height - 2 * padding)
   const points: ComplexPoint[] = [...state.vertices, ...state.markers, ...state.formulas]
   const labels: { point: ComplexPoint; label: LabelSettings; width: number; height: number }[] = []
+  if (!points.length) return state.viewport
   const addLabel = (point: ComplexPoint, label: LabelSettings) => {
     if (!label.visible || !label.tex.trim()) return
     const math = renderMath(label.tex)
@@ -53,8 +54,8 @@ export function fitScene(state: ContourState, size: CanvasSize = exportSize): Vi
     addLabel(point, point.label ?? defaultLabel(`z_{${index + 1}}`)),
   )
   ;[...state.markers, ...state.formulas].forEach((point) => addLabel(point, point.label))
-  const vertices = new Map(state.vertices.map((point) => [point.id, point]))
-  for (const segment of state.closed ? state.segments : state.segments.slice(0, -1)) {
+  const vertices = new Map(scenePoints(state).map((point) => [point.id, point]))
+  for (const segment of visibleSceneSegments(state)) {
     const start = vertices.get(segment.startId)!
     const end = vertices.get(segment.endId)!
     let middle = { re: start.re / 2 + end.re / 2, im: start.im / 2 + end.im / 2 }
@@ -63,16 +64,7 @@ export function fitScene(state: ContourState, size: CanvasSize = exportSize): Vi
       if (!result.ok) return null
       const arc = result.arc
       middle = pointOnArc(arc, 0.5)
-      const tau = 2 * Math.PI
-      for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
-        const distance =
-          (((arc.sweep > 0 ? angle - arc.startAngle : arc.startAngle - angle) % tau) + tau) % tau
-        if (distance <= Math.abs(arc.sweep) + 1e-10)
-          points.push({
-            re: arc.center.re + arc.radius * Math.cos(angle),
-            im: arc.center.im + arc.radius * Math.sin(angle),
-          })
-      }
+      points.push(...arcExtrema(arc))
     }
     if (segment.label) addLabel(middle, segment.label)
   }

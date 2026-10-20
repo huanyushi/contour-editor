@@ -1,6 +1,8 @@
-export type Selection =
+export type SelectionItem =
   | { kind: 'vertex' | 'segment' | 'marker' | 'formula'; id: string; part?: 'label' }
   | { kind: 'contour' }
+export type Selection =
+  SelectionItem | { kind: 'multiple'; items: SelectionItem[] } | { kind: 'none' }
 export const LABEL_OFFSET_LIMIT = 2000
 export interface LabelSettings {
   tex: string

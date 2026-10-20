@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, FolderOpen, Save } from 'lucide-react'
 import type { ContourState } from '../contour/model'
 import { MAX_PROJECT_BYTES, parseProject, serializeProject } from './project'
@@ -6,6 +6,9 @@ import { downloadBlob } from './download'
 import { defaultExportOptions, renderPng, type ExportOptions } from './export'
 import { renderExport } from './renderExport'
 import { renderMath } from '../../lib/math'
+import { transientLock } from '../../components/transientLock'
+import { useOutsideDismiss } from '../../components/useOutsideDismiss'
+import { computeExportLayout } from './exportLayout'
 
 interface Props {
   state: ContourState
@@ -19,15 +22,28 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
   const input = useRef<HTMLInputElement>(null)
   const [working, setWorking] = useState<'reading' | 'exporting' | null>(null)
   const [open, setOpen] = useState(false)
+  const menuRef = useOutsideDismiss<HTMLDetailsElement>(open, setOpen)
   const [options, setOptions] = useState(defaultExportOptions)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const layout = useMemo(() => {
+    if (!open) return null
+    try {
+      return { size: computeExportLayout(state, options).size, error: '' }
+    } catch (problem) {
+      return {
+        size: null,
+        error: problem instanceof Error ? problem.message : '无法计算导出尺寸。',
+      }
+    }
+  }, [state, options, open])
   useEffect(() => {
     if (!message || working !== null) return
     const timeout = setTimeout(() => setMessage(''), 4500)
     return () => clearTimeout(timeout)
   }, [message, working])
-  const locked = disabled || working !== null
+  const unavailable = working !== null
+  const locked = disabled || unavailable
   const update = (patch: Partial<ExportOptions>) => setOptions({ ...options, ...patch })
   const fail = (problem: unknown) => {
     setError(problem instanceof Error ? problem.message : '文件操作失败，请重试。')
@@ -78,6 +94,7 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
       for (const object of [
         ...state.vertices,
         ...state.segments,
+        ...state.connections,
         ...state.markers,
         ...state.formulas,
       ]) {
@@ -103,13 +120,20 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
   return (
     <section className="project-controls" aria-label="项目文件与导出">
       <div className="project-buttons">
-        <button aria-label="保存项目" title="保存项目" disabled={locked} onClick={saveProject}>
+        <button
+          aria-label="保存项目"
+          title="保存项目"
+          disabled={unavailable}
+          {...transientLock(disabled)}
+          onClick={saveProject}
+        >
           <Save className="ui-icon" aria-hidden="true" />
         </button>
         <button
           aria-label="打开项目"
           title="打开项目"
-          disabled={locked}
+          disabled={unavailable}
+          {...transientLock(disabled)}
           onClick={() => input.current?.click()}
         >
           <FolderOpen className="ui-icon" aria-hidden="true" />
@@ -120,7 +144,7 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
           type="file"
           accept=".json,application/json"
           hidden
-          disabled={locked}
+          disabled={unavailable}
           onChange={(event) => {
             const file = event.currentTarget.files?.[0]
             event.currentTarget.value = ''
@@ -128,6 +152,7 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
           }}
         />
         <details
+          ref={menuRef}
           className="export-menu"
           open={open}
           onKeyDown={(event) => {
@@ -142,7 +167,8 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
             aria-label="导出图像"
             title="导出 SVG / PNG"
             aria-expanded={open}
-            aria-disabled={locked}
+            {...transientLock(locked)}
+            data-unavailable={unavailable ? '' : undefined}
             onClick={(event) => {
               event.preventDefault()
               if (!locked) setOpen(!open)
@@ -157,8 +183,23 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
                 {error}
               </p>
             )}
-            <fieldset disabled={locked}>
-              <legend>独立导出区域 · 800 × 600</legend>
+            <fieldset disabled={unavailable} inert={disabled}>
+              <legend>
+                独立导出区域{layout?.size && ` · ${layout.size.width} × ${layout.size.height}`}
+              </legend>
+              <label className="field-row">
+                导出范围
+                <select
+                  aria-label="导出范围"
+                  value={options.region}
+                  onChange={(event) =>
+                    update({ region: event.target.value as ExportOptions['region'] })
+                  }
+                >
+                  <option value="content">适应图形（完整导出）</option>
+                  <option value="view">当前视图（800×600）</option>
+                </select>
+              </label>
               <label className="field-row">
                 导出背景
                 <select
@@ -205,17 +246,34 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
                     update({ scale: Number(event.target.value) as ExportOptions['scale'] })
                   }
                 >
-                  <option value="1">1× · 800×600</option>
-                  <option value="2">2× · 1600×1200</option>
-                  <option value="3">3× · 2400×1800</option>
+                  {([1, 2, 3] as const).map((scale) => (
+                    <option key={scale} value={scale}>
+                      {scale}×
+                      {layout?.size &&
+                        ` · ${layout.size.width * scale}×${layout.size.height * scale}`}
+                    </option>
+                  ))}
                 </select>
               </label>
               <p className="muted small">
-                按当前视图中心和比例导出 800×600 区域，范围与全屏画布可能不同。
+                {options.region === 'content'
+                  ? '完整导出图形与标签，自动保留留白和长宽比；超大图形将等比缩小。PNG 倍率仅提高分辨率。'
+                  : '按当前视图中心和比例导出 800×600 区域，范围与全屏画布可能不同。'}
               </p>
+              {layout?.error && (
+                <p className="error small" role="alert">
+                  {layout.error}
+                </p>
+              )}
               <div className="export-actions">
-                <button onClick={() => void exportImage('svg')}>导出 SVG</button>
-                <button className="primary" onClick={() => void exportImage('png')}>
+                <button disabled={!!layout?.error} onClick={() => void exportImage('svg')}>
+                  导出 SVG
+                </button>
+                <button
+                  disabled={!!layout?.error}
+                  className="primary"
+                  onClick={() => void exportImage('png')}
+                >
                   导出 PNG
                 </button>
               </div>

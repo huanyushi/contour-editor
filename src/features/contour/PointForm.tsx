@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import { isValidPoint, type ComplexPoint } from '../../lib/geometry'
 import { MathText } from '../../components/MathText'
+import './PropertyTypography.css'
 
 interface Props {
   point: ComplexPoint
@@ -37,7 +38,9 @@ export function PointForm({ point, onApply, prefix = '', buttonLabel }: Props) {
     <form onSubmit={submit} noValidate>
       <div className="coordinate-fields">
         <label>
-          {prefix}实部 <MathText tex="\mathrm{Re}" />
+          <span className="coordinate-label">
+            {prefix}实部 <MathText tex="\mathrm{Re}" size={12} />
+          </span>
           <input
             aria-label={`${prefix}实部 Re`}
             inputMode="decimal"
@@ -48,7 +51,9 @@ export function PointForm({ point, onApply, prefix = '', buttonLabel }: Props) {
           />
         </label>
         <label>
-          {prefix}虚部 <MathText tex="\mathrm{Im}" />
+          <span className="coordinate-label">
+            {prefix}虚部 <MathText tex="\mathrm{Im}" size={12} />
+          </span>
           <input
             aria-label={`${prefix}虚部 Im`}
             inputMode="decimal"

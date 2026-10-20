@@ -4,6 +4,7 @@ import { canClose, type ContourState } from './model'
 import type { EditorAction, GestureOwner } from './history'
 import { ObjectProperties } from './ObjectProperties'
 import { useSliderHistory } from './useSliderHistory'
+import { findSegment } from './sceneObjects'
 
 export function PropertiesPanel({
   state,
@@ -24,22 +25,23 @@ export function PropertiesPanel({
   }, [state.selection])
   const sliders = useSliderHistory(dispatch, gestureOwner)
   const selection = state.selection
-  const segment =
-    selection.kind === 'segment'
-      ? state.segments.find((item) => item.id === selection.id)
-      : undefined
+  const segment = selection.kind === 'segment' ? findSegment(state, selection.id) : undefined
   const title = segment
     ? segment.kind === 'arc'
       ? '圆弧属性'
-      : '直线属性'
+      : '线段属性'
     : selection.kind === 'vertex'
       ? '顶点属性'
       : selection.kind === 'marker'
         ? '标记点属性'
         : selection.kind === 'formula'
           ? '公式属性'
-          : '围道与填充'
-  const key = selection.kind === 'contour' ? 'contour' : `${selection.kind}:${selection.id}`
+          : selection.kind === 'multiple'
+            ? '多选属性'
+            : selection.kind === 'none'
+              ? '对象属性'
+              : '围道与填充'
+  const key = 'id' in selection ? `${selection.kind}:${selection.id}` : selection.kind
   return (
     <aside
       id="properties-panel"
@@ -67,20 +69,26 @@ export function PropertiesPanel({
       <div ref={scrollArea} className="panel-scroll" tabIndex={0} aria-label="属性面板内容">
         <fieldset className="inspector-fields">
           <ObjectProperties key={key} state={state} dispatch={dispatch} />
-          <div className="contour-actions">
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={state.closed}
-                disabled={!canClose(state)}
-                onChange={() => dispatch({ type: 'toggleClosed' })}
-              />
-              闭合围道
-            </label>
-            <button className="full-width" onClick={() => dispatch({ type: 'reverse' })}>
-              反转方向
-            </button>
-          </div>
+          {selection.kind !== 'multiple' && selection.kind !== 'none' && (
+            <div className="contour-actions">
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={state.closed}
+                  disabled={!canClose(state)}
+                  onChange={() => dispatch({ type: 'toggleClosed' })}
+                />
+                闭合围道
+              </label>
+              <button
+                className="full-width"
+                disabled={!state.vertices.length}
+                onClick={() => dispatch({ type: 'reverse' })}
+              >
+                反转方向
+              </button>
+            </div>
+          )}
         </fieldset>
       </div>
     </aside>

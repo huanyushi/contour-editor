@@ -1,6 +1,8 @@
 import { arcThrough, pointOnArc, tangentOnArc, type CircularArc } from '../../lib/arc'
 import { toSvg, type SvgPoint } from '../../lib/geometry'
 import type { ContourState, PathSegment } from './model'
+import { activeSegments } from './pathTopology'
+import { scenePoints, visibleSceneSegments } from './sceneObjects'
 
 export interface SegmentGeometry {
   segment: PathSegment
@@ -14,9 +16,9 @@ export function buildContourGeometry(state: ContourState): {
   path: string
   segments: SegmentGeometry[]
 } {
-  const vertices = new Map(state.vertices.map((vertex) => [vertex.id, vertex]))
-  const active = state.closed ? state.segments : state.segments.slice(0, -1)
-  const segments = active.map((segment): SegmentGeometry => {
+  const vertices = new Map(scenePoints(state).map((vertex) => [vertex.id, vertex]))
+  const active = activeSegments(state)
+  const segments = visibleSceneSegments(state).map((segment): SegmentGeometry => {
     const start = vertices.get(segment.startId)!
     const end = vertices.get(segment.endId)!
     const p = toSvg(start, state.viewport)
@@ -65,9 +67,31 @@ export function buildContourGeometry(state: ContourState): {
           : undefined,
     }
   })
-  const start = toSvg(state.vertices[0], state.viewport)
+  const contourSegments = segments.slice(0, active.length)
+  const outgoing = new Map(contourSegments.map((geometry) => [geometry.segment.startId, geometry]))
+  const incoming = new Set(active.map((segment) => segment.endId))
+  const visited = new Set<string>()
+  const paths: string[] = []
+  const trace = (first: SegmentGeometry) => {
+    const start = toSvg(vertices.get(first.segment.startId)!, state.viewport)
+    const commands: string[] = []
+    let current: SegmentGeometry | undefined = first
+    let endId = first.segment.startId
+    while (current && !visited.has(current.segment.id)) {
+      visited.add(current.segment.id)
+      commands.push(current.command)
+      endId = current.segment.endId
+      current = outgoing.get(endId)
+    }
+    paths.push(
+      `M ${start.x} ${start.y} ${commands.join(' ')}${state.closed && endId === first.segment.startId ? ' Z' : ''}`,
+    )
+  }
+  for (const geometry of contourSegments)
+    if (!incoming.has(geometry.segment.startId)) trace(geometry)
+  for (const geometry of contourSegments) if (!visited.has(geometry.segment.id)) trace(geometry)
   return {
-    path: `M ${start.x} ${start.y} ${segments.map((s) => s.command).join(' ')}${state.closed ? ' Z' : ''}`,
+    path: paths.join(' '),
     segments,
   }
 }

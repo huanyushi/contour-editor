@@ -28,7 +28,7 @@ describe('mixed contour editing', () => {
     render(<App />)
     await loadTemplate(user, '上半圆围道')
     await selectObject(user, '选择路径段 1')
-    await user.click(screen.getByRole('button', { name: '改为直线' }))
+    await user.click(screen.getByRole('button', { name: '改为线段' }))
     expect(screen.getByTestId('contour-path')).not.toHaveAttribute('d', /A/)
     expect(screen.getByRole('checkbox', { name: '闭合围道' })).not.toBeChecked()
     expect(screen.getByRole('checkbox', { name: '闭合围道' })).toBeDisabled()

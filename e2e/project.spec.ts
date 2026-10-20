@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 import type { ProjectFile } from '../src/features/project/project'
+import { clickPoint } from './selection'
 import {
   loadArcFixture,
   loadTemplate,
@@ -103,8 +104,8 @@ test(
   { tag: '@desktop-only' },
   async ({ page }) => {
     await page.goto('/')
-    await openApplicationMenu(page)
     await page.getByRole('button', { name: '独立点工具' }).click()
+    await openApplicationMenu(page)
     await page.getByRole('button', { name: '在原点添加独立点' }).click()
     await expect(page.getByLabel('本地草稿状态')).toContainText('已保存')
     const firstId = await page.locator('[data-testid^="marker-"]').getAttribute('data-testid')
@@ -112,9 +113,8 @@ test(
     await expect(page.getByLabel('本地草稿状态')).toContainText('已恢复')
     await expect(page.locator('[data-testid^="marker-"]')).toHaveCount(1)
     await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
-    await openApplicationMenu(page)
     await page.getByRole('button', { name: '独立点工具' }).click()
-    await page.getByRole('button', { name: '在原点添加独立点' }).click()
+    await clickPoint(page, 1, 1)
     await expect(page.locator('[data-testid^="marker-"]')).toHaveCount(2)
     const ids = await page
       .locator('[data-testid^="marker-"]')
@@ -169,6 +169,7 @@ test('downloads standalone SVG and PNG with correct math, fill, dimensions and b
   const before = await page.getByTestId('contour-path').getAttribute('d')
   const selected = await page.getByRole('heading', { name: '公式属性' }).textContent()
   await page.locator('summary[aria-label="导出图像"]').click()
+  await page.getByLabel('导出范围').selectOption('view')
   await page.getByRole('checkbox', { name: '导出坐标轴' }).uncheck()
   const svg = await download(page, '导出 SVG')
   expect(svg.name).toBe('contour.svg')

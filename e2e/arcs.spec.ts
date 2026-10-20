@@ -34,7 +34,9 @@ test('constructs the acceptance contour through the arc tool from two shared end
   await page.goto('/')
   await showInspector(page)
   await page.getByRole('button', { name: '删除选中顶点' }).click()
+  await selectObject(page, '选择顶点 z1')
   await page.getByRole('button', { name: '删除选中顶点' }).click()
+  await selectObject(page, '选择顶点 z1')
   await page.getByLabel('实部 Re', { exact: true }).fill('-2')
   await page.getByLabel('虚部 Im', { exact: true }).fill('0')
   await page.getByRole('button', { name: '应用坐标' }).click()
@@ -42,15 +44,15 @@ test('constructs the acceptance contour through the arc tool from two shared end
   await page.getByLabel('实部 Re', { exact: true }).fill('2')
   await page.getByLabel('虚部 Im', { exact: true }).fill('0')
   await page.getByRole('button', { name: '应用坐标' }).click()
-  await selectObject(page, '选择路径段 2')
+  await selectObject(page, '选择路径段 1')
   await page.getByRole('button', { name: '圆弧工具', exact: true }).click()
   await page.getByTestId('contour-canvas').scrollIntoViewIfNeeded()
   const point = await screenPoint(page, 0, 2)
   await page.mouse.click(point.x, point.y)
   await page.getByRole('checkbox', { name: '闭合围道' }).check()
+  await page.getByRole('button', { name: '反转方向' }).click()
   const path = page.getByTestId('contour-path')
-  await expect(path).toHaveAttribute('d', /L 480 300 A /)
-  await expect(path).toHaveAttribute('d', /0 0 0 320 300 Z$/)
+  await expect(path).toHaveAttribute('d', /^M 480 300 A 80 80 0 0 0 320 300 L 480 300 Z$/)
   // A real SVG fill hit test verifies that the arc bounds a filled upper half disk.
   expect(
     await path.evaluate((node) => (node as SVGPathElement).isPointInFill(new DOMPoint(400, 260))),

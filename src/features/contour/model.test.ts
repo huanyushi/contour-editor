@@ -10,12 +10,16 @@ describe('contour editing rules', () => {
     expect(initial.segments).toEqual(rectangle.segments)
     expect(initial.appearance).toEqual(rectangle.appearance)
   })
-  it('opens a contour at two vertices and prevents further deletion or closing', () => {
+  it('allows removing every endpoint and prevents closing an empty path', () => {
     let state = createInitialState()
     state = contourReducer(state, { type: 'delete' })
     state = contourReducer(state, { type: 'delete' })
     expect(state.vertices).toHaveLength(2)
     expect(state.closed).toBe(false)
+    state = contourReducer(state, { type: 'delete' })
+    state = contourReducer(state, { type: 'delete' })
+    expect(state.vertices).toHaveLength(0)
+    expect(state.segments).toHaveLength(0)
     expect(contourReducer(state, { type: 'delete' })).toEqual(state)
     expect(contourReducer(state, { type: 'toggleClosed' })).toEqual(state)
   })

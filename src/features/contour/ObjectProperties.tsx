@@ -1,10 +1,12 @@
 import { useState, type Dispatch, type ReactNode } from 'react'
 import { arcThrough } from '../../lib/arc'
-import { defaultLabel, defaultPointStyle } from './appearance'
+import { defaultLabel, defaultPointStyle, type SelectionItem } from './appearance'
 import type { ContourAction, ContourState, PathSegment } from './model'
 import { PointForm } from './PointForm'
 import { LabelForm } from './LabelForm'
 import { FillFields, PointStyleFields, StrokeFields } from './StyleFields'
+import { MultipleProperties } from './MultipleProperties'
+import { findPoint, findSegment } from './sceneObjects'
 
 const number = (n: number) => Number(n.toFixed(6)).toString()
 
@@ -38,8 +40,8 @@ function PropertySection({
 function ArcDetails({ state, segment }: { state: ContourState; segment: PathSegment }) {
   if (segment.kind !== 'arc') return null
   const result = arcThrough(
-    state.vertices.find((p) => p.id === segment.startId)!,
-    state.vertices.find((p) => p.id === segment.endId)!,
+    findPoint(state, segment.startId)!,
+    findPoint(state, segment.endId)!,
     segment.through,
   )
   if (!result.ok) return null
@@ -85,16 +87,16 @@ function ArcDetails({ state, segment }: { state: ContourState; segment: PathSegm
   )
 }
 
-export function ObjectProperties({
+function SingleObjectProperties({
   state,
   dispatch,
+  selection,
 }: {
   state: ContourState
   dispatch: Dispatch<ContourAction>
+  selection: SelectionItem
 }) {
-  const selection = state.selection
-  const segment =
-    selection.kind === 'segment' ? state.segments.find((s) => s.id === selection.id) : undefined
+  const segment = selection.kind === 'segment' ? findSegment(state, selection.id) : undefined
   const point =
     selection.kind === 'vertex'
       ? state.vertices.find((p) => p.id === selection.id)
@@ -125,8 +127,13 @@ export function ObjectProperties({
       {children}
     </PropertySection>
   )
-  const start = segment && state.vertices.find((p) => p.id === segment.startId)!
-  const end = segment && state.vertices.find((p) => p.id === segment.endId)!
+  const start = segment && findPoint(state, segment.startId)!
+  const end = segment && findPoint(state, segment.endId)!
+  const selectPoint = (id: string) =>
+    dispatch({
+      type: 'selectObject',
+      selection: { kind: state.markers.some((m) => m.id === id) ? 'marker' : 'vertex', id },
+    })
   return (
     <div className="property-content">
       {point && selection.kind !== 'contour' && (
@@ -177,7 +184,6 @@ export function ObjectProperties({
                 <>
                   <button
                     className="danger full-width"
-                    disabled={selection.kind === 'vertex' && state.vertices.length <= 2}
                     onClick={() => {
                       if (selection.kind === 'vertex') dispatch({ type: 'delete' })
                       else if (selection.kind === 'marker')
@@ -187,7 +193,7 @@ export function ObjectProperties({
                     {selection.kind === 'vertex' ? '删除选中顶点' : '删除标记点'}
                   </button>
                   {selection.kind === 'vertex' && (
-                    <p className="muted small">至少两个端点；删除后以直线连接。</p>
+                    <p className="muted small">删除端点时同步删除相连路径段，不自动重连。</p>
                   )}
                 </>
               )}
@@ -222,10 +228,8 @@ export function ObjectProperties({
               <div className="property-group">
                 <h3>共享端点</h3>
                 <div className="endpoint-actions">
-                  <button onClick={() => dispatch({ type: 'select', id: start.id })}>
-                    编辑起点
-                  </button>
-                  <button onClick={() => dispatch({ type: 'select', id: end.id })}>编辑终点</button>
+                  <button onClick={() => selectPoint(start.id)}>编辑起点</button>
+                  <button onClick={() => selectPoint(end.id)}>编辑终点</button>
                 </div>
                 <p className="muted small">
                   ({number(start.re)}, {number(start.im)}) → ({number(end.re)}, {number(end.im)})
@@ -248,10 +252,16 @@ export function ObjectProperties({
                   disabled={segment.kind === 'line'}
                   onClick={() => dispatch({ type: 'setLine', id: segment.id })}
                 >
-                  改为直线
+                  改为线段
                 </button>
               </fieldset>
               <ArcDetails state={state} segment={segment} />
+              <button
+                className="danger full-width"
+                onClick={() => dispatch({ type: 'deleteSegment', id: segment.id })}
+              >
+                删除路径段
+              </button>
             </>,
           )}
           {section(
@@ -305,4 +315,15 @@ export function ObjectProperties({
       )}
     </div>
   )
+}
+
+export function ObjectProperties(props: {
+  state: ContourState
+  dispatch: Dispatch<ContourAction>
+}) {
+  const selection = props.state.selection
+  if (selection.kind === 'multiple') return <MultipleProperties {...props} />
+  if (selection.kind === 'none')
+    return <p className="muted small property-content">选择对象或拖动框选区域以编辑属性。</p>
+  return <SingleObjectProperties {...props} selection={selection} />
 }

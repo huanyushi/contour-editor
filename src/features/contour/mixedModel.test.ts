@@ -95,14 +95,16 @@ describe('shared-endpoint mixed contours', () => {
   it('maintains topology on addition and deletion without orphan segment references', () => {
     let state = createInitialState()
     state = contourReducer(state, { type: 'setArc', id: 'edge-a', through: { re: 0, im: -3 } })
-    state = contourReducer(state, { type: 'add', vertex: { id: 'new', re: -4, im: 0 } })
+    state = contourReducer(state, { type: 'add', vertex: { id: 'new', re: -4.5, im: -1 } })
     expect(state.segments[0].kind).toBe('arc')
     state = contourReducer(state, { type: 'delete' })
-    expect(state.segments).toHaveLength(state.vertices.length)
-    state.segments.forEach((segment, index) => {
-      expect(segment.startId).toBe(state.vertices[index].id)
-      expect(segment.endId).toBe(state.vertices[(index + 1) % state.vertices.length].id)
+    expect(state.segments).toHaveLength(3)
+    const ids = new Set(state.vertices.map((v) => v.id))
+    state.segments.forEach((segment) => {
+      expect(ids.has(segment.startId)).toBe(true)
+      expect(ids.has(segment.endId)).toBe(true)
     })
+    expect(state.closed).toBe(false)
     expect(state.segments[0].kind).toBe('arc')
   })
 })

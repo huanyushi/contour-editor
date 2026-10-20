@@ -7,7 +7,7 @@ export type GestureOwner = 'canvas' | 'slider-pointer' | 'slider-keyboard' | 'ge
 export type EditorAction =
   | ContourAction
   | { type: 'undo' | 'redo' }
-  | { type: 'beginGesture' | 'endGesture'; owner?: GestureOwner }
+  | { type: 'beginGesture' | 'endGesture' | 'cancelGesture'; owner?: GestureOwner }
 export interface EditorHistory {
   present: ContourState
   past: ContourState[]
@@ -25,6 +25,7 @@ function documentFields(state: ContourState) {
   return [
     state.vertices,
     state.segments,
+    state.connections,
     state.markers,
     state.formulas,
     state.appearance,
@@ -101,6 +102,9 @@ function restoreImplicitLabels(before: ContourState, present: ContourState): Con
 
 export function historyReducer(history: EditorHistory, action: EditorAction): EditorHistory {
   switch (action.type) {
+    case 'cancelGesture':
+      if (!history.gesture || history.gesture.owner !== (action.owner ?? 'generic')) return history
+      return { ...history, present: { ...history.gesture.before, error: '' }, gesture: null }
     case 'beginGesture':
       return history.gesture
         ? history

@@ -44,7 +44,7 @@ describe('history controls and compact inspector', () => {
     await user.click(screen.getByRole('button', { name: '对象列表' }))
     const list = screen.getByRole('complementary', { name: '对象列表' })
     await user.click(within(list).getByRole('button', { name: '选择路径段 2' }))
-    expect(screen.getByRole('heading', { name: '直线属性' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: '线段属性' })).toBeVisible()
     expect(screen.getByLabelText('经过点实部 Re')).toBeVisible()
     expect(screen.queryByRole('textbox', { name: 'LaTeX 标签' })).not.toBeInTheDocument()
   })

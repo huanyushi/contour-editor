@@ -1,6 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
-import { loadArcFixture, openSection, openView, selectObject, showCanvas } from './navigation'
+import {
+  loadArcFixture,
+  openSection,
+  openView,
+  selectObject,
+  setCustomColor,
+  showCanvas,
+} from './navigation'
 
 async function downloadText(page: Page, button: string) {
   const pending = page.waitForEvent('download')
@@ -142,7 +149,7 @@ test('label appearance updates immediately, clicks keep sidebar appearance and l
   const preview = page.getByLabel('公式预览').locator('.math-text')
   const originalWidth = (await label.boundingBox())!.width
   await page.getByLabel('标签字号', { exact: true }).fill('24')
-  await page.getByLabel('标签颜色', { exact: true }).fill('#cc3344')
+  await setCustomColor(page, '标签颜色', '#cc3344')
   await page.getByLabel('标签水平偏移', { exact: true }).fill('30')
   await page.getByLabel('标签垂直偏移', { exact: true }).fill('-30')
   await expect(label).toHaveAttribute('transform', 'translate(30 -30) scale(1.5)')
@@ -223,7 +230,7 @@ test('independent axes, arrow choices and unequal scales survive recovery and im
   await expect(page.getByLabel('圆弧半径')).toHaveText('2')
   await openView(page)
   await page.getByLabel('坐标轴箭头', { exact: true }).selectOption('triangle')
-  await page.getByLabel('坐标轴颜色', { exact: true }).fill('#335577')
+  await setCustomColor(page, '坐标轴颜色', '#335577')
   await page.getByLabel('实轴标签', { exact: true }).fill('\\operatorname{Re} z')
   await page.getByLabel('虚轴标签', { exact: true }).fill('\\operatorname{Im} z')
   await page.getByRole('button', { name: '应用轴标签', exact: true }).click()

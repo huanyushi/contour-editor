@@ -4,6 +4,7 @@ import { toSvg } from '../../lib/geometry'
 import { buildContourGeometry } from './pathGeometry'
 import { fitScene } from './sceneView'
 import { contourTemplates, type ContourTemplate } from './templates'
+import { transientLock } from '../../components/transientLock'
 
 function TemplateThumbnail({ template }: { template: ContourTemplate }) {
   const preview = useMemo(() => {
@@ -81,7 +82,7 @@ export function TemplatePanel({
                 className="template-card"
                 aria-label={`载入${template.name}`}
                 title={template.description}
-                disabled={disabled}
+                {...transientLock(disabled)}
                 onClick={() => onLoad(template)}
               >
                 <TemplateThumbnail template={template} />

@@ -9,10 +9,12 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Sigma,
+  SquareDashedMousePointer,
   Waypoints,
 } from 'lucide-react'
 import type { ContourAction, ContourState } from '../features/contour/model'
 import type { DrawingTool } from '../features/contour/ContourCanvas'
+import { transientLock } from '../components/transientLock'
 
 interface Props {
   state: ContourState
@@ -43,6 +45,12 @@ const tools: { id: DrawingTool; icon: ReactNode; name: string; hint: string }[] 
     hint: '平移 · 拖动画布移动视野',
   },
   {
+    id: 'marquee',
+    icon: <SquareDashedMousePointer className="ui-icon" aria-hidden="true" />,
+    name: '框选工具',
+    hint: '框选 · 拖动选择区域，Ctrl / ⌘ 可追加选择',
+  },
+  {
     id: 'add',
     icon: <Waypoints className="ui-icon" aria-hidden="true" />,
     name: '添加顶点',
@@ -61,8 +69,8 @@ const tools: { id: DrawingTool; icon: ReactNode; name: string; hint: string }[] 
         <path d="M5 19 19 5" />
       </svg>
     ),
-    name: '直线工具',
-    hint: '直线 · 从围道末端追加直线',
+    name: '线段工具',
+    hint: '线段 · 依次选择两个点',
   },
   {
     id: 'arc',
@@ -97,7 +105,11 @@ export function ToolPalette({
   onInspect,
 }: Props) {
   return (
-    <aside className={`tool-palette ${collapsed ? 'collapsed' : ''}`} aria-label="绘图工具">
+    <aside
+      className={`tool-palette ${collapsed ? 'collapsed' : ''}`}
+      aria-label="绘图工具"
+      inert={busy}
+    >
       <fieldset className="tool-controls" inert={busy} hidden={collapsed}>
         <div
           className="drawing-tools"
@@ -145,7 +157,7 @@ export function ToolPalette({
           title="展开或收起示例模板"
           aria-expanded={templatesOpen}
           aria-controls="template-panel"
-          disabled={busy}
+          {...transientLock(busy)}
           onClick={onTemplates}
         >
           <LayoutTemplate className="ui-icon" aria-hidden="true" />

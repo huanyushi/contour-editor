@@ -38,7 +38,7 @@ button {
   background: white;
   transition: background 0.15s;
 }
-button:hover:not(:disabled) {
+button:hover:not(:disabled):not([aria-disabled='true']) {
   background: #edf5f3;
   border-color: #a9ccc2;
 }
@@ -192,7 +192,7 @@ summary::-webkit-details-marker {
   background: #eff7f2;
   color: #176b5c;
 }
-.export-menu > summary[aria-disabled='true'] {
+.export-menu > summary[data-unavailable] {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -259,13 +259,6 @@ summary::-webkit-details-marker {
   border-radius: 50%;
   margin-right: 5px;
   background: #659b83;
-}
-.clear-draft {
-  border: none;
-  padding: 3px;
-  color: #70837d;
-  background: none;
-  font-size: 10px;
 }
 .file-message,
 .project-controls > .file-error {
@@ -522,6 +515,34 @@ summary::-webkit-details-marker {
 }
 .label-hit {
   cursor: move;
+}
+.selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid #bdd5cd;
+  border-radius: 7px;
+  background: #ffffffed;
+  box-shadow: 0 2px 8px #173a3a18;
+  color: #37695a;
+  font-size: 11px;
+}
+.selection-drag-area {
+  cursor: move;
+}
+.selection-toolbar > span {
+  flex: 1;
+}
+.selection-toolbar button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 3px;
+  border-color: transparent;
+  background: transparent;
 }
 .segment-hit {
   cursor: pointer;
@@ -898,9 +919,6 @@ input[type='checkbox'] {
     max-width: 90px;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  .clear-draft {
-    display: none;
   }
   .brand p {
     display: none;

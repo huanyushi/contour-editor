@@ -6,7 +6,8 @@ import type { EditorAction, GestureOwner } from './history'
 import { CanvasScene } from './CanvasScene'
 import { useCanvasInteraction } from './useCanvasInteraction'
 
-export type DrawingTool = 'select' | 'add' | 'line' | 'arc' | 'marker' | 'formula' | 'pan'
+export type DrawingTool =
+  'select' | 'marquee' | 'add' | 'line' | 'arc' | 'marker' | 'formula' | 'pan'
 
 interface Props {
   state: ContourState

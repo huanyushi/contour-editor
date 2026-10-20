@@ -2,6 +2,12 @@ import { expect, type Page } from '@playwright/test'
 import { createArcFixture } from '../src/test/fixtures'
 import { serializeProject } from '../src/features/project/format'
 
+export async function setCustomColor(page: Page, name: string, color: string) {
+  const more = page.getByRole('button', { name: `自定义${name}`, exact: true })
+  if ((await more.getAttribute('aria-expanded')) !== 'true') await more.click()
+  await page.getByLabel(name, { exact: true }).fill(color)
+}
+
 export async function openApplicationMenu(page: Page) {
   const menu = page.getByRole('button', { name: '应用设置', exact: true })
   if ((await menu.getAttribute('aria-expanded')) !== 'true') await menu.click()

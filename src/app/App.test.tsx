@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from './App'
-import { loadTemplate } from '../test/navigation'
+import { loadTemplate, selectObject } from '../test/navigation'
 
 describe('contour editor', () => {
   it('preserves input focus when submitting coordinates with Enter', async () => {
@@ -52,17 +52,17 @@ describe('contour editor', () => {
     expect(screen.getByRole('alert')).toBeVisible()
     expect(screen.getByTestId('contour-path')).toHaveAttribute('d', original)
   })
-  it('enforces vertex minimums and can replace the contour with a fresh rectangle', async () => {
+  it('can erase all endpoints and replace the empty canvas with a fresh rectangle', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '删除选中顶点' }))
-    await user.click(screen.getByRole('button', { name: '删除选中顶点' }))
-    expect(screen.getByRole('button', { name: '删除选中顶点' })).toBeDisabled()
-    expect(screen.getByRole('checkbox', { name: '闭合围道' })).toBeDisabled()
-    expect(screen.getByRole('checkbox', { name: '闭合围道' })).not.toBeChecked()
+    for (let i = 0; i < 4; i++) {
+      await selectObject(user, '选择顶点 z1')
+      await user.click(screen.getByRole('button', { name: '删除选中顶点' }))
+    }
+    expect(screen.queryAllByTestId(/^vertex-/)).toHaveLength(0)
+    expect(screen.getByTestId('contour-path')).toHaveAttribute('d', '')
     await loadTemplate(user, '矩形围道')
     expect(screen.getByRole('checkbox', { name: '闭合围道' })).toBeChecked()
-    await user.click(screen.getByRole('button', { name: '对象列表' }))
-    expect(screen.getAllByRole('button', { name: /^选择顶点/ })).toHaveLength(4)
+    expect(screen.getAllByTestId(/^vertex-/)).toHaveLength(4)
   })
 })

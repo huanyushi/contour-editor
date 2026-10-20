@@ -30,7 +30,7 @@ describe('standalone SVG export', () => {
   it('renders a separate fixed export region with full axes without changing the document', () => {
     const state = createArcFixture()
     const original = JSON.stringify(state)
-    const text = renderExport(state, defaultExportOptions())
+    const text = renderExport(state, { ...defaultExportOptions(), region: 'view' })
     const result = new DOMParser().parseFromString(text, 'image/svg+xml')
     expect(result.querySelector('parsererror')).toBeNull()
     expect(result.documentElement.namespaceURI).toBe('http://www.w3.org/2000/svg')

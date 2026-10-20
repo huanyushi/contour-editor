@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { openSection, openView, showCanvas } from './navigation'
+import { openSection, openView, setCustomColor, showCanvas } from './navigation'
 
 async function screenPoint(page: Page, re: number, im: number) {
   return page.getByTestId('contour-canvas').evaluate(
@@ -110,7 +110,7 @@ test('places independent points and formulas and edits styles in the full-screen
   await expect(page.locator('#contour-hatch')).toHaveAttribute('width', '16')
   await expect(page.getByTestId('contour-path')).toHaveAttribute('fill-opacity', '0.5')
   await openSection(page, '线条')
-  await page.getByLabel('线条颜色').fill('#bf3322')
+  await setCustomColor(page, '线条颜色', '#bf3322')
   await expect(page.getByTestId('segment-edge-a')).toHaveAttribute('stroke', '#bf3322')
   await page.getByLabel('线型', { exact: true }).selectOption('dashed')
   await expect(page.getByTestId('segment-edge-a')).toHaveAttribute('stroke-dasharray', '8 6')

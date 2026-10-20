@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { contourReducer, createInitialState } from './model'
+import { contourTemplates } from './templates'
 
 describe('contour editing rules', () => {
+  it('starts with the same editable rectangle as the template catalog', () => {
+    const rectangle = contourTemplates.find((template) => template.id === 'rectangle')!.create()
+    const initial = createInitialState()
+    expect(initial.vertices).toEqual(rectangle.vertices)
+    expect(initial.segments).toEqual(rectangle.segments)
+    expect(initial.appearance).toEqual(rectangle.appearance)
+  })
   it('opens a contour at two vertices and prevents further deletion or closing', () => {
     let state = createInitialState()
     state = contourReducer(state, { type: 'delete' })
@@ -21,19 +29,18 @@ describe('contour editing rules', () => {
   it('updates only the targeted vertex and rejects non-finite coordinates', () => {
     const state = createInitialState()
     const moved = contourReducer(state, { type: 'move', id: 'b', point: { re: 0, im: -1.5 } })
-    expect(moved.vertices[1]).toEqual({ id: 'b', re: 0, im: -1.5 })
+    expect(moved.vertices[1]).toEqual({ ...state.vertices[1], re: 0, im: -1.5 })
     expect(moved.vertices[0]).toEqual(state.vertices[0])
     expect(
       contourReducer(state, { type: 'move', id: 'a', point: { re: Infinity, im: 0 } }),
     ).toEqual(state)
   })
-  it('appends and selects a new vertex then resets the full editor state', () => {
+  it('appends and selects a new vertex', () => {
     const state = contourReducer(createInitialState(), {
       type: 'add',
       vertex: { id: 'new', re: 1, im: 2 },
     })
     expect(state.vertices).toHaveLength(5)
     expect(state.selectedId).toBe('new')
-    expect(contourReducer(state, { type: 'reset' })).toEqual(createInitialState())
   })
 })

@@ -3,13 +3,16 @@ import { defaultViewport, gridStep, validViewport, type AxesSettings } from '../
 import type { ContourAction, ContourState } from './model'
 import { PointForm } from './PointForm'
 import { ColorField, RangeField } from '../../components/StyleInputs'
+import { AxesLabelForm } from './AxesLabelForm'
 
 export function ViewPanel({
   state,
   dispatch,
+  onAddVertex,
 }: {
   state: ContourState
   dispatch: Dispatch<ContourAction>
+  onAddVertex: () => void
 }) {
   const view = state.viewport,
     axes = state.axes
@@ -83,6 +86,9 @@ export function ViewPanel({
         >
           回到原点
         </button>
+        <button className="full-width secondary" onClick={onAddVertex}>
+          在原点追加顶点
+        </button>
       </fieldset>
       <form
         className="property-group"
@@ -153,6 +159,7 @@ export function ViewPanel({
           {gridStep(view.scaleY, view.centerIm)}。
         </p>
       </form>
+      <AxesLabelForm value={axes} onApply={axis} />
       <fieldset className="property-group">
         <legend>坐标轴外观</legend>
         <label className="check-row">

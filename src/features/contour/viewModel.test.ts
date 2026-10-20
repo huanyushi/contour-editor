@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createHistory, historyReducer } from './history'
-import { createInitialState, createSemicircleState } from './model'
+import { createInitialState } from './model'
+import { createArcFixture } from '../../test/fixtures'
 import { buildContourGeometry } from './pathGeometry'
 import { defaultAxes, defaultViewport } from '../../lib/viewport'
 import { parseProject, serializeProject } from '../project/project'
@@ -25,7 +26,7 @@ describe('view integration', () => {
   })
   it('projects a mathematical circle to an ellipse with correct screen tangents', () => {
     const state = {
-      ...createSemicircleState(),
+      ...createArcFixture(),
       viewport: { ...defaultViewport(), scaleX: 80, scaleY: 20, locked: false },
     }
     const geometry = buildContourGeometry(state)
@@ -35,7 +36,7 @@ describe('view integration', () => {
   })
   it('normalizes the projected tangent on a non-axis-aligned elliptical arc', () => {
     const state = {
-      ...createSemicircleState(),
+      ...createArcFixture(),
       viewport: { ...defaultViewport(), scaleX: 80, scaleY: 20, locked: false },
     }
     state.vertices = [
@@ -89,7 +90,7 @@ describe('view integration', () => {
     expect(loaded.axes).toEqual(modified.axes)
   })
   it('fits arc extrema and offscreen objects into the viewport', () => {
-    const state = createSemicircleState()
+    const state = createArcFixture()
     state.vertices = [
       { id: 'a', re: 98, im: 0 },
       { id: 'b', re: 102, im: 0 },

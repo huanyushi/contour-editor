@@ -1,12 +1,13 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ContourCanvas } from '../contour/ContourCanvas'
-import { contourReducer, createSemicircleState } from '../contour/model'
+import { contourReducer } from '../contour/model'
+import { createArcFixture } from '../../test/fixtures'
 import { serializeSvg, defaultExportOptions } from './export'
 import { renderExport } from './renderExport'
 
 function canvas(handles = true) {
-  let state = contourReducer(createSemicircleState(), {
+  let state = contourReducer(createArcFixture(), {
     type: 'addMarker',
     id: 'pole',
     point: { re: 0, im: 1 },
@@ -27,7 +28,7 @@ function canvas(handles = true) {
 
 describe('standalone SVG export', () => {
   it('renders a separate fixed export region with full axes without changing the document', () => {
-    const state = createSemicircleState()
+    const state = createArcFixture()
     const original = JSON.stringify(state)
     const text = renderExport(state, defaultExportOptions())
     const result = new DOMParser().parseFromString(text, 'image/svg+xml')
@@ -56,7 +57,7 @@ describe('standalone SVG export', () => {
     expect(result.querySelector('[aria-label="z_0"] path')).not.toBeNull()
     expect(
       [...result.querySelectorAll('[aria-label]')].some(
-        (node) => node.getAttribute('aria-label') === '\\mathfrak{R}',
+        (node) => node.getAttribute('aria-label') === '\\mathrm{Re}',
       ),
     ).toBe(true)
     expect(result.querySelectorAll('circle')).toHaveLength(1)
@@ -81,7 +82,7 @@ describe('standalone SVG export', () => {
     expect(result.querySelectorAll('circle')).toHaveLength(3)
     expect(
       [...result.querySelectorAll('[aria-label]')].some(
-        (node) => node.getAttribute('aria-label') === '\\mathfrak{R}',
+        (node) => node.getAttribute('aria-label') === '\\mathrm{Re}',
       ),
     ).toBe(false)
     expect(result.querySelector('rect')?.getAttribute('fill')).toBe('none')

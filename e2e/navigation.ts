@@ -1,11 +1,28 @@
-import type { Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { createArcFixture } from '../src/test/fixtures'
+import { serializeProject } from '../src/features/project/format'
 
-export async function openMore(page: Page) {
+export async function openApplicationMenu(page: Page) {
   const menu = page.getByRole('button', { name: '应用设置', exact: true })
   if ((await menu.getAttribute('aria-expanded')) !== 'true') await menu.click()
-  const summary = page.getByText('更多操作', { exact: true })
-  if (!(await summary.evaluate((node) => (node.parentElement as HTMLDetailsElement).open)))
-    await summary.click()
+}
+export async function loadArcFixture(page: Page) {
+  await page.getByLabel('打开项目文件').setInputFiles({
+    name: 'arc-fixture.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(serializeProject(createArcFixture())),
+  })
+  await expect(page.getByText('已打开 arc-fixture.json', { exact: true })).toBeVisible()
+  await selectObject(page, '选择路径段 2')
+  const close = page.getByRole('button', { name: '收起对象列表', exact: true })
+  if (await close.isVisible()) await close.click()
+}
+export async function loadTemplate(page: Page, name: string) {
+  const toggle = page.getByRole('button', { name: '示例模板', exact: true })
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
+  await page.getByRole('button', { name: `载入${name}`, exact: true }).click()
+  const close = page.getByRole('button', { name: '收起示例模板', exact: true })
+  if (await close.isVisible()) await close.click()
 }
 export async function selectObject(page: Page, name: string) {
   const toggle = page.getByRole('button', { name: '对象列表', exact: true })

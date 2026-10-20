@@ -2,6 +2,7 @@ import type { Dispatch, ReactNode } from 'react'
 import {
   CircleDot,
   Hand,
+  LayoutTemplate,
   List,
   MousePointer2,
   PaintBucket,
@@ -23,6 +24,8 @@ interface Props {
   onCollapse: () => void
   objectsOpen: boolean
   onObjects: () => void
+  templatesOpen: boolean
+  onTemplates: () => void
   onInspect: () => void
 }
 
@@ -89,6 +92,8 @@ export function ToolPalette({
   onCollapse,
   objectsOpen,
   onObjects,
+  templatesOpen,
+  onTemplates,
   onInspect,
 }: Props) {
   return (
@@ -134,6 +139,17 @@ export function ToolPalette({
         </div>
       </fieldset>
       <div className="rail-bottom">
+        <button
+          className={`tool-button ${templatesOpen ? 'active' : ''}`}
+          aria-label="示例模板"
+          title="展开或收起示例模板"
+          aria-expanded={templatesOpen}
+          aria-controls="template-panel"
+          disabled={busy}
+          onClick={onTemplates}
+        >
+          <LayoutTemplate className="ui-icon" aria-hidden="true" />
+        </button>
         <button
           className="tool-button"
           aria-label="对象列表"

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { contourReducer, createInitialState, createSemicircleState } from '../contour/model'
+import { contourReducer, createInitialState } from '../contour/model'
+import { createArcFixture } from '../../test/fixtures'
 import { defaultLabel } from '../contour/appearance'
 import { createHistory, historyReducer } from '../contour/history'
 import { MAX_PROJECT_BYTES, parseProject, serializeProject, type ProjectFile } from './project'
 
-const fixture = (): ProjectFile =>
-  JSON.parse(serializeProject(createSemicircleState())) as ProjectFile
+const fixture = (): ProjectFile => JSON.parse(serializeProject(createArcFixture())) as ProjectFile
 
 function nearLimitProject(): ProjectFile {
   const project = fixture()
@@ -36,6 +36,23 @@ function nearLimitProject(): ProjectFile {
 }
 
 describe('versioned project files', () => {
+  it('round-trips custom axis labels and supplies upright defaults for older axes settings', () => {
+    const state = contourReducer(createInitialState(), {
+      type: 'axes',
+      patch: { reLabel: 'x', imLabel: 'y' },
+    })
+    const project = JSON.parse(serializeProject(state)) as ProjectFile
+    expect(parseProject(JSON.stringify(project)).axes).toMatchObject({ reLabel: 'x', imLabel: 'y' })
+    const legacyAxes = project.document.view.axes as unknown as Record<string, unknown>
+    delete legacyAxes.reLabel
+    delete legacyAxes.imLabel
+    expect(parseProject(JSON.stringify(project)).axes).toMatchObject({
+      reLabel: '\\mathrm{Re}',
+      imLabel: '\\mathrm{Im}',
+    })
+    legacyAxes.reLabel = '\\frac{'
+    expect(() => parseProject(JSON.stringify(project))).toThrow(/公式/)
+  })
   it('can save and reopen an accepted compact file near the byte limit', () => {
     const raw = JSON.stringify(nearLimitProject())
     expect(new TextEncoder().encode(raw).length).toBeLessThan(MAX_PROJECT_BYTES)
@@ -72,7 +89,7 @@ describe('versioned project files', () => {
     expect(edited.error).toContain('200')
   })
   it('round-trips curves, local style inheritance, labels, objects and view preferences', () => {
-    let state = createSemicircleState()
+    let state = createArcFixture()
     state = contourReducer(state, { type: 'stroke', id: 'edge-b', patch: { color: '#cc2233' } })
     state = contourReducer(state, { type: 'fill', patch: { mode: 'hatch', opacity: 0.5 } })
     state = contourReducer(state, {
@@ -146,7 +163,7 @@ describe('versioned project files', () => {
 
   it('loading a valid file is one undoable document replacement', () => {
     const original = createInitialState()
-    const loaded = parseProject(serializeProject(createSemicircleState()))
+    const loaded = parseProject(serializeProject(createArcFixture()))
     let history = historyReducer(createHistory(original), { type: 'loadProject', state: loaded })
     expect(history.present.segments[1].kind).toBe('arc')
     expect(history.past).toHaveLength(1)

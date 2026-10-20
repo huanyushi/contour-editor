@@ -65,6 +65,6 @@ describe('history controls and compact inspector', () => {
     expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: '应用标签' }))
     await user.click(screen.getByRole('button', { name: '撤销' }))
-    expect(screen.getByTestId('label-a')).toHaveAttribute('aria-label', 'z_{1}')
+    expect(screen.getByTestId('label-a')).toHaveAttribute('aria-label', '-R')
   })
 })

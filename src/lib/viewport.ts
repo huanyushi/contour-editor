@@ -23,6 +23,8 @@ export function canvasBounds(size: CanvasSize = exportSize) {
   }
 }
 export interface AxesSettings {
+  reLabel: string
+  imLabel: string
   visible: boolean
   ticks: boolean
   color: string
@@ -40,6 +42,8 @@ export const defaultViewport = (): Viewport => ({
   locked: true,
 })
 export const defaultAxes = (): AxesSettings => ({
+  reLabel: '\\mathrm{Re}',
+  imLabel: '\\mathrm{Im}',
   visible: true,
   ticks: true,
   color: '#7b898e',
@@ -62,6 +66,10 @@ export function validViewport(view: Viewport): boolean {
 }
 export function validAxes(axes: AxesSettings): boolean {
   return (
+    typeof axes.reLabel === 'string' &&
+    axes.reLabel.length <= 2000 &&
+    typeof axes.imLabel === 'string' &&
+    axes.imLabel.length <= 2000 &&
     typeof axes.visible === 'boolean' &&
     typeof axes.ticks === 'boolean' &&
     /^#[\da-f]{6}$/i.test(axes.color) &&

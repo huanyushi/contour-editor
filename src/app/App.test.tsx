@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from './App'
-import { openMore } from '../test/navigation'
+import { loadTemplate } from '../test/navigation'
 
 describe('contour editor', () => {
   it('preserves input focus when submitting coordinates with Enter', async () => {
@@ -17,7 +17,7 @@ describe('contour editor', () => {
   it('allows keyboard users to append a vertex and edit it', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await openMore(user)
+    await user.click(screen.getByRole('button', { name: '视图设置' }))
     const add = screen.getByRole('button', { name: '在原点追加顶点' })
     add.focus()
     await user.keyboard('{Enter}')
@@ -52,7 +52,7 @@ describe('contour editor', () => {
     expect(screen.getByRole('alert')).toBeVisible()
     expect(screen.getByTestId('contour-path')).toHaveAttribute('d', original)
   })
-  it('enforces vertex minimums and resets the example', async () => {
+  it('enforces vertex minimums and can replace the contour with a fresh rectangle', async () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('button', { name: '删除选中顶点' }))
@@ -60,8 +60,7 @@ describe('contour editor', () => {
     expect(screen.getByRole('button', { name: '删除选中顶点' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: '闭合围道' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: '闭合围道' })).not.toBeChecked()
-    await openMore(user)
-    await user.click(screen.getByRole('button', { name: '重置示例' }))
+    await loadTemplate(user, '矩形围道')
     expect(screen.getByRole('checkbox', { name: '闭合围道' })).toBeChecked()
     await user.click(screen.getByRole('button', { name: '对象列表' }))
     expect(screen.getAllByRole('button', { name: /^选择顶点/ })).toHaveLength(4)

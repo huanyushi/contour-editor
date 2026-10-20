@@ -2,14 +2,19 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from './App'
-import { openMore, openSection, selectObject } from '../test/navigation'
+import { loadTemplate, openApplicationMenu, openSection, selectObject } from '../test/navigation'
+import { createArcFixture } from '../test/fixtures'
+import { serializeProject } from '../features/project/format'
+import { DRAFT_KEY } from '../features/project/useLocalDraft'
 
 describe('workspace properties', () => {
   it('does not record resetting an untouched automatic label position', async () => {
     const user = userEvent.setup()
+    localStorage.setItem(DRAFT_KEY, serializeProject(createArcFixture()))
     render(<App />)
     await user.click(screen.getByRole('button', { name: '反转方向' }))
     await user.click(screen.getByRole('button', { name: '撤销' }))
+    await selectObject(user, '选择顶点 z1')
     await openSection(user, '标签')
     await user.click(screen.getByRole('button', { name: '重置标签位置' }))
     expect(screen.getByRole('button', { name: '重做' })).toBeEnabled()
@@ -23,7 +28,7 @@ describe('workspace properties', () => {
     await user.type(screen.getByLabelText('LaTeX 标签'), 'a+b')
     const slider = screen.getByRole('slider', { name: '标签字号' })
     fireEvent.change(slider, { target: { value: '40' } })
-    expect(screen.getByTestId('label-a')).toHaveAttribute('aria-label', 'z_{1}')
+    expect(screen.getByTestId('label-a')).toHaveAttribute('aria-label', '-R')
     expect(screen.getByLabelText('LaTeX 标签')).toHaveValue('a+b')
     await user.click(screen.getByRole('button', { name: '应用标签' }))
     expect(screen.getByTestId('label-a')).toHaveAttribute('aria-label', 'a+b')
@@ -31,11 +36,11 @@ describe('workspace properties', () => {
   it('switches to contextual arc properties and displays derived radius and angles', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await openMore(user)
-    await user.click(screen.getByRole('button', { name: '半圆示例' }))
+    await loadTemplate(user, '上半圆围道')
+    await selectObject(user, '选择路径段 1')
     expect(screen.getByRole('heading', { name: '圆弧属性' })).toBeVisible()
     await openSection(user, '圆弧参数')
-    expect(screen.getByLabelText('圆弧半径')).toHaveTextContent('2')
+    expect(screen.getByLabelText('圆弧半径')).toHaveTextContent('4')
     expect(screen.getByLabelText('圆弧转角')).toHaveTextContent('180')
     await selectObject(user, '选择顶点 z1')
     expect(screen.getByRole('heading', { name: '顶点属性' })).toBeVisible()
@@ -74,7 +79,7 @@ describe('workspace properties', () => {
     render(<App />)
     const original = screen.getByTestId('contour-path').getAttribute('d')
     await user.click(screen.getByRole('button', { name: '独立点工具' }))
-    await openMore(user)
+    await openApplicationMenu(user)
     await user.click(screen.getByRole('button', { name: '在原点添加独立点' }))
     expect(screen.getByRole('heading', { name: '标记点属性' })).toBeVisible()
     expect(screen.getByTestId('contour-path')).toHaveAttribute('d', original)

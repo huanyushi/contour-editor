@@ -10,3 +10,4 @@ test-results/
 !.env.example
 .DS_Store
 *.local
+/TikZ-Contour/

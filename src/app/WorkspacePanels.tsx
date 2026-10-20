@@ -1,5 +1,6 @@
 import { useState, type Dispatch, type RefObject } from 'react'
-import { PanelLeftClose, Settings, X } from 'lucide-react'
+import { Settings, X } from 'lucide-react'
+import { LeftPanel } from '../components/LeftPanel'
 import type { ContourState } from '../features/contour/model'
 import type { EditorAction, GestureOwner } from '../features/contour/history'
 import type { DrawingTool } from '../features/contour/ContourCanvas'
@@ -23,28 +24,21 @@ export function ObjectPanel({
   onSelect,
 }: PanelProps & { onSelect: () => void }) {
   return (
-    <aside
+    <LeftPanel
       id="object-panel"
-      className="object-panel side-panel"
-      aria-label="对象列表"
-      hidden={!open}
+      title="对象列表"
+      open={open}
+      onClose={onClose}
+      className="object-panel"
     >
-      <div className="panel-heading">
-        <h2>对象列表</h2>
-        <button aria-label="收起对象列表" title="收起对象列表" onClick={onClose}>
-          <PanelLeftClose className="ui-icon" aria-hidden="true" />
-        </button>
-      </div>
-      <div className="panel-scroll" tabIndex={0} aria-label="对象列表内容">
-        <ObjectList
-          state={state}
-          dispatch={(action) => {
-            dispatch(action)
-            onSelect()
-          }}
-        />
-      </div>
-    </aside>
+      <ObjectList
+        state={state}
+        dispatch={(action) => {
+          dispatch(action)
+          onSelect()
+        }}
+      />
+    </LeftPanel>
   )
 }
 
@@ -54,7 +48,8 @@ export function ViewSettingsPanel({
   open,
   onClose,
   gestureOwner,
-}: PanelProps & { gestureOwner: GestureOwner | null }) {
+  onAddVertex,
+}: PanelProps & { gestureOwner: GestureOwner | null; onAddVertex: () => void }) {
   const sliders = useSliderHistory(dispatch, gestureOwner)
   return (
     <aside
@@ -72,7 +67,7 @@ export function ViewSettingsPanel({
         </button>
       </div>
       <div className="panel-scroll" tabIndex={0} aria-label="视图设置内容">
-        <ViewPanel state={state} dispatch={dispatch} />
+        <ViewPanel state={state} dispatch={dispatch} onAddVertex={onAddVertex} />
       </div>
     </aside>
   )
@@ -82,7 +77,6 @@ export function ApplicationMenu({
   state,
   dispatch,
   tool,
-  setTool,
   busy,
   onViewSettings,
   onInspect,
@@ -92,7 +86,6 @@ export function ApplicationMenu({
   state: ContourState
   dispatch: Dispatch<EditorAction>
   tool: DrawingTool
-  setTool: (tool: DrawingTool) => void
   busy: boolean
   onViewSettings: () => void
   onInspect: () => void
@@ -100,7 +93,6 @@ export function ApplicationMenu({
   onClearDraft: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
   const run = (action: EditorAction) => {
     dispatch(action)
     setOpen(false)
@@ -146,66 +138,32 @@ export function ApplicationMenu({
         >
           清除本地草稿
         </button>
-        <details className="more-actions" open={moreOpen}>
-          <summary
-            aria-expanded={moreOpen}
-            onClick={(event) => {
-              event.preventDefault()
-              setMoreOpen(!moreOpen)
-            }}
+        {tool === 'marker' && (
+          <button
+            onClick={() =>
+              run({
+                type: 'addMarker',
+                id: createVertex({ re: 0, im: 0 }, state).id,
+                point: { re: 0, im: 0 },
+              })
+            }
           >
-            更多操作
-          </summary>
-          <div className="tool-actions" hidden={!moreOpen}>
-            <button
-              onClick={() => {
-                setTool('select')
-                run({ type: 'semicircle' })
-              }}
-            >
-              半圆示例
-            </button>
-            <button
-              onClick={() => {
-                setTool('select')
-                run({ type: 'reset' })
-              }}
-            >
-              重置示例
-            </button>
-            <button
-              onClick={() => run({ type: 'add', vertex: createVertex({ re: 0, im: 0 }, state) })}
-            >
-              在原点追加顶点
-            </button>
-            {tool === 'marker' && (
-              <button
-                onClick={() =>
-                  run({
-                    type: 'addMarker',
-                    id: createVertex({ re: 0, im: 0 }, state).id,
-                    point: { re: 0, im: 0 },
-                  })
-                }
-              >
-                在原点添加独立点
-              </button>
-            )}
-            {tool === 'formula' && (
-              <button
-                onClick={() =>
-                  run({
-                    type: 'addFormula',
-                    id: createVertex({ re: 0, im: 0 }, state).id,
-                    point: { re: 0, im: 0 },
-                  })
-                }
-              >
-                在原点添加公式
-              </button>
-            )}
-          </div>
-        </details>
+            在原点添加独立点
+          </button>
+        )}
+        {tool === 'formula' && (
+          <button
+            onClick={() =>
+              run({
+                type: 'addFormula',
+                id: createVertex({ re: 0, im: 0 }, state).id,
+                point: { re: 0, im: 0 },
+              })
+            }
+          >
+            在原点添加公式
+          </button>
+        )}
       </div>
     </div>
   )

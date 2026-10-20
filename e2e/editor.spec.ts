@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openMore, showCanvas, showInspector } from './navigation'
+import { loadTemplate, showCanvas, showInspector } from './navigation'
 
 test('dragging uses the rendered SVG scale and updates mathematical coordinates', async ({
   page,
@@ -25,8 +25,8 @@ test('dragging uses the rendered SVG scale and updates mathematical coordinates'
   )
   await page.mouse.up()
   await expect(page.getByTestId('contour-path')).not.toHaveAttribute('d', original!)
-  expect(Number(await page.getByLabel('实部 Re', { exact: true }).inputValue())).toBeCloseTo(-2, 1)
-  expect(Number(await page.getByLabel('虚部 Im', { exact: true }).inputValue())).toBeCloseTo(-1, 1)
+  expect(Number(await page.getByLabel('实部 Re', { exact: true }).inputValue())).toBeCloseTo(-3, 1)
+  expect(Number(await page.getByLabel('虚部 Im', { exact: true }).inputValue())).toBeCloseTo(1, 1)
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
@@ -118,8 +118,7 @@ test('adds, precisely edits, opens, reverses and resets a contour', async ({ pag
   const objects = page.getByRole('button', { name: '对象列表', exact: true })
   if ((await objects.getAttribute('aria-expanded')) !== 'true') await objects.click()
   await expect(page.getByRole('button', { name: /^选择顶点/ })).toHaveCount(4)
-  await openMore(page)
-  await page.getByRole('button', { name: '重置示例' }).click()
+  await loadTemplate(page, '矩形围道')
   await showInspector(page)
   await expect(page.getByRole('checkbox', { name: '闭合围道' })).toBeChecked()
   await expect(page.getByRole('button', { name: '添加顶点', exact: true })).toHaveAttribute(

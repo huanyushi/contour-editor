@@ -1,7 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 import type { ProjectFile } from '../src/features/project/project'
-import { openMore, openSection, selectObject } from './navigation'
+import {
+  loadArcFixture,
+  loadTemplate,
+  openApplicationMenu,
+  openSection,
+  selectObject,
+} from './navigation'
 
 const draftKey = 'complex-contour-editor:draft:v1'
 
@@ -52,8 +58,7 @@ test(
   { tag: '@desktop-only' },
   async ({ page }) => {
     await page.goto('/')
-    await openMore(page)
-    await page.getByRole('button', { name: '半圆示例' }).click()
+    await loadArcFixture(page)
     await selectObject(page, '选择顶点 z1')
     await openSection(page, '标签')
     await page.getByLabel('LaTeX 标签').fill('-R')
@@ -68,9 +73,8 @@ test(
     expect(json.document.segments[1].kind).toBe('arc')
     expect(json.document.vertices[0].label?.tex).toBe('-R')
     expect(json.document.appearance.fill.mode).toBe('hatch')
-    await openMore(page)
-    await page.getByRole('button', { name: '重置示例' }).click()
-    const reset = await page.getByTestId('contour-path').getAttribute('d')
+    await loadTemplate(page, '矩形围道')
+    const reset = JSON.parse((await download(page, '保存项目')).bytes.toString()) as ProjectFile
     await page
       .getByLabel('打开项目文件')
       .setInputFiles({ name: 'restored.json', mimeType: 'application/json', buffer: saved.bytes })
@@ -79,7 +83,9 @@ test(
     await expect(page.getByTestId('label-a')).toHaveAttribute('aria-label', '-R')
     await expect(page.getByTestId('contour-path')).toHaveAttribute('fill', 'url(#contour-hatch)')
     await page.getByRole('button', { name: '撤销', exact: true }).click()
-    await expect(page.getByTestId('contour-path')).toHaveAttribute('d', reset!)
+    const undone = JSON.parse((await download(page, '保存项目')).bytes.toString()) as ProjectFile
+    expect(undone.document.vertices).toEqual(reset.document.vertices)
+    expect(undone.document.segments).toEqual(reset.document.segments)
     await page.getByRole('button', { name: '重做', exact: true }).click()
     await expect(page.getByTestId('contour-path')).toHaveAttribute('d', original!)
     await page.getByLabel('打开项目文件').setInputFiles({
@@ -97,7 +103,7 @@ test(
   { tag: '@desktop-only' },
   async ({ page }) => {
     await page.goto('/')
-    await openMore(page)
+    await openApplicationMenu(page)
     await page.getByRole('button', { name: '独立点工具' }).click()
     await page.getByRole('button', { name: '在原点添加独立点' }).click()
     await expect(page.getByLabel('本地草稿状态')).toContainText('已保存')
@@ -106,7 +112,7 @@ test(
     await expect(page.getByLabel('本地草稿状态')).toContainText('已恢复')
     await expect(page.locator('[data-testid^="marker-"]')).toHaveCount(1)
     await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
-    await openMore(page)
+    await openApplicationMenu(page)
     await page.getByRole('button', { name: '独立点工具' }).click()
     await page.getByRole('button', { name: '在原点添加独立点' }).click()
     await expect(page.locator('[data-testid^="marker-"]')).toHaveCount(2)
@@ -151,10 +157,9 @@ test('downloads standalone SVG and PNG with correct math, fill, dimensions and b
   page,
 }, info) => {
   await page.goto('/')
-  await openMore(page)
-  await page.getByRole('button', { name: '半圆示例' }).click()
+  await loadArcFixture(page)
   await page.getByRole('button', { name: '公式工具' }).click()
-  await openMore(page)
+  await openApplicationMenu(page)
   await page.getByRole('button', { name: '在原点添加公式' }).click()
   await page.getByLabel('LaTeX 公式').fill('\\frac{1}{z}')
   await page.getByRole('button', { name: '应用公式' }).click()

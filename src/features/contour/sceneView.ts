@@ -34,6 +34,9 @@ export function canProjectScene(state: ContourState, view: Viewport): boolean {
 }
 
 export function fitScene(state: ContourState, size: CanvasSize = exportSize): Viewport | null {
+  const padding = Math.min(96, Math.max(56, Math.min(size.width, size.height) * 0.14))
+  const availableWidth = Math.max(1, size.width - 2 * padding)
+  const availableHeight = Math.max(1, size.height - 2 * padding)
   const points: ComplexPoint[] = [...state.vertices, ...state.markers, ...state.formulas]
   const labels: { point: ComplexPoint; label: LabelSettings; width: number; height: number }[] = []
   const addLabel = (point: ComplexPoint, label: LabelSettings) => {
@@ -79,8 +82,8 @@ export function fitScene(state: ContourState, size: CanvasSize = exportSize): Vi
     maxIm = Math.max(...points.map((p) => p.im))
   const ratio = state.viewport.scaleY / state.viewport.scaleX
   const scaleX = Math.min(
-    Math.max(1, size.width - 80) / Math.max(1, maxRe - minRe),
-    Math.max(1, size.height - 80) / (Math.max(1, maxIm - minIm) * ratio),
+    availableWidth / Math.max(1, maxRe - minRe),
+    availableHeight / (Math.max(1, maxIm - minIm) * ratio),
     MAX_SCALE,
     MAX_SCALE / ratio,
   )
@@ -94,7 +97,7 @@ export function fitScene(state: ContourState, size: CanvasSize = exportSize): Vi
   if (
     scaleX < MIN_SCALE ||
     !canProjectScene(state, view) ||
-    labels.some((item) => item.width > size.width - 40 || item.height > size.height - 40)
+    labels.some((item) => item.width > availableWidth || item.height > availableHeight)
   )
     return null
   for (let iteration = 0; iteration < 16; iteration++) {
@@ -113,8 +116,8 @@ export function fitScene(state: ContourState, size: CanvasSize = exportSize): Vi
     const center = fromSvg({ x: (left + right) / 2, y: (top + bottom) / 2 }, view)
     const factor = Math.min(
       1,
-      Math.max(1, size.width - 60) / Math.max(1, right - left),
-      Math.max(1, size.height - 60) / Math.max(1, bottom - top),
+      availableWidth / Math.max(1, right - left),
+      availableHeight / Math.max(1, bottom - top),
     )
     view = {
       ...view,

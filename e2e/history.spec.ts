@@ -1,5 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
-import { openMore, openSection, selectObject, showCanvas, showInspector } from './navigation'
+import {
+  loadArcFixture,
+  openView,
+  openSection,
+  selectObject,
+  showCanvas,
+  showInspector,
+} from './navigation'
 
 async function dragTo(page: Page, testId: string, re: number, im: number, steps = 12) {
   await showCanvas(page)
@@ -47,7 +54,7 @@ test('compact panels fit desktop height and remain reachable in a short viewport
   await expect(page.getByRole('button', { name: '应用标签', exact: true })).toBeInViewport()
   await page.getByRole('button', { name: '应用标签', exact: true }).click()
   await expect(page.getByTestId('label-a')).toHaveAttribute('aria-label', 'a+b')
-  await openMore(page)
+  await openView(page)
   await page.getByRole('button', { name: '在原点追加顶点', exact: true }).scrollIntoViewIfNeeded()
   await expect(page.getByRole('button', { name: '在原点追加顶点', exact: true })).toBeInViewport()
   await page.getByRole('button', { name: '在原点追加顶点', exact: true }).click()
@@ -89,8 +96,7 @@ test(
     await page.goto('/')
     const path = page.getByTestId('contour-path')
     const rectangle = await path.getAttribute('d')
-    await openMore(page)
-    await page.getByRole('button', { name: '半圆示例', exact: true }).click()
+    await loadArcFixture(page)
     const semicircle = await path.getAttribute('d')
     await dragTo(page, 'through-edge-b', 0, 3)
     const grown = await path.getAttribute('d')

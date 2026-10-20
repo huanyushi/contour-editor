@@ -3,12 +3,8 @@ import { arcThrough } from '../../lib/arc'
 import { projectCapacityError } from '../project/format'
 import { canProjectScene } from './sceneView'
 import type { LabelSettings, PointStyle, StrokeStyle } from './appearance'
-import {
-  createWorkspaceState,
-  workspaceReducer,
-  type WorkspaceAction,
-  type WorkspaceState,
-} from './workspace'
+import { workspaceReducer, type WorkspaceAction, type WorkspaceState } from './workspace'
+import { createRectangleState } from './templates'
 
 export interface Vertex extends ComplexPoint {
   id: string
@@ -44,52 +40,11 @@ export type ContourAction =
   | { type: 'setArc'; id: string; through: ComplexPoint }
   | { type: 'setLine'; id: string }
   | { type: 'add'; vertex: Vertex }
-  | { type: 'delete' | 'toggleClosed' | 'reverse' | 'reset' | 'semicircle' }
-
-function straightEdges(vertices: Vertex[]): PathSegment[] {
-  return vertices.map((vertex, index) => ({
-    id: `edge-${vertex.id}`,
-    kind: 'line',
-    startId: vertex.id,
-    endId: vertices[(index + 1) % vertices.length].id,
-  }))
-}
+  | { type: 'delete' | 'toggleClosed' | 'reverse' }
 
 export function createInitialState(): ContourState {
-  const vertices = [
-    { id: 'a', re: -3, im: -2 },
-    { id: 'b', re: 3, im: -2 },
-    { id: 'c', re: 3, im: 2 },
-    { id: 'd', re: -3, im: 2 },
-  ]
-  return {
-    ...createWorkspaceState(),
-    vertices,
-    segments: straightEdges(vertices),
-    selectedId: 'a',
-    selectedSegmentId: 'edge-a',
-    closed: true,
-    error: '',
-  }
-}
-
-export function createSemicircleState(): ContourState {
-  return {
-    ...createWorkspaceState(),
-    selection: { kind: 'segment', id: 'edge-b' },
-    vertices: [
-      { id: 'a', re: -2, im: 0 },
-      { id: 'b', re: 2, im: 0 },
-    ],
-    segments: [
-      { id: 'edge-a', kind: 'line', startId: 'a', endId: 'b' },
-      { id: 'edge-b', kind: 'arc', startId: 'b', endId: 'a', through: { re: 0, im: 2 } },
-    ],
-    selectedId: 'a',
-    selectedSegmentId: 'edge-b',
-    closed: true,
-    error: '',
-  }
+  const state = createRectangleState()
+  return { ...state, selection: { kind: 'vertex', id: state.selectedId } }
 }
 
 export function canClose(state: Pick<ContourState, 'vertices' | 'segments'>): boolean {
@@ -246,10 +201,6 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
       ].map((segment) => ({ ...segment, startId: segment.endId, endId: segment.startId }))
       return { ...state, vertices, segments, error: '' }
     }
-    case 'reset':
-      return createInitialState()
-    case 'semicircle':
-      return createSemicircleState()
     default:
       return workspaceReducer(state, action)
   }

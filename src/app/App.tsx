@@ -12,6 +12,10 @@ import { readLocalDraft, useLocalDraft } from '../features/project/useLocalDraft
 import { ProjectControls } from '../features/project/ProjectControls'
 import { ViewToolbar } from '../features/contour/ViewToolbar'
 import type { ComplexPoint } from '../lib/geometry'
+import { TemplatePanel } from '../features/contour/TemplatePanel'
+import type { ContourTemplate } from '../features/contour/templates'
+import { fitScene } from '../features/contour/sceneView'
+import { createVertex } from '../features/contour/createVertex'
 
 const hints: Record<DrawingTool, string> = {
   select: '选择 · 点击对象编辑，拖动调整位置',
@@ -24,7 +28,7 @@ const hints: Record<DrawingTool, string> = {
 }
 
 const narrowScreen = () => window.innerWidth <= 700
-const focusPanel = (id: 'properties-panel' | 'view-settings') => {
+const focusPanel = (id: 'properties-panel' | 'view-settings' | 'template-panel') => {
   requestAnimationFrame(() =>
     document
       .getElementById(id)
@@ -42,6 +46,7 @@ export default function App() {
   const [projectName, setProjectName] = useState('未命名项目')
   const [toolsCollapsed, setToolsCollapsed] = useState(false)
   const [objectsOpen, setObjectsOpen] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(() => !narrowScreen())
   const [viewOpen, setViewOpen] = useState(false)
   const [pointer, setPointer] = useState<ComplexPoint | null>(null)
@@ -56,7 +61,10 @@ export default function App() {
     let wasNarrow = narrowScreen()
     const resize = () => {
       const narrow = narrowScreen()
-      if (narrow && !wasNarrow) setObjectsOpen(false)
+      if (narrow && !wasNarrow) {
+        setObjectsOpen(false)
+        setTemplatesOpen(false)
+      }
       wasNarrow = narrow
     }
     window.addEventListener('resize', resize)
@@ -66,7 +74,10 @@ export default function App() {
   const inspect = () => {
     setViewOpen(false)
     setInspectorOpen(true)
-    if (narrowScreen()) setObjectsOpen(false)
+    if (narrowScreen()) {
+      setObjectsOpen(false)
+      setTemplatesOpen(false)
+    }
   }
   const chooseTool = (next: DrawingTool) => {
     setTool(next)
@@ -74,6 +85,7 @@ export default function App() {
       setInspectorOpen(false)
       setViewOpen(false)
       setObjectsOpen(false)
+      setTemplatesOpen(false)
     }
   }
   const inspectAndFocus = () => {
@@ -82,7 +94,10 @@ export default function App() {
   }
   const openView = () => {
     setViewOpen(true)
-    if (narrowScreen()) setObjectsOpen(false)
+    if (narrowScreen()) {
+      setObjectsOpen(false)
+      setTemplatesOpen(false)
+    }
     focusPanel('view-settings')
   }
   const closeInspector = () => {
@@ -99,12 +114,45 @@ export default function App() {
     setViewOpen(false)
     document.querySelector<HTMLButtonElement>('.view-toolbar [aria-label="视图设置"]')?.focus()
   }
+  const closeTemplates = () => {
+    setTemplatesOpen(false)
+    document.querySelector<HTMLButtonElement>('[aria-label="示例模板"]')?.focus()
+  }
+  const loadTemplate = (template: ContourTemplate) => {
+    if (busy) return
+    const next = {
+      ...template.create(),
+      axes: state.axes,
+      grid: state.grid,
+      snap: state.snap,
+      handles: state.handles,
+      viewport: state.viewport,
+    }
+    const viewport = fitScene(next, size)
+    if (!viewport) {
+      dispatch({ type: 'viewError', message: '当前画布空间不足，请收起侧栏后重试。' })
+      return
+    }
+    next.viewport = viewport
+    dispatch({ type: 'loadProject', state: next })
+    setProjectName(template.name)
+    setTool('select')
+    draft.saveNow(next)
+    if (narrowScreen()) {
+      setTemplatesOpen(false)
+      requestAnimationFrame(() => canvasRef.current?.focus({ preventScroll: true }))
+    }
+  }
   return (
     <div
       className="app-shell"
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return
-        if (viewOpen) closeView()
+        const panel = (event.target as HTMLElement).closest('.side-panel')?.id
+        if (panel === 'template-panel' && templatesOpen) closeTemplates()
+        else if (panel === 'object-panel' && objectsOpen) closeObjects()
+        else if (viewOpen) closeView()
+        else if (templatesOpen) closeTemplates()
         else if (objectsOpen) closeObjects()
         else if (narrowScreen() && inspectorOpen) closeInspector()
       }}
@@ -154,7 +202,6 @@ export default function App() {
             state={state}
             dispatch={dispatch}
             tool={tool}
-            setTool={setTool}
             busy={busy}
             onInspect={inspectAndFocus}
             triggerRef={settingsTrigger}
@@ -175,12 +222,32 @@ export default function App() {
           objectsOpen={objectsOpen}
           onObjects={() => {
             setObjectsOpen(!objectsOpen)
+            setTemplatesOpen(false)
             if (narrowScreen()) {
               setInspectorOpen(false)
               setViewOpen(false)
             }
           }}
+          templatesOpen={templatesOpen}
+          onTemplates={() => {
+            if (templatesOpen) closeTemplates()
+            else {
+              setTemplatesOpen(true)
+              setObjectsOpen(false)
+              if (narrowScreen()) {
+                setInspectorOpen(false)
+                setViewOpen(false)
+              }
+              focusPanel('template-panel')
+            }
+          }}
           onInspect={inspect}
+        />
+        <TemplatePanel
+          open={templatesOpen}
+          onClose={closeTemplates}
+          disabled={busy}
+          onLoad={loadTemplate}
         />
         <ObjectPanel
           state={state}
@@ -268,6 +335,11 @@ export default function App() {
           gestureOwner={history.gesture?.owner ?? null}
           open={viewOpen}
           onClose={closeView}
+          onAddVertex={() => {
+            dispatch({ type: 'add', vertex: createVertex({ re: 0, im: 0 }, state) })
+            setTool('select')
+            inspectAndFocus()
+          }}
         />
       </main>
     </div>

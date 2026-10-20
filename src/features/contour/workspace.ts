@@ -1,4 +1,5 @@
 import { isValidPoint, type ComplexPoint, type SvgPoint } from '../../lib/geometry'
+import { renderMath } from '../../lib/math'
 import {
   defaultAxes,
   defaultViewport,
@@ -100,9 +101,12 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
           }
     case 'axes': {
       const axes = { ...state.axes, ...action.patch }
-      return validAxes(axes)
-        ? { ...state, axes, error: '' }
-        : { ...state, error: '坐标轴设置超出有效范围。' }
+      if (!validAxes(axes)) return { ...state, error: '坐标轴设置超出有效范围。' }
+      for (const tex of [axes.reLabel, axes.imLabel]) {
+        const result = renderMath(tex)
+        if (result.error) return { ...state, error: result.error }
+      }
+      return { ...state, axes, error: '' }
     }
     case 'viewError':
       return { ...state, error: action.message }

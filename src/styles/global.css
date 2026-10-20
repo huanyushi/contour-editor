@@ -396,10 +396,50 @@ summary::-webkit-details-marker {
 .view-settings {
   border-left: 1px solid #dce7e1;
 }
+.left-panel {
+  border-right: 1px solid #dce7e1;
+}
 .object-panel {
   flex-basis: 240px;
   width: 240px;
-  border-right: 1px solid #dce7e1;
+}
+.template-panel {
+  flex-basis: 280px;
+  width: 280px;
+}
+.template-intro {
+  padding: 16px 14px 4px;
+  font-size: 11px;
+  color: #6b7e81;
+}
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px 14px 18px;
+}
+.template-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 5px 10px;
+  color: #37695a;
+  background: #fcfdfd;
+  border-color: #dce7e1;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.template-card > span {
+  min-height: 33px;
+  display: grid;
+  place-items: center;
+}
+.template-thumbnail {
+  display: block;
+  width: 100%;
+  aspect-ratio: 10 / 7;
 }
 .panel-heading {
   display: flex;
@@ -459,11 +499,12 @@ summary::-webkit-details-marker {
   height: 100%;
   touch-action: none;
   user-select: none;
+  outline: none;
 }
 .contour-canvas.adding {
   cursor: crosshair;
 }
-.contour-canvas:focus-visible {
+.contour-canvas:focus-visible:not(.pointer-focus) {
   outline: 2px solid #8fc8bd;
   outline-offset: -2px;
 }
@@ -581,8 +622,7 @@ summary::-webkit-details-marker {
   border-bottom: 1px solid #e5ecee;
 }
 .property-section > summary,
-.arc-details > summary,
-.more-actions > summary {
+.arc-details > summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -591,8 +631,7 @@ summary::-webkit-details-marker {
   font-weight: 600;
 }
 .property-section > summary::after,
-.arc-details > summary::after,
-.more-actions > summary::after {
+.arc-details > summary::after {
   content: '›';
   color: #718884;
   font-size: 17px;
@@ -601,8 +640,7 @@ summary::-webkit-details-marker {
 details[open] > summary::after {
   transform: rotate(90deg);
 }
-.property-section > summary:hover,
-.more-actions > summary:hover {
+.property-section > summary:hover {
   color: #176b5c;
 }
 .property-section > div {
@@ -820,20 +858,6 @@ input[type='checkbox'] {
 .arc-details .geometry-values {
   gap: 7px;
 }
-.more-actions {
-  margin-top: 6px;
-  border-top: 1px solid #e7eeeb;
-}
-.tool-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 4px 0;
-}
-.tool-actions button {
-  font-size: 11px;
-  text-align: left;
-}
 .object-list {
   padding: 14px 10px;
 }
@@ -896,7 +920,7 @@ input[type='checkbox'] {
   .draft-line {
     display: none;
   }
-  .object-panel {
+  .left-panel {
     position: absolute;
     z-index: 15;
     left: 60px;
@@ -904,7 +928,7 @@ input[type='checkbox'] {
     bottom: 0;
     box-shadow: 4px 0 16px #173a3a15;
   }
-  .tool-palette.collapsed + .object-panel {
+  .tool-palette.collapsed ~ .left-panel {
     left: 30px;
   }
 }
@@ -953,6 +977,9 @@ input[type='checkbox'] {
   }
   .object-panel {
     width: min(260px, calc(100% - 60px));
+  }
+  .template-panel {
+    width: min(280px, calc(100% - 60px));
   }
   .view-toolbar {
     right: 10px;

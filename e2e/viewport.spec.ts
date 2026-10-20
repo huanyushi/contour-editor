@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
-import { openMore, openSection, openView, selectObject, showCanvas } from './navigation'
+import { loadArcFixture, openSection, openView, selectObject, showCanvas } from './navigation'
 
 async function downloadText(page: Page, button: string) {
   const pending = page.waitForEvent('download')
@@ -135,6 +135,8 @@ test('label appearance updates immediately, clicks keep sidebar appearance and l
   page,
 }) => {
   await page.goto('/')
+  await loadArcFixture(page)
+  await selectObject(page, '选择顶点 z1')
   await openSection(page, '标签')
   const label = page.getByTestId('label-a')
   const preview = page.getByLabel('公式预览').locator('.math-text')
@@ -201,8 +203,7 @@ test('independent axes, arrow choices and unequal scales survive recovery and im
   page,
 }, info) => {
   await page.goto('/')
-  await openMore(page)
-  await page.getByRole('button', { name: '半圆示例' }).click()
+  await loadArcFixture(page)
   await openView(page)
   await page.getByRole('checkbox', { name: '显示网格', exact: true }).uncheck()
   await expect(page.getByTestId('coordinate-axes')).toHaveAttribute('visibility', 'visible')
@@ -223,6 +224,9 @@ test('independent axes, arrow choices and unequal scales survive recovery and im
   await openView(page)
   await page.getByLabel('坐标轴箭头', { exact: true }).selectOption('triangle')
   await page.getByLabel('坐标轴颜色', { exact: true }).fill('#335577')
+  await page.getByLabel('实轴标签', { exact: true }).fill('\\operatorname{Re} z')
+  await page.getByLabel('虚轴标签', { exact: true }).fill('\\operatorname{Im} z')
+  await page.getByRole('button', { name: '应用轴标签', exact: true }).click()
   await page.getByLabel('坐标轴线宽', { exact: true }).fill('2')
   await page.getByLabel('坐标轴箭头大小', { exact: true }).fill('14')
   await page.getByRole('checkbox', { name: '显示坐标轴', exact: true }).check()
@@ -232,10 +236,20 @@ test('independent axes, arrow choices and unequal scales survive recovery and im
   await page.reload()
   await expect(path).toHaveAttribute('d', 'M 240 300 L 560 300 A 160 40 0 0 0 240 300 Z')
   await expect(page.locator('#axis-arrow path')).toHaveAttribute('d', 'M 0 0 L -10 -4 L -10 4 Z')
+  await expect(page.getByTestId('label-axis-re')).toHaveAttribute(
+    'aria-label',
+    '\\operatorname{Re} z',
+  )
+  await expect(page.getByTestId('label-axis-im')).toHaveAttribute(
+    'aria-label',
+    '\\operatorname{Im} z',
+  )
   await page.locator('summary[aria-label="导出图像"]').click()
   const svg = await downloadText(page, '导出 SVG')
   expect(svg).toContain('A 160 40')
   expect(svg).toContain('stroke="#335577"')
+  expect(svg).toContain('aria-label="\\operatorname{Re} z"')
+  expect(svg).toContain('aria-label="\\operatorname{Im} z"')
   expect(svg).not.toContain('label-handle-')
   await page.locator('summary[aria-label="导出图像"]').click()
   await openView(page)

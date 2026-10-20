@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { openMore, selectObject, showCanvas, showInspector } from './navigation'
+import { loadArcFixture, selectObject, showCanvas, showInspector } from './navigation'
 
 async function screenPoint(page: Page, re: number, im: number) {
   return page.getByTestId('contour-canvas').evaluate(
@@ -68,8 +68,7 @@ test('drags arc through point and shared endpoint, updates fill, then reverses t
   page,
 }) => {
   await page.goto('/')
-  await openMore(page)
-  await page.getByRole('button', { name: '半圆示例' }).click()
+  await loadArcFixture(page)
   const path = page.getByTestId('contour-path')
   expect(
     await path.evaluate((node) => (node as SVGPathElement).isPointInFill(new DOMPoint(400, 200))),
@@ -104,8 +103,7 @@ test('rejects a collinear through-point drag without breaking the filled path', 
   page,
 }) => {
   await page.goto('/')
-  await openMore(page)
-  await page.getByRole('button', { name: '半圆示例' }).click()
+  await loadArcFixture(page)
   await showCanvas(page)
   const handle = page.getByTestId('through-edge-b')
   await handle.scrollIntoViewIfNeeded()

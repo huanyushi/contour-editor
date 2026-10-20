@@ -146,6 +146,8 @@ function axes(value: unknown): AxesSettings {
   if (arrow !== 'latex' && arrow !== 'triangle' && arrow !== 'open' && arrow !== 'none')
     throw new Error('坐标轴箭头类型无效。')
   const result: AxesSettings = {
+    reLabel: item.reLabel === undefined ? defaultAxes().reLabel : string(item.reLabel, '实轴标签'),
+    imLabel: item.imLabel === undefined ? defaultAxes().imLabel : string(item.imLabel, '虚轴标签'),
     visible: bool(item.visible, '坐标轴显示'),
     ticks: bool(item.ticks, '刻度数字'),
     color: color(item.color, '坐标轴颜色'),
@@ -154,6 +156,10 @@ function axes(value: unknown): AxesSettings {
     arrowSize: numeric(item.arrowSize, '坐标轴箭头大小'),
   }
   if (!validAxes(result)) throw new Error('坐标轴样式无效。')
+  for (const tex of [result.reLabel, result.imLabel]) {
+    const rendering = renderMath(tex)
+    if (rendering.error) throw new Error(`坐标轴标签：${rendering.error}`)
+  }
   return result
 }
 

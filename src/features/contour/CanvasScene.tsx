@@ -33,7 +33,7 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
       ref={canvasRef}
       viewBox={`${bounds.left} ${bounds.top} ${size.width} ${size.height}`}
       tabIndex={0}
-      className={`contour-canvas ${interaction?.panning ? 'viewport-pan' : interaction?.adding ? 'adding' : ''}`}
+      className={`contour-canvas ${interaction?.panning ? 'viewport-pan' : interaction?.adding ? 'adding' : ''} ${interaction?.pointerFocus ? 'pointer-focus' : ''}`}
       data-testid="contour-canvas"
       role="group"
       aria-label="复平面围道画布"
@@ -65,7 +65,10 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
         fillOpacity={fill.opacity}
         fillRule="nonzero"
         stroke="none"
-        pointerEvents="none"
+        pointerEvents={
+          state.closed && fill.mode !== 'none' && fill.opacity > 0 ? 'visiblePainted' : 'none'
+        }
+        onPointerDown={interaction?.selectContour}
       />
       {geometry.segments.map(({ segment, path, arrow, arc }) => {
         const style = { ...state.appearance.stroke, ...segment.style }

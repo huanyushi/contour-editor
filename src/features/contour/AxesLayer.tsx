@@ -1,4 +1,5 @@
 import { toSvg } from '../../lib/geometry'
+import { renderMath } from '../../lib/math'
 import {
   canvasBounds,
   exportSize,
@@ -43,6 +44,8 @@ export function AxesLayer({
         ? 'M 0 0 L -10 -4 L -10 4 Z'
         : 'M -10 -4 L 0 0 L -10 4'
   const marker = axes.arrow === 'none' ? undefined : 'url(#axis-arrow)'
+  const reWidth = renderMath(axes.reLabel).width * 1.25
+  const imWidth = renderMath(axes.imLabel).width * 1.25
   return (
     <>
       <defs>
@@ -177,15 +180,20 @@ export function AxesLayer({
         </g>
         {showX && (
           <MathLabel
-            label={{ ...defaultLabel('\\mathfrak{R}'), dx: 0, dy: 0, size: 20, color: axes.color }}
-            x={right - 38}
+            id="axis-re"
+            label={{ ...defaultLabel(axes.reLabel), dx: 0, dy: 0, size: 20, color: axes.color }}
+            x={Math.max(left + 20, right - reWidth - 20)}
             y={origin.y > top + 40 ? origin.y - 26 : origin.y + 12}
           />
         )}
         {showY && (
           <MathLabel
-            label={{ ...defaultLabel('\\mathfrak{I}'), dx: 0, dy: 0, size: 20, color: axes.color }}
-            x={origin.x > right - 45 ? origin.x - 30 : origin.x + 14}
+            id="axis-im"
+            label={{ ...defaultLabel(axes.imLabel), dx: 0, dy: 0, size: 20, color: axes.color }}
+            x={Math.max(
+              left + 20,
+              origin.x + 14 + imWidth > right - 20 ? origin.x - imWidth - 14 : origin.x + 14,
+            )}
             y={top + 22}
           />
         )}

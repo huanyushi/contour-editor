@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createInitialState, createSemicircleState } from '../contour/model'
+import { createInitialState } from '../contour/model'
+import { createArcFixture } from '../../test/fixtures'
 import { parseProject, serializeProject } from './project'
 import { DRAFT_KEY, readLocalDraft, useLocalDraft } from './useLocalDraft'
 
@@ -17,7 +18,7 @@ describe('local draft recovery', () => {
     expect(localStorage.getItem(DRAFT_KEY)).toBe('')
   })
   it('restores valid data and leaves malformed stored data untouched', () => {
-    localStorage.setItem(DRAFT_KEY, serializeProject(createSemicircleState()))
+    localStorage.setItem(DRAFT_KEY, serializeProject(createArcFixture()))
     expect(readLocalDraft().state.segments[1].kind).toBe('arc')
     localStorage.setItem(DRAFT_KEY, '{broken')
     const failed = readLocalDraft()
@@ -36,12 +37,12 @@ describe('local draft recovery', () => {
       vi.advanceTimersByTime(500)
     })
     expect(parseProject(localStorage.getItem(DRAFT_KEY)!).vertices).toHaveLength(4)
-    rerender({ state: createSemicircleState(), busy: true })
+    rerender({ state: createArcFixture(), busy: true })
     act(() => {
       vi.advanceTimersByTime(1000)
     })
     expect(parseProject(localStorage.getItem(DRAFT_KEY)!).vertices).toHaveLength(4)
-    rerender({ state: createSemicircleState(), busy: false })
+    rerender({ state: createArcFixture(), busy: false })
     act(() => {
       vi.advanceTimersByTime(500)
     })

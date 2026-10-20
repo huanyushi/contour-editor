@@ -1,12 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { openMore, openSection, openView } from './navigation'
+import { loadArcFixture, openSection, openView } from './navigation'
 
 test('fills the viewport and resizing panels preserves center, geometry and CSS unit lengths', async ({
   page,
 }, info) => {
   await page.goto('/')
-  await openMore(page)
-  await page.getByRole('button', { name: '半圆示例', exact: true }).click()
+  await loadArcFixture(page)
   await page.getByRole('button', { name: '平移工具', exact: true }).click()
   const canvas = page.getByTestId('contour-canvas')
   const path = page.getByTestId('contour-path')
@@ -109,7 +108,7 @@ test(
     await page.keyboard.press('Escape')
     await expect(page.getByRole('complementary', { name: '视图设置', exact: true })).toBeVisible()
     await page.getByRole('button', { name: '关闭视图设置' }).click()
-    await openMore(page)
+    await openView(page)
     await page.getByRole('button', { name: '在原点追加顶点', exact: true }).focus()
     await page.keyboard.press('Enter')
     await expect(page.getByLabel('属性面板内容', { exact: true })).toBeFocused()

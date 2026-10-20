@@ -57,6 +57,7 @@ export function useCanvasInteraction({
   const space = useRef(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
   const [panActive, setPanActive] = useState(false)
+  const [pointerFocus, setPointerFocus] = useState(false)
 
   const svgPoint = useCallback(
     (clientX: number, clientY: number): SvgPoint | null => {
@@ -211,6 +212,15 @@ export function useCanvasInteraction({
   return {
     adding: tool !== 'select' && tool !== 'pan',
     panning: tool === 'pan' || spaceHeld || panActive,
+    pointerFocus,
+    selectContour: (event: PointerEvent<SVGPathElement>) => {
+      if (tool !== 'select' || event.button !== 0 || !event.isPrimary || gestureOwner !== null)
+        return
+      event.stopPropagation()
+      svgRef.current?.focus({ preventScroll: true })
+      dispatch({ type: 'selectObject', selection: { kind: 'contour' } })
+      onInspect?.()
+    },
     selectSegment: (event: PointerEvent<SVGPathElement>, id: string) => {
       if (tool !== 'select' || event.button !== 0 || !event.isPrimary || gestureOwner !== null)
         return
@@ -237,6 +247,8 @@ export function useCanvasInteraction({
         capture(event, 'label', id, undefined, label, kind)
     },
     handlers: {
+      onBlur: () => setPointerFocus(false),
+      onKeyDown: () => setPointerFocus(false),
       onPointerEnter: () => {
         hover.current = true
       },
@@ -245,17 +257,14 @@ export function useCanvasInteraction({
         onPointerPosition?.(null)
       },
       onPointerDownCapture: (event: PointerEvent<SVGSVGElement>) => {
+        setPointerFocus(true)
         if ((event.button === 0 && (tool === 'pan' || space.current)) || event.button === 1)
           capture(event, 'pan', '')
       },
       onPointerDown: (event: PointerEvent<SVGSVGElement>) => {
         if (event.button !== 0 || !event.isPrimary || drag.current || gestureOwner !== null) return
         svgRef.current?.focus({ preventScroll: true })
-        if (tool === 'select') {
-          dispatch({ type: 'selectObject', selection: { kind: 'contour' } })
-          onInspect?.()
-          return
-        }
+        if (tool === 'select') return
         const location = svgPoint(event.clientX, event.clientY)
         if (!location) return
         const point = snapped(location, event.altKey)

@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { PanelRightOpen, Redo2, Undo2 } from 'lucide-react'
 import { ContourCanvas, type DrawingTool } from '../features/contour/ContourCanvas'
 import { PropertiesPanel } from '../features/contour/PropertiesPanel'
@@ -18,6 +18,7 @@ import { fitScene } from '../features/contour/sceneView'
 import { createVertex } from '../features/contour/createVertex'
 import { useSelectionShortcuts } from '../features/contour/useSelectionShortcuts'
 import { transientLock } from '../components/transientLock'
+import { useAvoidanceDraft } from '../features/contour/useAvoidanceDraft'
 
 const hints: Record<DrawingTool, string> = {
   select: '选择 · 点击对象编辑，拖动调整位置',
@@ -32,7 +33,7 @@ const hints: Record<DrawingTool, string> = {
 
 const narrowScreen = () => window.innerWidth <= 700
 const focusPanel = (id: 'properties-panel' | 'view-settings' | 'template-panel') => {
-  requestAnimationFrame(() =>
+  return requestAnimationFrame(() =>
     document
       .getElementById(id)
       ?.querySelector<HTMLDivElement>('.panel-scroll')
@@ -44,6 +45,7 @@ export default function App() {
   const [startup] = useState(readLocalDraft)
   const [history, dispatch] = useReducer(historyReducer, startup.state, createHistory)
   const state = history.present
+  const avoidanceWorkflow = useAvoidanceDraft(state, dispatch)
   const [tool, setTool] = useState<DrawingTool>('select')
   const [reading, setReading] = useState(false)
   const [projectName, setProjectName] = useState('未命名项目')
@@ -52,10 +54,61 @@ export default function App() {
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(() => !narrowScreen())
   const [viewOpen, setViewOpen] = useState(false)
+  const inspectorVisible = inspectorOpen && !viewOpen
   const [pointer, setPointer] = useState<ComplexPoint | null>(null)
   const canvasArea = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<SVGSVGElement>(null)
   const settingsTrigger = useRef<HTMLButtonElement>(null)
+  const targetError =
+    avoidanceWorkflow.draft.kind === 'pickTarget' ? (avoidanceWorkflow.draft.error ?? '') : ''
+  const [previousTargetError, setPreviousTargetError] = useState(targetError)
+  if (previousTargetError !== targetError) {
+    setPreviousTargetError(targetError)
+    if (targetError) {
+      setViewOpen(false)
+      setInspectorOpen(true)
+      if (narrowScreen()) {
+        setObjectsOpen(false)
+        setTemplatesOpen(false)
+      }
+    } else if (avoidanceWorkflow.draft.kind === 'pickTarget' && narrowScreen()) {
+      // Retrying clears only the picking error; expose the canvas again.
+      setInspectorOpen(false)
+    }
+  }
+  const [avoidancePhase, setAvoidancePhase] = useState(avoidanceWorkflow.draft.kind)
+  if (avoidancePhase !== avoidanceWorkflow.draft.kind) {
+    setAvoidancePhase(avoidanceWorkflow.draft.kind)
+    if (avoidanceWorkflow.draft.kind === 'pickTarget') {
+      setTool('select')
+      dispatch({ type: 'clearSelection' })
+      if (narrowScreen()) {
+        setInspectorOpen(false)
+        setViewOpen(false)
+        setObjectsOpen(false)
+        setTemplatesOpen(false)
+      }
+    } else if (
+      avoidanceWorkflow.draft.kind === 'configure' ||
+      (avoidancePhase === 'pickTarget' && state.selection.kind === 'segment')
+    ) {
+      setViewOpen(false)
+      setInspectorOpen(true)
+      if (narrowScreen()) {
+        setObjectsOpen(false)
+        setTemplatesOpen(false)
+      }
+    }
+  }
+  useLayoutEffect(() => {
+    if (avoidanceWorkflow.draft.kind === 'pickTarget' && !targetError)
+      canvasRef.current?.focus({ preventScroll: true })
+  }, [avoidanceWorkflow.draft.kind, targetError])
+  useEffect(() => {
+    if (!inspectorVisible || (avoidanceWorkflow.draft.kind !== 'configure' && !targetError)) return
+    const frame = focusPanel('properties-panel')
+    return () => cancelAnimationFrame(frame)
+  }, [avoidanceWorkflow.draft.kind, targetError, inspectorVisible])
   const size = useCanvasSize(canvasArea)
   const busy = history.gesture !== null || reading
   const draft = useLocalDraft(state, busy, startup)
@@ -84,6 +137,7 @@ export default function App() {
     }
   }
   const chooseTool = (next: DrawingTool) => {
+    avoidanceWorkflow.cancel()
     dispatch({ type: 'clearSelection' })
     setTool(next)
     if (narrowScreen()) {
@@ -106,6 +160,7 @@ export default function App() {
     focusPanel('view-settings')
   }
   const closeInspector = () => {
+    avoidanceWorkflow.cancel()
     setInspectorOpen(false)
     requestAnimationFrame(() =>
       document.querySelector<HTMLButtonElement>('[aria-label="展开属性面板"]')?.focus(),
@@ -125,6 +180,7 @@ export default function App() {
   }
   const loadTemplate = (template: ContourTemplate) => {
     if (busy) return
+    avoidanceWorkflow.cancel()
     const next = {
       ...template.create(),
       axes: state.axes,
@@ -151,6 +207,16 @@ export default function App() {
   return (
     <div
       className="app-shell"
+      onKeyDownCapture={(event) => {
+        if (event.key !== 'Escape' || avoidanceWorkflow.draft.kind === 'idle') return
+        // Canvas owns pointer capture and must release its local drag as well.
+        if (canvasRef.current?.contains(event.target as Node)) return
+        event.preventDefault()
+        event.stopPropagation()
+        if (history.gesture) dispatch({ type: 'cancelGesture', owner: history.gesture.owner })
+        avoidanceWorkflow.cancel()
+        requestAnimationFrame(() => canvasRef.current?.focus({ preventScroll: true }))
+      }}
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return
         if (
@@ -206,6 +272,7 @@ export default function App() {
             draft={draft}
             onReadingChange={setReading}
             onLoad={(loaded, name) => {
+              avoidanceWorkflow.cancel()
               dispatch({ type: 'loadProject', state: loaded })
               setProjectName(name)
               setTool('select')
@@ -299,6 +366,7 @@ export default function App() {
               tool={tool}
               onPointerPosition={setPointer}
               onInspect={inspect}
+              avoidanceWorkflow={avoidanceWorkflow}
               onArcPoint={(point) => {
                 const action = {
                   type: 'setArc' as const,
@@ -325,7 +393,11 @@ export default function App() {
               }}
             />
             <div className="canvas-status" id="canvas-help">
-              <span role="status">{hints[tool]}</span>
+              <span role="status">
+                {avoidanceWorkflow.draft.kind === 'pickTarget'
+                  ? '选择绕行目标 · 点击源路径（直线或圆弧），Esc 取消'
+                  : hints[tool]}
+              </span>
               <span className="pointer-position">
                 {pointer
                   ? `Re ${pointer.re.toFixed(2)} · Im ${pointer.im.toFixed(2)}`
@@ -334,9 +406,14 @@ export default function App() {
                     : '自由定位'}
               </span>
             </div>
-            {state.error && (
+            {(state.error ||
+              (!inspectorVisible &&
+                avoidanceWorkflow.preview &&
+                !avoidanceWorkflow.preview.ok)) && (
               <p role="alert" className="error geometry-error">
-                {state.error}
+                {!inspectorVisible && avoidanceWorkflow.preview && !avoidanceWorkflow.preview.ok
+                  ? avoidanceWorkflow.preview.error
+                  : state.error}
               </p>
             )}
           </div>
@@ -344,8 +421,9 @@ export default function App() {
         <PropertiesPanel
           state={state}
           dispatch={dispatch}
+          avoidanceWorkflow={avoidanceWorkflow}
           gestureOwner={history.gesture?.owner ?? null}
-          open={inspectorOpen && !viewOpen}
+          open={inspectorVisible}
           onClose={closeInspector}
         />
         <ViewSettingsPanel

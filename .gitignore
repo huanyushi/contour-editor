@@ -4,6 +4,7 @@ coverage/
 playwright-report/
 test-results/
 .worktrees/
+.superpowers/
 *.log
 *.tsbuildinfo
 .env*

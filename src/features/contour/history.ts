@@ -1,7 +1,6 @@
 import { contourReducer, createInitialState, type ContourAction, type ContourState } from './model'
 import { defaultLabel, defaultPointStyle, type LabelSettings } from './appearance'
-import { canProjectScene } from './sceneView'
-import { projectCapacityError } from '../project/format'
+import { projectSceneError } from '../project/validation'
 
 export type GestureOwner = 'canvas' | 'slider-pointer' | 'slider-keyboard' | 'generic'
 export type EditorAction =
@@ -26,6 +25,7 @@ function documentFields(state: ContourState) {
     state.vertices,
     state.segments,
     state.connections,
+    state.avoidances,
     state.markers,
     state.formulas,
     state.appearance,
@@ -70,7 +70,7 @@ function restored(snapshot: ContourState, current: ContourState): ContourState {
   }
   // Normally keep the user's camera. An extreme historical scene may not be
   // projectable at the current zoom, or fit the file budget with its view options.
-  if (!canProjectScene(result, result.viewport) || projectCapacityError(result))
+  if (projectSceneError(result))
     return { ...snapshot, error: '为安全恢复作品，视图已恢复到该历史步骤的设置。' }
   return result
 }

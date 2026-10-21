@@ -3,7 +3,9 @@ import { ColorField, RangeField } from '../../components/StyleInputs'
 import { defaultPointStyle } from './appearance'
 import type { ContourAction, ContourState } from './model'
 import { itemColor, itemLabel, selectionItems } from './selectionModel'
-import { findSegment } from './sceneObjects'
+import { selectedSegmentStyle } from './avoidanceSelection'
+import { segmentOrigin, visibleSceneSegments } from './sceneObjects'
+import { focusInspector } from './inspectorFocus'
 
 function common<T>(values: T[]): T | undefined {
   return values.length && values.every((value) => value === values[0]) ? values[0] : undefined
@@ -17,11 +19,19 @@ export function MultipleProperties({
   dispatch: Dispatch<ContourAction>
 }) {
   const items = selectionItems(state.selection)
+  const visible = new Set(visibleSceneSegments(state).map((s) => s.id))
+  const hiddenSources = new Set(
+    items.flatMap((item) => {
+      const origin = item.kind === 'segment' ? segmentOrigin(state, item.id) : undefined
+      return origin && !visible.has(origin.sourceSegmentId) ? [origin.sourceSegmentId] : []
+    }),
+  )
+  const hiddenBindings = state.avoidances.filter((a) => hiddenSources.has(a.targetSegmentId))
   const widths = items.flatMap((item) =>
     item.kind === 'contour'
       ? state.segments.map((s) => s.style?.width ?? state.appearance.stroke.width)
       : item.kind === 'segment' && item.part !== 'label'
-        ? [findSegment(state, item.id)?.style?.width ?? state.appearance.stroke.width]
+        ? [selectedSegmentStyle(state, item.id)?.width ?? state.appearance.stroke.width]
         : [],
   )
   const radii = items.flatMap((item) =>
@@ -47,6 +57,22 @@ export function MultipleProperties({
       <p className="muted small">
         已选中 {items.length} 个对象。外观修改同时应用于适用的选中对象。
       </p>
+      {hiddenSources.size > 0 && (
+        <p className="muted small">选中的暂存路径或部件暂不显示；选择和设置已保留。</p>
+      )}
+      {hiddenBindings.map((a, index) => (
+        <button
+          key={a.id}
+          className="full-width"
+          aria-label={`编辑暂存绕行 ${index + 1}`}
+          onClick={() => {
+            dispatch({ type: 'selectSegment', id: `avoid:${a.id}:arc` })
+            focusInspector()
+          }}
+        >
+          编辑暂存绕行 {index + 1} · 原路径 {a.targetSegmentId}
+        </button>
+      ))}
       <fieldset className="property-group">
         <legend>批量外观</legend>
         <ColorField

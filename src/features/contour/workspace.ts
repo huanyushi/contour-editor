@@ -26,22 +26,27 @@ import {
   type SelectionItem,
   type StrokeStyle,
 } from './appearance'
-import type { ContourState, PathSegment } from './model'
-import { findSegment, scenePoints, sceneSegments } from './sceneObjects'
+import type { ContourState, PathSegment, Vertex } from './model'
+import type { Avoidance } from './avoidanceTypes'
+import { findSegment, scenePoints, sceneSegments, segmentOrigin } from './sceneObjects'
+import { selectionWorkspaceAction, type SelectionWorkspaceEdit } from './avoidanceSelection'
+import { avoidanceReducer } from './avoidanceModel'
 
 export interface SceneObject extends ComplexPoint {
   id: string
   label: LabelSettings
   pointStyle: PointStyle
 }
+export interface MarkerObject extends SceneObject, Pick<Vertex, 'mathematicalKind'> {}
 export interface WorkspaceState {
   viewport: Viewport
   axes: AxesSettings
   selection: Selection
   selectionSource: 'click' | 'marquee'
-  markers: SceneObject[]
+  markers: MarkerObject[]
   formulas: SceneObject[]
   connections: PathSegment[]
+  avoidances: Avoidance[]
   appearance: { stroke: StrokeStyle; fill: FillStyle }
   snap: boolean
   grid: boolean
@@ -72,6 +77,7 @@ export function createWorkspaceState(): WorkspaceState {
     markers: [],
     formulas: [],
     connections: [],
+    avoidances: [],
     appearance: { stroke: defaultStroke(), fill: defaultFill() },
     snap: true,
     grid: true,
@@ -79,7 +85,18 @@ export function createWorkspaceState(): WorkspaceState {
   }
 }
 
-export function workspaceReducer(state: ContourState, action: WorkspaceAction): ContourState {
+export function workspaceReducer(
+  state: ContourState,
+  action: SelectionWorkspaceEdit,
+  accepted: ContourState = state,
+): ContourState {
+  const mapped =
+    action.type === 'avoidanceLabel' || action.type === 'avoidanceStyle'
+      ? action
+      : selectionWorkspaceAction(accepted, action)
+  if (mapped.type === 'avoidanceLabel' || mapped.type === 'avoidanceStyle')
+    return avoidanceReducer(state, mapped)
+  action = mapped
   switch (action.type) {
     case 'clearVertexLabel':
       return {
@@ -120,6 +137,7 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
       const selection = action.selection
       const exists =
         selection.kind === 'contour' ||
+        (selection.kind === 'segment' && !!segmentOrigin(state, selection.id)) ||
         (selection.kind === 'vertex'
           ? state.vertices
           : selection.kind === 'segment'
@@ -159,9 +177,12 @@ export function workspaceReducer(state: ContourState, action: WorkspaceAction): 
         })
       if (
         !/^[a-zA-Z0-9_-]{1,80}$/.test(action.id) ||
-        [...scenePoints(state), ...sceneSegments(state), ...state.formulas].some(
-          (object) => object.id === action.id,
-        )
+        [
+          ...scenePoints(state),
+          ...sceneSegments(state),
+          ...state.formulas,
+          ...state.avoidances,
+        ].some((object) => object.id === action.id)
       )
         return state
       const object: SceneObject = {

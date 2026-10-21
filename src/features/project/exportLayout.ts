@@ -1,4 +1,4 @@
-import { arcExtrema, pointOnArc } from '../../lib/arc'
+import { arcExtrema } from '../../lib/arc'
 import { fromSvg, toSvg, type SvgPoint } from '../../lib/geometry'
 import { renderMath } from '../../lib/math'
 import {
@@ -15,7 +15,7 @@ import {
 import { defaultLabel, defaultPointStyle, type LabelSettings } from '../contour/appearance'
 import type { ContourState } from '../contour/model'
 import { buildContourGeometry } from '../contour/pathGeometry'
-import { findPoint } from '../contour/sceneObjects'
+import { resolvedScene } from '../contour/sceneObjects'
 import type { ExportOptions } from './export'
 
 const MAX_BASE_SIDE = 2400
@@ -62,6 +62,8 @@ function mathSize(tex: string, size: number): CanvasSize {
 /** Export-only bounds: no hit targets, selection rings, or through-point controls. */
 function contentBounds(state: ContourState, options: ExportOptions): Bounds | null {
   const bounds: Bounds[] = []
+  const { points: scenePoints } = resolvedScene(state)
+  const geometry = buildContourGeometry(state)
   const addLabel = (point: SvgPoint, label: LabelSettings) => {
     if (!label.visible || !label.tex.trim()) return
     const { width, height } = mathSize(label.tex, label.size)
@@ -72,25 +74,20 @@ function contentBounds(state: ContourState, options: ExportOptions): Bounds | nu
       bottom: point.y + label.dy + height,
     })
   }
-  for (const { segment, arc, arrow } of buildContourGeometry(state).segments) {
-    const start = toSvg(findPoint(state, segment.startId)!, state.viewport)
-    const end = toSvg(findPoint(state, segment.endId)!, state.viewport)
+  for (const { segment, arc, arrow } of geometry.segments) {
+    const start = toSvg(scenePoints.get(segment.startId)!, state.viewport)
+    const end = toSvg(scenePoints.get(segment.endId)!, state.viewport)
     const style = { ...state.appearance.stroke, ...segment.style }
     const points = arc ? arcExtrema(arc).map((p) => toSvg(p, state.viewport)) : [start, end]
     bounds.push(...points.map((point) => pointBounds(point, style.width / 2)))
     // The 12px direction line plus its user-space marker can extend past a
     // short segment's geometry. This envelope also covers diagonal arrows.
     if (arrow && style.arrows) bounds.push(pointBounds(arrow.point, 15 + style.width / 2))
-    if (segment.label) {
-      const middle = arc
-        ? toSvg(pointOnArc(arc, 0.5), state.viewport)
-        : { x: start.x / 2 + end.x / 2, y: start.y / 2 + end.y / 2 }
-      addLabel(middle, segment.label)
-    }
   }
+  for (const label of geometry.labels) addLabel(label.point, label.value)
   state.vertices.forEach((vertex, index) => {
     const point = toSvg(vertex, state.viewport)
-    if (options.endpoints)
+    if (options.endpoints || (vertex.mathematicalKind ?? 'ordinary') !== 'ordinary')
       bounds.push(pointBounds(point, (vertex.pointStyle ?? defaultPointStyle()).radius + 0.5))
     addLabel(point, vertex.label ?? defaultLabel(`z_{${index + 1}}`))
   })

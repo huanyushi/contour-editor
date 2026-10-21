@@ -7,7 +7,9 @@ let nextVertexId = 0
 // Restored projects can contain IDs from a previous session, including retained edges.
 export function createVertex(point: ComplexPoint, state: ContourState): Vertex {
   const occupied = new Set(
-    [...scenePoints(state), ...sceneSegments(state), ...state.formulas].map((item) => item.id),
+    [...scenePoints(state), ...sceneSegments(state), ...state.formulas, ...state.avoidances].map(
+      (item) => item.id,
+    ),
   )
   let id: string
   do {

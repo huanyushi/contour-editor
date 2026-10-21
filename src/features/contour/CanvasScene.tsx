@@ -2,10 +2,9 @@ import type { RefObject } from 'react'
 import { toSvg } from '../../lib/geometry'
 import { canvasBounds, exportSize, type CanvasSize } from '../../lib/viewport'
 import { renderMath } from '../../lib/math'
-import { pointOnArc } from '../../lib/arc'
 import type { ContourState } from './model'
-import { buildContourGeometry } from './pathGeometry'
-import { dashArray, defaultLabel, defaultPointStyle } from './appearance'
+import { buildSceneGeometry } from './pathGeometry'
+import { defaultLabel, defaultPointStyle } from './appearance'
 import { MathLabel } from './MathLabel'
 import { DraggableLabel } from './DraggableLabel'
 import { AxesLayer } from './AxesLayer'
@@ -13,18 +12,34 @@ import type { useCanvasInteraction } from './useCanvasInteraction'
 import { isSelected, selectionItems } from './selectionModel'
 import { selectionBounds } from './selectionGeometry'
 import { SelectionOverlay } from './SelectionOverlay'
-import { findPoint } from './sceneObjects'
+import { resolvedScene } from './sceneObjects'
+import type { AvoidanceWorkflow } from './useAvoidanceDraft'
+import { ScenePaths } from './ScenePaths'
+import { avoidanceRadiusHandles } from './avoidanceHandles'
 
 interface Props {
   state: ContourState
   size?: CanvasSize
   interaction?: ReturnType<typeof useCanvasInteraction>
   canvasRef?: RefObject<SVGSVGElement | null>
+  avoidanceWorkflow?: AvoidanceWorkflow
 }
 
-export function CanvasScene({ state, size = exportSize, interaction, canvasRef }: Props) {
+export function CanvasScene({
+  state,
+  size = exportSize,
+  interaction,
+  canvasRef,
+  avoidanceWorkflow,
+}: Props) {
   const bounds = canvasBounds(size)
-  const geometry = buildContourGeometry(state)
+  const appliedScene = resolvedScene(state)
+  const preview = avoidanceWorkflow?.preview
+  const previewId =
+    avoidanceWorkflow?.draft.kind === 'configure' ? avoidanceWorkflow.draft.avoidance.id : null
+  const showingPreview = !!(preview?.ok && previewId)
+  const scene = showingPreview && preview?.ok ? preview.scene : appliedScene
+  const geometry = buildSceneGeometry(scene, state)
   const fill = state.appearance.fill
   const selectedItems = selectionItems(state.selection)
   const selectedBounds =
@@ -33,9 +48,7 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
       : null
   const selectedLabel = (id: string) =>
     state.handles &&
-    selectionItems(state.selection).some(
-      (item) => item.kind !== 'contour' && item.id === id && item.part === 'label',
-    )
+    selectedItems.some((item) => item.kind !== 'contour' && item.id === id && item.part === 'label')
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -61,112 +74,35 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
           <path d={`M 0 0 V ${fill.spacing}`} stroke={fill.color} strokeWidth="2" />
         </pattern>
       </defs>
-      <path
-        d={geometry.path}
-        data-testid="contour-path"
-        fill={
-          !state.closed || fill.mode === 'none'
-            ? 'none'
-            : fill.mode === 'hatch'
-              ? 'url(#contour-hatch)'
-              : fill.color
-        }
-        fillOpacity={fill.opacity}
-        fillRule="nonzero"
-        stroke="none"
-        pointerEvents={
-          state.closed && fill.mode !== 'none' && fill.opacity > 0 ? 'visiblePainted' : 'none'
-        }
-        onPointerDown={interaction?.selectContour}
-      />
-      {geometry.segments.map(({ segment, path, arrow, arc }) => {
-        const style = { ...state.appearance.stroke, ...segment.style }
-        const selected = isSelected(state.selection, { kind: 'segment', id: segment.id })
-        const start = toSvg(findPoint(state, segment.startId)!, state.viewport)
-        const end = toSvg(findPoint(state, segment.endId)!, state.viewport)
-        const midpoint = arc
-          ? toSvg(pointOnArc(arc, 0.5), state.viewport)
-          : { x: start.x / 2 + end.x / 2, y: start.y / 2 + end.y / 2 }
-        return (
-          <g key={segment.id}>
-            <defs>
-              <marker
-                id={`direction-${segment.id}`}
-                viewBox="0 0 10 10"
-                refX="7"
-                refY="5"
-                markerWidth="10"
-                markerHeight="10"
-                markerUnits="userSpaceOnUse"
-                orient="auto"
-              >
-                <path d="M 0 1 L 8 5 L 0 9 Z" fill={style.color} />
-              </marker>
-            </defs>
-            {selected && state.handles && (
-              <path
-                data-export-omit=""
-                d={path}
-                fill="none"
-                stroke="#238b8b20"
-                strokeWidth={style.width + 8}
-                pointerEvents="none"
-              />
-            )}
-            <path
-              data-testid={`segment-${segment.id}`}
-              d={path}
-              fill="none"
-              stroke={style.color}
-              strokeWidth={style.width}
-              strokeDasharray={dashArray(style)}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              pointerEvents="none"
-            />
-            <path
-              d={path}
-              fill="none"
-              stroke="transparent"
-              strokeWidth={Math.max(12, style.width + 8)}
-              className="segment-hit"
-              data-export-omit=""
-              onPointerDown={(event) => interaction?.selectSegment(event, segment.id)}
-            />
-            {arrow && style.arrows && (
-              <line
-                data-testid={`arrow-${segment.id}`}
-                data-segment-kind={segment.kind}
-                x1={arrow.point.x - arrow.tangent.x * 6}
-                y1={arrow.point.y - arrow.tangent.y * 6}
-                x2={arrow.point.x + arrow.tangent.x * 6}
-                y2={arrow.point.y + arrow.tangent.y * 6}
-                stroke={style.color}
-                strokeWidth={style.width}
-                markerEnd={`url(#direction-${segment.id})`}
-                pointerEvents="none"
-              />
-            )}
-            {segment.label && (
-              <DraggableLabel
-                label={segment.label}
-                x={midpoint.x}
-                y={midpoint.y}
-                id={segment.id}
-                selected={selectedLabel(segment.id)}
-                onPointerDown={(event) =>
-                  interaction?.beginLabelDrag(event, 'segment', segment.id, segment.label!)
-                }
-              />
-            )}
-          </g>
-        )
-      })}
+      {showingPreview && (
+        <g data-export-preview-source="" visibility="hidden" pointerEvents="none">
+          <ScenePaths
+            state={state}
+            scene={appliedScene}
+            geometry={buildSceneGeometry(appliedScene, state)}
+            exportOriginal
+          />
+        </g>
+      )}
+      <g
+        data-testid={showingPreview ? 'avoidance-preview' : undefined}
+        data-export-omit={showingPreview ? '' : undefined}
+        pointerEvents={showingPreview ? 'none' : undefined}
+      >
+        <ScenePaths
+          state={state}
+          scene={scene}
+          geometry={geometry}
+          interaction={interaction}
+          previewId={showingPreview ? previewId : null}
+        />
+      </g>
       {state.vertices.map((vertex, index) => {
         const point = toSvg(vertex, state.viewport)
         const selected = isSelected(state.selection, { kind: 'vertex', id: vertex.id })
         const style = vertex.pointStyle ?? defaultPointStyle()
         const label = vertex.label ?? defaultLabel(`z_{${index + 1}}`)
+        const semantic = (vertex.mathematicalKind ?? 'ordinary') !== 'ordinary'
         return (
           <g
             key={vertex.id}
@@ -174,7 +110,7 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
             transform={`translate(${point.x} ${point.y})`}
             onPointerDown={(event) => interaction?.beginDrag(event, 'vertex', vertex.id, vertex)}
           >
-            {state.handles && (
+            {(state.handles || semantic) && (
               <>
                 <circle
                   data-export-omit=""
@@ -182,14 +118,14 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
                   fill="transparent"
                   data-testid={`vertex-${vertex.id}`}
                 />
-                {selected && (
+                {selected && state.handles && (
                   <circle data-export-omit="" r="11" fill="#208a8522" pointerEvents="none" />
                 )}
               </>
             )}
             <circle
-              data-export-endpoint=""
-              visibility={state.handles ? 'visible' : 'hidden'}
+              data-export-endpoint={semantic ? undefined : ''}
+              visibility={state.handles || semantic ? 'visible' : 'hidden'}
               r={style.radius}
               fill={style.color}
               stroke="#fff"
@@ -211,7 +147,8 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
       })}
       {state.handles &&
         geometry.segments.map(({ segment }, index) => {
-          if (segment.kind !== 'arc') return null
+          if (segment.kind !== 'arc' || scene.origins.get(segment.id)?.kind !== 'source')
+            return null
           const point = toSvg(segment.through, state.viewport)
           return (
             <g
@@ -303,6 +240,41 @@ export function CanvasScene({ state, size = exportSize, interaction, canvasRef }
           </g>
         )
       })}
+      {state.handles &&
+        (!avoidanceWorkflow || avoidanceWorkflow.draft.kind === 'idle') &&
+        avoidanceRadiusHandles(scene).map(({ avoidanceId, end, point, center }) => {
+          const p = toSvg(point, state.viewport)
+          const c = toSvg(center, state.viewport)
+          const hitRadius = Math.min(10, Math.hypot(p.x - c.x, p.y - c.y) / 2)
+          return (
+            <g
+              key={`${avoidanceId}-${end}`}
+              data-avoidance-handle=""
+              data-export-omit=""
+              data-testid={`avoidance-radius-${avoidanceId}-${end}`}
+              className="vertex avoidance-radius-handle"
+              transform={`translate(${p.x} ${p.y})`}
+              role="button"
+              tabIndex={interaction?.radiusHandlesInteractive ? 0 : undefined}
+              pointerEvents={interaction?.radiusHandlesInteractive === false ? 'none' : undefined}
+              aria-label={`调整绕行 ${avoidanceId} 的${end === 'entry' ? '入口' : '出口'}半径`}
+              onPointerDown={(event) =>
+                interaction?.beginAvoidanceRadiusDrag(event, avoidanceId, point)
+              }
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  interaction?.inspectAvoidance(avoidanceId)
+                }
+              }}
+            >
+              <title>拖动调整半径，两端联动</title>
+              <circle r={hitRadius} fill="transparent" />
+              <circle r="4" fill="#fff" stroke="#237b6d" strokeWidth="1.5" pointerEvents="none" />
+            </g>
+          )
+        })}
       {interaction?.marquee && (
         <rect
           data-export-omit=""

@@ -4,7 +4,10 @@ import { canClose, type ContourState } from './model'
 import type { EditorAction, GestureOwner } from './history'
 import { ObjectProperties } from './ObjectProperties'
 import { useSliderHistory } from './useSliderHistory'
-import { findSegment } from './sceneObjects'
+import { findSegment, segmentOrigin } from './sceneObjects'
+import type { AvoidanceWorkflow } from './useAvoidanceDraft'
+import { AvoidanceProperties } from './AvoidanceProperties'
+import { transientLock } from '../../components/transientLock'
 
 export function PropertiesPanel({
   state,
@@ -12,12 +15,14 @@ export function PropertiesPanel({
   gestureOwner,
   open,
   onClose,
+  avoidanceWorkflow,
 }: {
   state: ContourState
   dispatch: Dispatch<EditorAction>
   gestureOwner: GestureOwner | null
   open: boolean
   onClose: () => void
+  avoidanceWorkflow?: AvoidanceWorkflow
 }) {
   const scrollArea = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -25,22 +30,31 @@ export function PropertiesPanel({
   }, [state.selection])
   const sliders = useSliderHistory(dispatch, gestureOwner)
   const selection = state.selection
-  const segment = selection.kind === 'segment' ? findSegment(state, selection.id) : undefined
-  const title = segment
-    ? segment.kind === 'arc'
-      ? '圆弧属性'
-      : '线段属性'
-    : selection.kind === 'vertex'
-      ? '顶点属性'
-      : selection.kind === 'marker'
-        ? '标记点属性'
-        : selection.kind === 'formula'
-          ? '公式属性'
-          : selection.kind === 'multiple'
-            ? '多选属性'
-            : selection.kind === 'none'
-              ? '对象属性'
-              : '围道与填充'
+  const origin = selection.kind === 'segment' ? segmentOrigin(state, selection.id) : undefined
+  const segment =
+    selection.kind === 'segment'
+      ? findSegment(state, origin?.sourceSegmentId ?? selection.id)
+      : undefined
+  const configuring = avoidanceWorkflow && avoidanceWorkflow.draft.kind !== 'idle'
+  const title = configuring
+    ? '创建绕行'
+    : origin?.kind === 'avoidance'
+      ? '绕行属性'
+      : segment
+        ? segment.kind === 'arc'
+          ? '圆弧属性'
+          : '线段属性'
+        : selection.kind === 'vertex'
+          ? '顶点属性'
+          : selection.kind === 'marker'
+            ? '标记点属性'
+            : selection.kind === 'formula'
+              ? '公式属性'
+              : selection.kind === 'multiple'
+                ? '多选属性'
+                : selection.kind === 'none'
+                  ? '对象属性'
+                  : '围道与填充'
   const key = 'id' in selection ? `${selection.kind}:${selection.id}` : selection.kind
   return (
     <aside
@@ -61,15 +75,25 @@ export function PropertiesPanel({
           title="收起属性面板"
           aria-expanded="true"
           aria-controls="properties-panel"
+          {...transientLock(gestureOwner !== null)}
           onClick={onClose}
         >
           <PanelRightClose className="ui-icon" aria-hidden="true" />
         </button>
       </div>
       <div ref={scrollArea} className="panel-scroll" tabIndex={0} aria-label="属性面板内容">
-        <fieldset className="inspector-fields">
-          <ObjectProperties key={key} state={state} dispatch={dispatch} />
-          {selection.kind !== 'multiple' && selection.kind !== 'none' && (
+        <fieldset className="inspector-fields" {...transientLock(gestureOwner !== null)}>
+          {configuring ? (
+            <AvoidanceProperties state={state} dispatch={dispatch} workflow={avoidanceWorkflow} />
+          ) : (
+            <ObjectProperties
+              key={key}
+              state={state}
+              dispatch={dispatch}
+              avoidanceWorkflow={avoidanceWorkflow}
+            />
+          )}
+          {!configuring && selection.kind !== 'multiple' && selection.kind !== 'none' && (
             <div className="contour-actions">
               <label className="check-row">
                 <input

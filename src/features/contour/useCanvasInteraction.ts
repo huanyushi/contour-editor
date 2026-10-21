@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { fromSvg, toSvg, type ComplexPoint, type SvgPoint } from '../../lib/geometry'
 import { snapToInteger } from '../../lib/snap'
+import { nearestPath, type PathScreenMetric } from '../../lib/pathSnap'
 import { panViewport, type Viewport } from '../../lib/viewport'
 import { LABEL_OFFSET_LIMIT, type LabelSettings, type SelectionItem } from './appearance'
 import { createVertex } from './createVertex'
@@ -18,13 +19,20 @@ import type { ContourState } from './model'
 import type { EditorAction, GestureOwner } from './history'
 import { itemsWithinRect, rectangle, type SelectionRect } from './selectionGeometry'
 import { translationAnchor } from './selectionTransform'
-import { scenePoints } from './sceneObjects'
+import { findPoint, scenePoints } from './sceneObjects'
+import type { AvoidanceWorkflow } from './useAvoidanceDraft'
+import {
+  captureMarkerPath,
+  snapPathInteger,
+  sourceSnapPaths,
+  type SourceSnapPath,
+} from './pathSnap'
 
 type PointKind = 'vertex' | 'through' | 'marker' | 'formula'
 type LabelKind = 'vertex' | 'segment' | 'marker'
 interface Drag {
   pointerId: number
-  kind: PointKind | 'label' | 'pan' | 'marquee' | 'selection'
+  kind: PointKind | 'label' | 'pan' | 'marquee' | 'selection' | 'avoidance-radius'
   id: string
   start: SvgPoint
   client: SvgPoint
@@ -38,6 +46,8 @@ interface Drag {
   additive?: boolean
   selectionStart?: ContourState
   clickItem?: SelectionItem
+  markerPaths?: SourceSnapPath[] | null
+  radiusCenter?: ComplexPoint
 }
 interface Props {
   state: ContourState
@@ -48,6 +58,7 @@ interface Props {
   onArcPoint: (point: ComplexPoint) => void
   onPointerPosition?: (point: ComplexPoint | null) => void
   onInspect?: () => void
+  avoidanceWorkflow?: AvoidanceWorkflow
 }
 
 export function useCanvasInteraction({
@@ -59,6 +70,7 @@ export function useCanvasInteraction({
   onArcPoint,
   onPointerPosition,
   onInspect,
+  avoidanceWorkflow,
 }: Props) {
   const drag = useRef<Drag | null>(null)
   const hover = useRef(false)
@@ -68,6 +80,7 @@ export function useCanvasInteraction({
   const [pointerFocus, setPointerFocus] = useState(false)
   const [marquee, setMarquee] = useState<SelectionRect | null>(null)
   const [modifierHeld, setModifierHeld] = useState(false)
+  const pickingTarget = avoidanceWorkflow?.draft.kind === 'pickTarget'
 
   const svgPoint = useCallback(
     (clientX: number, clientY: number): SvgPoint | null => {
@@ -187,6 +200,16 @@ export function useCanvasInteraction({
     }
   }, [dispatch, gestureOwner, svgPoint, svgRef, finish])
 
+  function pathMetric(view = state.viewport): PathScreenMetric {
+    const matrix = svgRef.current!.getScreenCTM()!
+    return {
+      a: view.scaleX * matrix.a,
+      b: view.scaleX * matrix.b,
+      c: -view.scaleY * matrix.c,
+      d: -view.scaleY * matrix.d,
+    }
+  }
+
   function snapped(
     point: SvgPoint,
     alt: boolean,
@@ -223,6 +246,7 @@ export function useCanvasInteraction({
     svgRef.current?.focus({ preventScroll: true })
     if (kind === 'vertex') dispatch({ type: 'select', id })
     else if (kind === 'through') dispatch({ type: 'selectSegment', id })
+    else if (kind === 'avoidance-radius') dispatch({ type: 'selectSegment', id: `avoid:${id}:arc` })
     else if (kind === 'label' && labelKind)
       dispatch({ type: 'selectObject', selection: { kind: labelKind, id, part: 'label' } })
     else if (kind === 'marker' || kind === 'formula')
@@ -243,6 +267,10 @@ export function useCanvasInteraction({
       implicitLabel:
         labelKind === 'vertex' && !state.vertices.find((vertex) => vertex.id === id)?.label,
       selectionStart: kind === 'selection' ? state : undefined,
+      markerPaths:
+        kind === 'marker' && point
+          ? captureMarkerPath(sourceSnapPaths(state, id), point, pathMetric())
+          : undefined,
     }
     dispatch({ type: 'beginGesture', owner: 'canvas' })
     if (kind === 'pan') setPanActive(true)
@@ -299,16 +327,50 @@ export function useCanvasInteraction({
     panning: tool === 'pan' || spaceHeld || panActive,
     pointerFocus,
     marquee,
-    showSelection: tool === 'marquee' && state.selectionSource === 'marquee',
+    showSelection: !pickingTarget && tool === 'marquee' && state.selectionSource === 'marquee',
     selectionDragEnabled: !modifierHeld,
+    radiusHandlesInteractive:
+      tool === 'select' && (!avoidanceWorkflow || avoidanceWorkflow.draft.kind === 'idle'),
     beginSelectionDrag: (event: PointerEvent<SVGRectElement>) => {
       if (tool === 'marquee' && event.button === 0 && !event.ctrlKey && !event.metaKey)
         capture(event, 'selection', '', translationAnchor(state))
     },
     deleteSelection: () => dispatch({ type: 'deleteSelection' }),
     clearSelection: () => dispatch({ type: 'clearSelection' }),
+    inspectAvoidance: (id: string) => {
+      if (gestureOwner !== null || tool !== 'select') return
+      dispatch({ type: 'selectSegment', id: `avoid:${id}:arc` })
+      onInspect?.()
+    },
+    beginAvoidanceRadiusDrag: (
+      event: PointerEvent<SVGGElement>,
+      id: string,
+      point: ComplexPoint,
+    ) => {
+      // Derived endpoints are never targets for point/connection creation tools.
+      event.stopPropagation()
+      if (
+        tool !== 'select' ||
+        event.button !== 0 ||
+        !event.isPrimary ||
+        gestureOwner !== null ||
+        (avoidanceWorkflow && avoidanceWorkflow.draft.kind !== 'idle')
+      )
+        return
+      const avoidance = state.avoidances.find((item) => item.id === id)
+      const center = avoidance && findPoint(state, avoidance.markerId)
+      if (!center) return
+      capture(event, 'avoidance-radius', id, point)
+      if (drag.current?.kind === 'avoidance-radius')
+        drag.current.radiusCenter = { re: center.re, im: center.im }
+    },
     selectContour: (event: PointerEvent<SVGPathElement>) => {
       if (event.button !== 0 || !event.isPrimary || gestureOwner !== null) return
+      if (pickingTarget) {
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
       if (tool === 'marquee' && (event.ctrlKey || event.metaKey)) {
         marqueeClick(event, { kind: 'contour' })
         return
@@ -322,6 +384,13 @@ export function useCanvasInteraction({
     },
     selectSegment: (event: PointerEvent<SVGPathElement>, id: string) => {
       if (event.button !== 0 || !event.isPrimary || gestureOwner !== null) return
+      if (pickingTarget) {
+        event.preventDefault()
+        event.stopPropagation()
+        svgRef.current?.focus({ preventScroll: true })
+        avoidanceWorkflow.pickTarget(id)
+        return
+      }
       if (tool === 'marquee' && (event.ctrlKey || event.metaKey)) {
         marqueeClick(event, { kind: 'segment', id })
         return
@@ -339,6 +408,11 @@ export function useCanvasInteraction({
       point: ComplexPoint,
     ) => {
       if (event.button !== 0 || !event.isPrimary || gestureOwner !== null) return
+      if (pickingTarget) {
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
       if (tool === 'line' && (kind === 'vertex' || kind === 'marker')) {
         pointClick(event, id, kind)
         return
@@ -369,6 +443,11 @@ export function useCanvasInteraction({
       id: string,
       label: LabelSettings,
     ) => {
+      if (pickingTarget) {
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
       if (
         tool === 'marquee' &&
         event.button === 0 &&
@@ -393,6 +472,18 @@ export function useCanvasInteraction({
     handlers: {
       onBlur: () => setPointerFocus(false),
       onKeyDown: (event: ReactKeyboardEvent<SVGSVGElement>) => {
+        if (
+          event.key === 'Escape' &&
+          avoidanceWorkflow?.draft.kind !== 'idle' &&
+          avoidanceWorkflow
+        ) {
+          event.preventDefault()
+          event.stopPropagation()
+          cancel()
+          avoidanceWorkflow.cancel()
+          svgRef.current?.focus({ preventScroll: true })
+          return
+        }
         if (event.key === 'Tab') setPointerFocus(false)
         else if (event.key === 'Delete' || event.key === 'Backspace') setPointerFocus(true)
         if (event.key === 'Escape' && drag.current) {
@@ -418,6 +509,10 @@ export function useCanvasInteraction({
       onPointerDown: (event: PointerEvent<SVGSVGElement>) => {
         if (event.button !== 0 || !event.isPrimary || drag.current || gestureOwner !== null) return
         svgRef.current?.focus({ preventScroll: true })
+        if (pickingTarget) {
+          event.preventDefault()
+          return
+        }
         if (tool === 'select') return
         if (tool === 'marquee') {
           capture(event, 'marquee', '')
@@ -425,8 +520,21 @@ export function useCanvasInteraction({
         }
         const location = svgPoint(event.clientX, event.clientY)
         if (!location) return
-        const point = snapped(location, event.altKey)
+        // Project the raw pointer first: integer snapping must not pull a hit off its path.
+        const pathHit =
+          tool === 'marker' && !event.altKey
+            ? nearestPath(
+                sourceSnapPaths(state),
+                fromSvg(location, state.viewport),
+                pathMetric(),
+                8,
+              )
+            : null
+        const point = pathHit
+          ? snapPathInteger(fromSvg(location, state.viewport), pathHit, pathMetric(), state.snap)
+          : snapped(location, event.altKey)
         if (tool === 'line') {
+          // Connection and free-point tools only reuse source points, never generated joints.
           const existing = nearby(scenePoints(state), location)
           if (existing)
             pointClick(
@@ -526,7 +634,31 @@ export function useCanvasInteraction({
           })
           return
         }
-        const math = snapped(point, event.altKey, current.view, current.offset)
+        const raw = fromSvg(point, current.view)
+        if (current.kind === 'avoidance-radius' && current.radiusCenter) {
+          const radius = Math.hypot(
+            raw.re - current.offset.re - current.radiusCenter.re,
+            raw.im - current.offset.im - current.radiusCenter.im,
+          )
+          dispatch({ type: 'updateAvoidance', id: current.id, patch: { radius } })
+          return
+        }
+        const pathHit =
+          current.kind === 'marker' && current.markerPaths && !event.altKey
+            ? nearestPath(
+                current.markerPaths,
+                { re: raw.re - current.offset.re, im: raw.im - current.offset.im },
+                pathMetric(current.view),
+              )
+            : null
+        const math = pathHit
+          ? snapPathInteger(
+              { re: raw.re - current.offset.re, im: raw.im - current.offset.im },
+              pathHit,
+              pathMetric(current.view),
+              state.snap,
+            )
+          : snapped(point, event.altKey, current.view, current.offset)
         if (current.kind === 'vertex' || current.kind === 'through')
           dispatch({
             type: current.kind === 'vertex' ? 'move' : 'moveThrough',

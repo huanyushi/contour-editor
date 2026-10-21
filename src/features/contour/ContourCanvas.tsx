@@ -5,6 +5,7 @@ import type { ContourState } from './model'
 import type { EditorAction, GestureOwner } from './history'
 import { CanvasScene } from './CanvasScene'
 import { useCanvasInteraction } from './useCanvasInteraction'
+import type { AvoidanceWorkflow } from './useAvoidanceDraft'
 
 export type DrawingTool =
   'select' | 'marquee' | 'add' | 'line' | 'arc' | 'marker' | 'formula' | 'pan'
@@ -19,6 +20,7 @@ interface Props {
   size?: CanvasSize
   onPointerPosition?: (point: ComplexPoint | null) => void
   onInspect?: () => void
+  avoidanceWorkflow?: AvoidanceWorkflow
 }
 
 export function ContourCanvas({ canvasRef, size, ...props }: Props) {
@@ -26,6 +28,12 @@ export function ContourCanvas({ canvasRef, size, ...props }: Props) {
   const svgRef = canvasRef ?? internalRef
   const interaction = useCanvasInteraction({ ...props, svgRef })
   return (
-    <CanvasScene state={props.state} size={size} canvasRef={svgRef} interaction={interaction} />
+    <CanvasScene
+      state={props.state}
+      size={size}
+      canvasRef={svgRef}
+      interaction={interaction}
+      avoidanceWorkflow={props.avoidanceWorkflow}
+    />
   )
 }

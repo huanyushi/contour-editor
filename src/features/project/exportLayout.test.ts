@@ -5,6 +5,7 @@ import { canvasBounds } from '../../lib/viewport'
 import { defaultLabel, defaultPointStyle } from '../contour/appearance'
 import type { ContourState } from '../contour/model'
 import { createArcFixture } from '../../test/fixtures'
+import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
 import { defaultExportOptions } from './export'
 import { computeExportLayout } from './exportLayout'
 
@@ -15,6 +16,37 @@ function emptyScene(): ContourState {
 }
 
 describe('content export layout', () => {
+  it('can measure resolved endpoints after contour geometry expands a bound source line', () => {
+    const state = createAvoidanceFixture()
+    state.markers[0].im = 1
+    const original = JSON.stringify(state)
+    const layout = computeExportLayout(state, options)
+    const bounds = canvasBounds(layout.size)
+    const top = toSvg({ re: 0, im: 1.5 }, layout.state.viewport)
+    expect(top.y).toBeGreaterThanOrEqual(bounds.top + 24)
+    expect(top.y).toBeLessThan(bounds.bottom - 24)
+    expect(JSON.stringify(state)).toBe(original)
+  })
+
+  it('measures a bound source label at the actual chain midpoint without gap duplicates', () => {
+    const state = createAvoidanceFixture()
+    state.closed = false
+    state.vertices = state.vertices.slice(0, 2).map((vertex) => ({
+      ...vertex,
+      label: { ...defaultLabel(), visible: false },
+    }))
+    state.segments = [{ ...state.segments[0], label: { ...defaultLabel('C'), dx: 0, dy: -200 } }]
+    state.markers[0].label.visible = false
+    state.appearance.stroke.arrows = false
+    const layout = computeExportLayout(state, options)
+    // Endpoints ±4 at 40px/unit with 1px stroke: x=239..561.
+    // The chain midpoint is (0,0.5), so the label begins at y=80;
+    // the pole marker ends at y=304. Content gets 25px per side.
+    expect(layout.size).toEqual({ width: 372, height: 274 })
+    expect(layout.state.viewport.centerRe).toBeCloseTo(0)
+    expect(layout.state.viewport.centerIm).toBeCloseTo(2.7)
+  })
+
   it('keeps current unequal scales and contains wide geometry, strokes and offset text', () => {
     const state = createArcFixture()
     state.viewport = { ...state.viewport, scaleX: 60, scaleY: 30, locked: false }

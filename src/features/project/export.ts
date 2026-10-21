@@ -20,6 +20,10 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 export function serializeSvg(source: SVGSVGElement, options: ExportOptions): string {
   const svg = source.cloneNode(true) as SVGSVGElement
   svg.querySelectorAll('[data-export-omit]').forEach((node) => node.remove())
+  // A live canvas preview replaces the drawing, but exports still use applied geometry.
+  svg.querySelectorAll('[data-export-preview-source]').forEach((node) => {
+    node.removeAttribute('visibility')
+  })
   for (const [flag, enabled] of [
     ['axes', options.axes],
     ['grid', options.grid],

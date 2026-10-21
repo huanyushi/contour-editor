@@ -1,17 +1,23 @@
 import { isValidPoint, type ComplexPoint } from '../../lib/geometry'
+import type { MathematicalKind } from './avoidanceTypes'
 import { arcThrough } from '../../lib/arc'
-import { projectCapacityError } from '../project/format'
-import { canProjectScene } from './sceneView'
+import { projectSceneError } from '../project/validation'
 import type { LabelSettings, PointStyle, StrokeStyle } from './appearance'
 import { workspaceReducer, type WorkspaceAction, type WorkspaceState } from './workspace'
 import { createRectangleState } from './templates'
 import { activeSegments, isSingleCycle, singleChainEnds } from './pathTopology'
 import { deleteItems, selectionReducer, type SelectionAction } from './selectionModel'
 import { translateSelection } from './selectionTransform'
-import { findPoint, findSegment, scenePoints, sceneSegments } from './sceneObjects'
+import { findPoint, findSegment, scenePoints, sceneSegments, segmentOrigin } from './sceneObjects'
+import {
+  avoidanceReducer,
+  reconcileAvoidanceDependencies,
+  type AvoidanceAction,
+} from './avoidanceModel'
 
 export interface Vertex extends ComplexPoint {
   id: string
+  mathematicalKind?: MathematicalKind
   label?: LabelSettings
   pointStyle?: PointStyle
 }
@@ -40,6 +46,7 @@ export type ContourAction =
   | { type: 'loadProject'; state: ContourState }
   | WorkspaceAction
   | SelectionAction
+  | AvoidanceAction
   | { type: 'translateSelection'; from: ContourState; delta: ComplexPoint }
   | { type: 'select' | 'selectSegment'; id: string }
   | { type: 'move' | 'moveThrough'; id: string; point: ComplexPoint }
@@ -64,7 +71,9 @@ export function canClose(state: Pick<ContourState, 'vertices' | 'segments'>): bo
 
 function lineFactory(state: ContourState, extraId = '') {
   const used = new Set(
-    [...scenePoints(state), ...sceneSegments(state), ...state.formulas].map((o) => o.id),
+    [...scenePoints(state), ...sceneSegments(state), ...state.formulas, ...state.avoidances].map(
+      (o) => o.id,
+    ),
   )
   used.add(extraId)
   return (startId: string, endId: string, preferred: string): LineSegment => {
@@ -115,11 +124,12 @@ function acceptGeometry(previous: ContourState, candidate: ContourState): Contou
 }
 
 export function contourReducer(state: ContourState, action: ContourAction): ContourState {
-  const next = reduceContour(state, action)
+  const next = reconcileAvoidanceDependencies(state, reduceContour(state, action), action)
   if (
     next.vertices === state.vertices &&
     next.segments === state.segments &&
     next.connections === state.connections &&
+    next.avoidances === state.avoidances &&
     next.markers === state.markers &&
     next.formulas === state.formulas &&
     next.appearance === state.appearance &&
@@ -131,18 +141,23 @@ export function contourReducer(state: ContourState, action: ContourAction): Cont
     next.axes === state.axes
   )
     return next
-  if (!canProjectScene(next, next.viewport))
-    return { ...state, error: '当前数值无法在此视图比例下安全绘制，请减小倍率或调整视图。' }
-  const capacity = projectCapacityError(next)
-  return capacity ? { ...state, error: capacity } : next
+  const error = projectSceneError(next)
+  return error ? { ...state, error } : next
 }
 
 function reduceContour(state: ContourState, action: ContourAction): ContourState {
   switch (action.type) {
+    case 'mathematicalKind':
+    case 'addAvoidance':
+    case 'updateAvoidance':
+    case 'removeAvoidance':
+    case 'avoidanceStyle':
+    case 'avoidanceLabel':
+      return avoidanceReducer(state, action)
     case 'loadProject':
       return action.state
     case 'translateSelection': {
-      const moved = translateSelection(action.from, action.delta)
+      const moved = translateSelection(action.from, action.delta, state)
       if (moved.error) return { ...state, error: moved.error }
       return acceptGeometry(state, {
         ...state,
@@ -151,6 +166,7 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
         connections: moved.connections,
         markers: moved.markers,
         formulas: moved.formulas,
+        avoidances: moved.avoidances,
       })
     }
     case 'selectMany':
@@ -170,7 +186,7 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
           }
         : state
     case 'selectSegment':
-      return findSegment(state, action.id)
+      return segmentOrigin(state, action.id)
         ? {
             ...state,
             selectedSegmentId: action.id,
@@ -180,12 +196,14 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
           }
         : state
     case 'move':
-      if (!isValidPoint(action.point)) return state
+      if (!state.vertices.some((p) => p.id === action.id) || !isValidPoint(action.point))
+        return state
       return acceptGeometry(state, {
         ...state,
         vertices: state.vertices.map((p) => (p.id === action.id ? { ...p, ...action.point } : p)),
       })
     case 'moveThrough':
+      if (!findSegment(state, action.id)) return state
       return acceptGeometry(
         state,
         updateSegment(state, action.id, (s) =>
@@ -193,6 +211,12 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
         ),
       )
     case 'setArc':
+      if (
+        state.avoidances.some(
+          (a) => a.targetSegmentId === action.id || a.exitSegmentId === action.id,
+        )
+      )
+        return { ...state, error: '请先取消该源路径的绕行，再转为三点圆弧。' }
       if (!findSegment(state, action.id))
         return { ...state, error: '请先选择一条路径段，再指定圆弧经过点。' }
       return acceptGeometry(
@@ -256,9 +280,12 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
         })
       if (
         !/^[a-zA-Z0-9_-]{1,80}$/.test(action.vertex.id) ||
-        [...scenePoints(state), ...sceneSegments(state), ...state.formulas].some(
-          (p) => p.id === action.vertex.id,
-        )
+        [
+          ...scenePoints(state),
+          ...sceneSegments(state),
+          ...state.formulas,
+          ...state.avoidances,
+        ].some((p) => p.id === action.vertex.id)
       )
         return state
       const line = lineFactory(state, action.vertex.id)

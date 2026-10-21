@@ -35,8 +35,12 @@
 }
 
 .color-field-swatch {
+  display: grid;
+  place-items: center;
   min-width: 0;
-  height: 28px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
   padding: 3px;
 }
 
@@ -53,11 +57,20 @@
   background: #edf5f3;
 }
 
-.color-field-more {
+.color-field-saved {
   margin-top: 6px;
-  padding: 4px 8px;
+}
+
+.color-field-add {
+  position: relative;
   color: #176b5c;
-  font-size: 11px;
+}
+
+.color-field-add > svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .color-field-custom {

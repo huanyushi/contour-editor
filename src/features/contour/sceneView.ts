@@ -1,4 +1,4 @@
-import { arcExtrema, arcThrough, pointOnArc } from '../../lib/arc'
+import { arcExtrema, arcThrough } from '../../lib/arc'
 import { fromSvg, toSvg, type ComplexPoint } from '../../lib/geometry'
 import {
   exportSize,
@@ -11,22 +11,31 @@ import {
 import { renderMath } from '../../lib/math'
 import { defaultLabel, type LabelSettings } from './appearance'
 import type { ContourState } from './model'
-import { scenePoints, sceneSegments, visibleSceneSegments } from './sceneObjects'
+import { sceneSegments } from './sceneObjects'
+import { resolveScene } from './resolvedScene'
 
 export function canProjectScene(state: ContourState, view: Viewport): boolean {
   if (!validViewport(view)) return false
+  const resolution = resolveScene(state)
+  if (!resolution.ok) return false
+  const { scene } = resolution
   const points: ComplexPoint[] = [...state.vertices, ...state.markers, ...state.formulas]
-  const vertices = new Map(scenePoints(state).map((point) => [point.id, point]))
-  for (const segment of sceneSegments(state)) {
-    const start = vertices.get(segment.startId),
-      end = vertices.get(segment.endId)
+  points.push(...scene.points.values())
+  for (const segment of [
+    ...sceneSegments(state),
+    ...scene.contourSegments,
+    ...scene.connectionSegments,
+  ]) {
+    const start = scene.points.get(segment.startId),
+      end = scene.points.get(segment.endId)
     if (!start || !end) return false
     if (segment.kind !== 'arc') continue
     const result = arcThrough(start, end, segment.through)
     if (!result.ok || !Number.isFinite(result.arc.radius * Math.max(view.scaleX, view.scaleY)))
       return false
-    points.push(segment.through, pointOnArc(result.arc, 0.5))
+    points.push(segment.through, ...arcExtrema(result.arc))
   }
+  points.push(...scene.labels.map((label) => label.anchor))
   return points.every((point) => {
     const p = toSvg(point, view)
     return Number.isFinite(p.x) && Number.isFinite(p.y)
@@ -34,10 +43,13 @@ export function canProjectScene(state: ContourState, view: Viewport): boolean {
 }
 
 export function fitScene(state: ContourState, size: CanvasSize = exportSize): Viewport | null {
+  const resolution = resolveScene(state)
+  if (!resolution.ok) return null
+  const { scene } = resolution
   const padding = Math.min(96, Math.max(56, Math.min(size.width, size.height) * 0.14))
   const availableWidth = Math.max(1, size.width - 2 * padding)
   const availableHeight = Math.max(1, size.height - 2 * padding)
-  const points: ComplexPoint[] = [...state.vertices, ...state.markers, ...state.formulas]
+  const points: ComplexPoint[] = [...scene.points.values(), ...state.formulas]
   const labels: { point: ComplexPoint; label: LabelSettings; width: number; height: number }[] = []
   if (!points.length) return state.viewport
   const addLabel = (point: ComplexPoint, label: LabelSettings) => {
@@ -54,20 +66,17 @@ export function fitScene(state: ContourState, size: CanvasSize = exportSize): Vi
     addLabel(point, point.label ?? defaultLabel(`z_{${index + 1}}`)),
   )
   ;[...state.markers, ...state.formulas].forEach((point) => addLabel(point, point.label))
-  const vertices = new Map(scenePoints(state).map((point) => [point.id, point]))
-  for (const segment of visibleSceneSegments(state)) {
-    const start = vertices.get(segment.startId)!
-    const end = vertices.get(segment.endId)!
-    let middle = { re: start.re / 2 + end.re / 2, im: start.im / 2 + end.im / 2 }
+  for (const segment of [...scene.contourSegments, ...scene.connectionSegments]) {
+    const start = scene.points.get(segment.startId)!
+    const end = scene.points.get(segment.endId)!
     if (segment.kind === 'arc') {
       const result = arcThrough(start, end, segment.through)
       if (!result.ok) return null
       const arc = result.arc
-      middle = pointOnArc(arc, 0.5)
       points.push(...arcExtrema(arc))
     }
-    if (segment.label) addLabel(middle, segment.label)
   }
+  for (const { anchor, value } of scene.labels) addLabel(anchor, value)
   const minRe = Math.min(...points.map((p) => p.re)),
     maxRe = Math.max(...points.map((p) => p.re))
   const minIm = Math.min(...points.map((p) => p.im)),

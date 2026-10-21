@@ -7,6 +7,86 @@ import { defaultAxes, defaultViewport } from '../../lib/viewport'
 import { parseProject, serializeProject } from '../project/project'
 import { canProjectScene, fitScene } from './sceneView'
 import { toSvg } from '../../lib/geometry'
+import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
+import { defaultLabel } from './appearance'
+
+describe('resolved scene views', () => {
+  it('fits the off-line circle top at (0, 1.5), beyond the source points', () => {
+    const state = createAvoidanceFixture()
+    state.closed = false
+    state.vertices = [
+      { id: 'a', re: -0.75, im: 0 },
+      { id: 'b', re: 0.75, im: 0 },
+    ]
+    state.segments = [state.segments[0]]
+    state.markers[0].im = 1
+    const fit = fitScene(state)!
+    expect(fit).not.toBeNull()
+    const top = toSvg({ re: 0, im: 1.5 }, fit)
+    expect(top.y).toBeGreaterThanOrEqual(83)
+    expect(top.y).toBeLessThan(300)
+    expect(toSvg({ re: -0.75, im: 0 }, fit).y).toBeLessThanOrEqual(517)
+  })
+
+  it('preserves mathematical center and radius under unequal projection scales', () => {
+    const state = createAvoidanceFixture()
+    state.markers[0].im = 1
+    state.viewport = { ...state.viewport, scaleX: 80, scaleY: 20, locked: false }
+    const arc = buildContourGeometry(state).segments.find((part) => part.segment.kind === 'arc')!
+    expect(arc.arc!.center.re).toBeCloseTo(0)
+    expect(arc.arc!.center.im).toBeCloseTo(1)
+    expect(arc.arc!.radius).toBeCloseTo(0.5)
+    const radii = arc.command.split(' ').slice(1, 3).map(Number)
+    expect(radii[0]).toBeCloseTo(40)
+    expect(radii[1]).toBeCloseTo(10)
+    expect(arc.arrow!.point.x).toBeCloseTo(400)
+    expect(arc.arrow!.point.y).toBeCloseTo(270)
+    expect(arc.arrow!.tangent.x).toBeCloseTo(1)
+    expect(fitScene(state)!.scaleY / fitScene(state)!.scaleX).toBeCloseTo(0.25)
+  })
+
+  it('rejects an overflowing derived arc even when every source point projects finitely', () => {
+    const state = createAvoidanceFixture()
+    state.closed = false
+    state.vertices = [
+      { id: 'a', re: -1e306, im: 0 },
+      { id: 'b', re: 1e306, im: 0 },
+    ]
+    state.segments = [state.segments[0]]
+    state.markers[0].im = 1e306
+    state.avoidances[0].radius = 0.5e306
+    const view = { ...state.viewport, scaleY: 120, locked: false }
+    expect(
+      [...state.vertices, ...state.markers].every((p) =>
+        Object.values(toSvg(p, view)).every(Number.isFinite),
+      ),
+    ).toBe(true)
+    expect(canProjectScene(state, view)).toBe(false)
+  })
+
+  it('still validates a retained source arc while its closing edge is hidden', () => {
+    const state = createArcFixture()
+    state.closed = false
+    state.segments[1] = { ...state.segments[1], kind: 'arc', through: { re: 0, im: 0 } }
+    expect(canProjectScene(state, state.viewport)).toBe(false)
+  })
+
+  it('fits source-label pixel offsets from the resolved logical-chain anchor', () => {
+    const state = createAvoidanceFixture()
+    state.closed = false
+    state.vertices = [
+      { id: 'a', re: -0.75, im: 0 },
+      { id: 'b', re: 0.75, im: 0 },
+    ]
+    state.segments = [{ ...state.segments[0], label: { ...defaultLabel('C'), dy: -200 } }]
+    state.markers[0].im = 1
+    const view = fitScene(state)!
+    expect(view).not.toBeNull()
+    const anchor = toSvg({ re: 0, im: 1.5 }, view)
+    expect(anchor.y - 200).toBeGreaterThanOrEqual(83)
+    expect(toSvg({ re: 0, im: 0 }, view).y).toBeLessThanOrEqual(517)
+  })
+})
 
 describe('view integration', () => {
   it('restores a safe view if undoing extreme coordinates would overflow the current zoom', () => {

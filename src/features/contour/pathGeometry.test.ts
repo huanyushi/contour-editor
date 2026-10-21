@@ -1,7 +1,105 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialState, contourReducer } from './model'
 import { createArcFixture } from '../../test/fixtures'
-import { buildContourGeometry } from './pathGeometry'
+import { buildContourGeometry, buildSceneGeometry } from './pathGeometry'
+import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
+import { defaultLabel } from './appearance'
+import { resolvedScene } from './sceneObjects'
+
+describe('resolved SVG geometry', () => {
+  it('traces every expanded contour part into the closed fill, excluding independent paths', () => {
+    const state = createAvoidanceFixture()
+    state.connections = [{ id: 'diagonal', kind: 'line', startId: 'a', endId: 'c' }]
+    const geometry = buildContourGeometry(state)
+    expect(geometry.segments).toHaveLength(7)
+    expect(geometry.path).toBe(
+      'M 240 300 L 380 300 A 20 20 0 0 1 420 300 L 560 300 L 560 180 L 240 180 L 240 300 Z',
+    )
+  })
+
+  it('places only one default arrow at the mathematical length midpoint of an asymmetric chain', () => {
+    const state = createAvoidanceFixture()
+    state.markers[0].re = -2
+    state.segments[0].label = defaultLabel('C')
+    const geometry = buildContourGeometry(state)
+    const arrows = geometry.segments.filter((part) => part.arrow)
+    expect(arrows).toHaveLength(4)
+    const arrow = arrows.find((part) => part.segment.id === 'gap:edge-a:after:avoid-1')!.arrow!
+    expect(arrow.point.x).toBeCloseTo(420 - 10 * Math.PI)
+    expect(arrow.point.y).toBe(300)
+    expect(arrow.tangent).toEqual({ x: 1, y: 0 })
+    expect(geometry.labels).toHaveLength(1)
+    expect(geometry.labels[0].target).toEqual({ kind: 'segment', id: 'edge-a', part: 'label' })
+    expect(geometry.labels[0].point.x).toBeCloseTo(420 - 10 * Math.PI)
+  })
+
+  it.each([true, false])(
+    'honors explicit part arrows=%s without relocating an unrelated default arrow',
+    (arrows) => {
+      const state = createAvoidanceFixture()
+      state.markers[0].re = -2
+      state.avoidances[0].partStyles = { arc: { arrows } }
+      const parts = buildContourGeometry(state).segments
+      expect(parts.filter((part) => part.arrow)).toHaveLength(arrows ? 5 : 4)
+      const arc = parts.find((part) => part.segment.id === 'avoid:avoid-1:arc')!
+      expect(Boolean(arc.arrow)).toBe(arrows)
+      if (arrows) expect(arc.arrow!.point).toEqual({ x: 320, y: 280 })
+      expect(
+        parts.find((part) => part.segment.id === 'gap:edge-a:after:avoid-1')!.arrow!.point.x,
+      ).toBeCloseTo(420 - 10 * Math.PI)
+    },
+  )
+
+  it('suppresses a default arrow landing on an explicitly disabled part', () => {
+    const state = createAvoidanceFixture()
+    state.avoidances[0].partStyles = { arc: { arrows: false } }
+    const parts = buildContourGeometry(state).segments
+    expect(parts.filter((part) => part.arrow)).toHaveLength(3)
+  })
+
+  it('uses chain visibility rather than each short part for the 20px arrow threshold', () => {
+    const state = createAvoidanceFixture()
+    state.viewport = { ...state.viewport, scaleX: 3, scaleY: 3 }
+    const parts = buildContourGeometry(state).segments
+    expect(parts.find((part) => part.segment.id === 'avoid:avoid-1:arc')?.arrow).toBeDefined()
+    expect(parts.find((part) => part.segment.id === 'edge-b')?.arrow).toBeUndefined()
+  })
+
+  it('builds preview geometry using only a resolved scene and a separate view', () => {
+    const state = createAvoidanceFixture()
+    state.segments[0].label = defaultLabel('C')
+    const geometry = buildSceneGeometry(resolvedScene(state), {
+      closed: state.closed,
+      appearance: state.appearance,
+      viewport: { ...state.viewport, scaleX: 80, scaleY: 20, locked: false },
+    })
+    expect(geometry.path).toBe(
+      'M 80 300 L 360 300 A 40 10 0 0 1 440 300 L 720 300 L 720 240 L 80 240 L 80 300 Z',
+    )
+    expect(geometry.labels[0].point).toEqual({ x: 400, y: 290 })
+  })
+
+  it('keeps an independently bound connection entirely outside the contour fill', () => {
+    const state = createAvoidanceFixture()
+    state.connections = [{ id: 'diagonal', kind: 'line', startId: 'a', endId: 'c' }]
+    state.markers[0].im = 1.5
+    state.avoidances[0].targetSegmentId = 'diagonal'
+    const geometry = buildContourGeometry(state)
+    expect(geometry.segments).toHaveLength(7)
+    expect(geometry.segments.filter((part) => part.arc)).toHaveLength(1)
+    expect(geometry.path).toBe('M 240 300 L 560 300 L 560 180 L 240 180 L 240 300 Z')
+  })
+
+  it('traces disconnected expanded chains by endpoint IDs rather than array order', () => {
+    const state = createAvoidanceFixture()
+    state.closed = false
+    state.segments = [state.segments[2], state.segments[0]]
+    const geometry = buildContourGeometry(state)
+    expect(geometry.path).toBe(
+      'M 560 180 L 240 180 M 240 300 L 380 300 A 20 20 0 0 1 420 300 L 560 300',
+    )
+  })
+})
 
 describe('mixed SVG geometry', () => {
   it('keeps arrows finite between opposite large endpoints', () => {

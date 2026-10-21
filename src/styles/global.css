@@ -694,6 +694,14 @@ fieldset.property-group legend + * {
 .property-group h3 {
   margin-bottom: 14px;
 }
+.property-group.avoidance-part-properties {
+  margin-top: 18px;
+  border-top: 1px solid #e8eef0;
+  border-bottom: 0;
+}
+.avoidance-select-field select {
+  min-width: 0;
+}
 .contour-actions {
   margin: 0 18px;
   padding: 16px 0 20px;
@@ -905,6 +913,11 @@ input[type='checkbox'] {
 .object-row > span:last-child {
   color: #73868a;
   font-size: 10px;
+}
+.object-row-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 .object-row.selected {
   background: #e7f1ed;

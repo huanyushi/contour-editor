@@ -1,12 +1,15 @@
 import { useState, type Dispatch, type ReactNode } from 'react'
 import { arcThrough } from '../../lib/arc'
 import { defaultLabel, defaultPointStyle, type SelectionItem } from './appearance'
-import type { ContourAction, ContourState, PathSegment } from './model'
+import type { ContourState, PathSegment } from './model'
+import type { EditorAction } from './history'
 import { PointForm } from './PointForm'
 import { LabelForm } from './LabelForm'
 import { FillFields, PointStyleFields, StrokeFields } from './StyleFields'
 import { MultipleProperties } from './MultipleProperties'
-import { findPoint, findSegment } from './sceneObjects'
+import { findPoint, findSegment, segmentOrigin } from './sceneObjects'
+import { AvoidanceProperties } from './AvoidanceProperties'
+import type { AvoidanceWorkflow } from './useAvoidanceDraft'
 
 const number = (n: number) => Number(n.toFixed(6)).toString()
 
@@ -91,10 +94,14 @@ function SingleObjectProperties({
   state,
   dispatch,
   selection,
+  avoidanceWorkflow,
+  onInspectHidden,
 }: {
   state: ContourState
-  dispatch: Dispatch<ContourAction>
+  dispatch: Dispatch<EditorAction>
   selection: SelectionItem
+  avoidanceWorkflow?: AvoidanceWorkflow
+  onInspectHidden: (id: string) => void
 }) {
   const segment = selection.kind === 'segment' ? findSegment(state, selection.id) : undefined
   const point =
@@ -136,6 +143,18 @@ function SingleObjectProperties({
     })
   return (
     <div className="property-content">
+      {avoidanceWorkflow &&
+        (selection.kind === 'marker' || selection.kind === 'vertex' || segment) && (
+          <AvoidanceProperties
+            state={state}
+            dispatch={dispatch}
+            workflow={avoidanceWorkflow}
+            onInspectHidden={onInspectHidden}
+            markerId={
+              selection.kind === 'marker' || selection.kind === 'vertex' ? selection.id : undefined
+            }
+          />
+        )}
       {point && selection.kind !== 'contour' && (
         <>
           {selection.kind === 'formula' &&
@@ -319,11 +338,55 @@ function SingleObjectProperties({
 
 export function ObjectProperties(props: {
   state: ContourState
-  dispatch: Dispatch<ContourAction>
+  dispatch: Dispatch<EditorAction>
+  avoidanceWorkflow?: AvoidanceWorkflow
 }) {
+  const [hiddenBinding, setHiddenBinding] = useState<{
+    id: string
+    selection: ContourState['selection']
+  }>()
   const selection = props.state.selection
+  const inspectHidden = (id: string) => setHiddenBinding({ id, selection })
+  if (
+    hiddenBinding &&
+    hiddenBinding.selection === selection &&
+    props.avoidanceWorkflow &&
+    props.state.avoidances.some((a) => a.id === hiddenBinding.id)
+  )
+    return (
+      <AvoidanceProperties
+        state={props.state}
+        workflow={props.avoidanceWorkflow}
+        avoidanceId={hiddenBinding.id}
+        dispatch={(action) => {
+          if (action.type === 'selectObject' || action.type === 'selectSegment')
+            setHiddenBinding(undefined)
+          props.dispatch(action)
+        }}
+      />
+    )
   if (selection.kind === 'multiple') return <MultipleProperties {...props} />
   if (selection.kind === 'none')
     return <p className="muted small property-content">选择对象或拖动框选区域以编辑属性。</p>
-  return <SingleObjectProperties {...props} selection={selection} />
+  if (selection.kind === 'segment') {
+    const origin = segmentOrigin(props.state, selection.id)
+    if (origin?.kind === 'avoidance' && props.avoidanceWorkflow)
+      return (
+        <AvoidanceProperties
+          state={props.state}
+          dispatch={props.dispatch}
+          workflow={props.avoidanceWorkflow}
+          avoidanceId={origin.avoidanceId}
+        />
+      )
+    if (origin?.kind === 'gap')
+      return (
+        <SingleObjectProperties
+          {...props}
+          onInspectHidden={inspectHidden}
+          selection={{ ...selection, id: origin.sourceSegmentId }}
+        />
+      )
+  }
+  return <SingleObjectProperties {...props} onInspectHidden={inspectHidden} selection={selection} />
 }

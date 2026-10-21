@@ -1,4 +1,6 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
+import { Plus } from 'lucide-react'
+import { customPaletteStore, MAX_CUSTOM_COLORS } from './customPalette'
 import './ColorField.css'
 
 interface RangeFieldProps {
@@ -89,9 +91,63 @@ export function ColorField({
   onChange: (value: string) => void
 }) {
   const [customOpen, setCustomOpen] = useState(false)
+  const [pickerColor, setPickerColor] = useState('#263238')
+  const [savedTarget, setSavedTarget] = useState<string>()
+  const addRef = useRef<HTMLButtonElement>(null)
+  const returnToAdd = useRef(false)
+  const pickerRef = useRef<HTMLInputElement>(null)
+  const session = useRef<{ slot?: string; pending?: string; editing: boolean }>({ editing: false })
+  const savedColors = useSyncExternalStore(
+    customPaletteStore.subscribe,
+    customPaletteStore.getSnapshot,
+  )
   const id = useId()
   const color = value?.toLowerCase()
   const customColor = color !== undefined && !colorPresets.some((preset) => preset.value === color)
+
+  const commitChoice = useCallback((next: string) => {
+    session.current.slot = customPaletteStore.remember(next, session.current.slot)
+    session.current.pending = undefined
+    setSavedTarget(customPaletteStore.getSnapshot().includes(next) ? next : undefined)
+  }, [])
+
+  const finishPending = useCallback(() => {
+    if (session.current.pending !== undefined) commitChoice(session.current.pending)
+  }, [commitChoice])
+
+  useEffect(() => {
+    if (!customOpen) {
+      if (returnToAdd.current) {
+        addRef.current?.focus()
+        returnToAdd.current = false
+      }
+      return
+    }
+    const input = pickerRef.current
+    if (!input) return
+    input.focus()
+    // React may suppress a change with the same value as the preceding input event.
+    const commit = () => commitChoice(input.value)
+    input.addEventListener('change', commit)
+    return () => input.removeEventListener('change', commit)
+  }, [customOpen, commitChoice])
+
+  useEffect(() => () => finishPending(), [finishPending])
+
+  const openPicker = (saved?: string) => {
+    finishPending()
+    session.current = { slot: saved, editing: saved !== undefined }
+    setSavedTarget(saved)
+    setPickerColor(saved ?? color ?? '#263238')
+    setCustomOpen(true)
+    pickerRef.current?.focus()
+  }
+
+  const selectColor = (next: string) => {
+    finishPending()
+    setCustomOpen(false)
+    onChange(next)
+  }
 
   return (
     <div className="color-field">
@@ -126,33 +182,97 @@ export function ColorField({
             aria-label={`${name}：${preset.name}`}
             aria-pressed={color === preset.value}
             title={preset.name}
-            onClick={() => onChange(preset.value)}
+            onClick={() => selectColor(preset.value)}
           >
             <span style={{ backgroundColor: preset.value }} aria-hidden="true" />
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        className="color-field-more"
-        aria-label={`自定义${name}`}
-        aria-expanded={customOpen}
-        aria-controls={`${id}-custom`}
-        onClick={() => setCustomOpen((open) => !open)}
+      <div
+        className="color-field-presets color-field-saved"
+        role="group"
+        aria-label={`${name}自定义颜色`}
       >
-        更多…
-      </button>
+        {savedColors.map((saved) => (
+          <button
+            key={saved}
+            type="button"
+            className="color-field-swatch"
+            aria-label={`${name}：自定义 ${saved}`}
+            aria-pressed={color === saved}
+            title={`${saved}：选色并编辑`}
+            aria-expanded={customOpen && savedTarget === saved}
+            aria-controls={`${id}-custom`}
+            onClick={() => {
+              openPicker(saved)
+              onChange(saved)
+            }}
+          >
+            <span style={{ backgroundColor: saved }} aria-hidden="true" />
+          </button>
+        ))}
+        {savedColors.length < MAX_CUSTOM_COLORS && (
+          <button
+            ref={addRef}
+            type="button"
+            className="color-field-swatch color-field-add"
+            aria-label={`自定义${name}`}
+            title="添加自定义颜色"
+            aria-expanded={customOpen}
+            aria-controls={`${id}-custom`}
+            onClick={() => {
+              if (customOpen && !session.current.editing) {
+                finishPending()
+                setCustomOpen(false)
+              } else {
+                openPicker()
+              }
+            }}
+          >
+            <Plus size={20} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+        )}
+      </div>
       {customOpen && (
         <div className="color-field-custom" id={`${id}-custom`}>
           <label htmlFor={`${id}-input`}>自定义颜色</label>
           <input
+            ref={pickerRef}
             id={`${id}-input`}
             aria-label={name}
             aria-describedby={`${id}-status`}
             type="color"
-            value={color ?? '#263238'}
-            onChange={(event) => onChange(event.currentTarget.value)}
+            value={pickerColor}
+            onClick={() => {
+              finishPending()
+              if (!session.current.editing) session.current.slot = undefined
+            }}
+            onBlur={finishPending}
+            onChange={(event) => {
+              const next = event.currentTarget.value
+              setPickerColor(next)
+              session.current.pending = next
+              onChange(next)
+              if (event.nativeEvent.type === 'change') commitChoice(next)
+            }}
           />
+          {savedTarget !== undefined && savedColors.includes(savedTarget) && (
+            <button
+              type="button"
+              aria-label={`删除自定义${name}`}
+              title="仅从色板删除，不改变图形颜色"
+              onClick={() => {
+                finishPending()
+                customPaletteStore.remove(session.current.slot ?? pickerColor)
+                session.current = { editing: false }
+                setSavedTarget(undefined)
+                returnToAdd.current = true
+                setCustomOpen(false)
+              }}
+            >
+              删除
+            </button>
+          )}
         </div>
       )}
     </div>

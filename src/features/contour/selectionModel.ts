@@ -8,8 +8,14 @@ import {
   type SelectionItem,
 } from './appearance'
 import { activeSegments, isSingleCycle } from './pathTopology'
-import { workspaceReducer } from './workspace'
-import { findSegment, sceneSegments } from './sceneObjects'
+import { workspaceReducer, type WorkspaceAction } from './workspace'
+import { segmentOrigin } from './sceneObjects'
+import {
+  selectedSegmentLabel,
+  selectedSegmentStyle,
+  selectionWorkspaceAction,
+  type SelectionWorkspaceEdit,
+} from './avoidanceSelection'
 
 export interface SelectionStylePatch {
   color?: string
@@ -31,6 +37,41 @@ export function selectionItems(selection: Selection): SelectionItem[] {
       : [selection]
 }
 
+/** Only lifecycle cleanup here; generated-object selection mapping belongs to its consumers. */
+export function cleanupRemovedAvoidanceSelection(
+  before: ContourState,
+  candidate: ContourState,
+): ContourState {
+  const live = new Set(candidate.avoidances.map((a) => a.id))
+  const removed = before.avoidances.filter((a) => !live.has(a.id))
+  if (!removed.length) return candidate
+  const stale = (id: string) =>
+    removed.some(
+      (a) =>
+        id.startsWith(`avoid:${a.id}:`) ||
+        id === `gap:${a.targetSegmentId}:before:${a.id}` ||
+        id === `gap:${a.targetSegmentId}:after:${a.id}` ||
+        (a.exitSegmentId !== undefined &&
+          (id === `gap:${a.exitSegmentId}:before:${a.id}` ||
+            id === `gap:${a.exitSegmentId}:after:${a.id}`)),
+    )
+  const items = selectionItems(candidate.selection)
+  const kept = items.filter((item) => item.kind === 'contour' || !stale(item.id))
+  const selection =
+    kept.length === items.length
+      ? candidate.selection
+      : kept.length === 0
+        ? { kind: 'none' as const }
+        : kept.length === 1
+          ? kept[0]
+          : { kind: 'multiple' as const, items: kept }
+  return {
+    ...candidate,
+    selection,
+    selectedSegmentId: stale(candidate.selectedSegmentId) ? '' : candidate.selectedSegmentId,
+  }
+}
+
 export function selectionKey(item: SelectionItem): string {
   return item.kind === 'contour' ? 'contour' : `${item.kind}:${item.id}:${item.part ?? ''}`
 }
@@ -40,15 +81,14 @@ export function isSelected(selection: Selection, target: SelectionItem): boolean
 }
 
 function exists(state: ContourState, item: SelectionItem): boolean {
+  if (item.kind === 'segment') return !!segmentOrigin(state, item.id)
   return item.kind === 'contour'
     ? state.vertices.length > 0
     : (item.kind === 'vertex'
         ? state.vertices
-        : item.kind === 'segment'
-          ? sceneSegments(state)
-          : item.kind === 'marker'
-            ? state.markers
-            : state.formulas
+        : item.kind === 'marker'
+          ? state.markers
+          : state.formulas
       ).some((o) => o.id === item.id)
 }
 
@@ -81,25 +121,21 @@ function selectItems(
 
 export function itemLabel(state: ContourState, item: SelectionItem) {
   if (item.kind === 'contour') return undefined
+  if (item.kind === 'segment') return selectedSegmentLabel(state, item.id)
   if (item.kind === 'vertex') {
     const index = state.vertices.findIndex((v) => v.id === item.id)
     return index < 0 ? undefined : (state.vertices[index].label ?? defaultLabel(`z_{${index + 1}}`))
   }
-  const object = (
-    item.kind === 'segment'
-      ? sceneSegments(state)
-      : item.kind === 'marker'
-        ? state.markers
-        : state.formulas
-  ).find((o) => o.id === item.id)
+  const object = (item.kind === 'marker' ? state.markers : state.formulas).find(
+    (o) => o.id === item.id,
+  )
   return object?.label
 }
 
 export function itemColor(state: ContourState, item: SelectionItem): string | undefined {
   if (item.kind === 'contour') return state.appearance.stroke.color
   if (item.part === 'label' || item.kind === 'formula') return itemLabel(state, item)?.color
-  if (item.kind === 'segment')
-    return findSegment(state, item.id)?.style?.color ?? state.appearance.stroke.color
+  if (item.kind === 'segment') return selectedSegmentStyle(state, item.id)?.color
   return (
     (item.kind === 'vertex' ? state.vertices : state.markers).find((p) => p.id === item.id)
       ?.pointStyle?.color ?? defaultPointStyle().color
@@ -114,13 +150,15 @@ function styleSelection(state: ContourState, patch: SelectionStylePatch): Contou
     (patch.labelSize !== undefined && !inRange(patch.labelSize, 10, 40))
   )
     return { ...state, error: '批量外观设置超出有效范围。' }
-  let next = state
+  const edits: SelectionWorkspaceEdit[] = []
+  const edit = (action: WorkspaceAction) => edits.push(selectionWorkspaceAction(state, action))
+  let contourStroke = false
   for (const item of selectionItems(state.selection)) {
     if (!exists(state, item)) continue
     if (item.kind !== 'contour' && (item.part === 'label' || item.kind === 'formula')) {
       const label = itemLabel(state, item)
       if (label)
-        next = workspaceReducer(next, {
+        edit({
           type: 'label',
           target: item,
           label: {
@@ -135,14 +173,10 @@ function styleSelection(state: ContourState, patch: SelectionStylePatch): Contou
         ...(patch.width !== undefined ? { width: patch.width } : {}),
       }
       if (Object.keys(stroke).length) {
-        if (item.kind === 'segment')
-          next = workspaceReducer(next, { type: 'stroke', id: item.id, patch: stroke })
+        if (item.kind === 'segment') edit({ type: 'stroke', id: item.id, patch: stroke })
         else {
-          next = workspaceReducer(next, { type: 'stroke', patch: stroke })
-          next = {
-            ...next,
-            segments: next.segments.map((s) => ({ ...s, style: { ...s.style, ...stroke } })),
-          }
+          edit({ type: 'stroke', patch: stroke })
+          contourStroke = true
         }
       }
     } else {
@@ -150,11 +184,26 @@ function styleSelection(state: ContourState, patch: SelectionStylePatch): Contou
         ...(patch.color !== undefined ? { color: patch.color } : {}),
         ...(patch.radius !== undefined ? { radius: patch.radius } : {}),
       }
-      if (Object.keys(point).length)
-        next = workspaceReducer(next, { type: 'pointStyle', target: item, patch: point })
+      if (Object.keys(point).length) edit({ type: 'pointStyle', target: item, patch: point })
     }
   }
-  return next
+  const next = edits.reduce(
+    (candidate, action) => workspaceReducer(candidate, action, state),
+    state,
+  )
+  return contourStroke
+    ? {
+        ...next,
+        segments: next.segments.map((s) => ({
+          ...s,
+          style: {
+            ...s.style,
+            ...(patch.color !== undefined ? { color: patch.color } : {}),
+            ...(patch.width !== undefined ? { width: patch.width } : {}),
+          },
+        })),
+      }
+    : next
 }
 
 export function deleteItems(state: ContourState, items: SelectionItem[]): ContourState {
@@ -168,18 +217,30 @@ export function deleteItems(state: ContourState, items: SelectionItem[]): Contou
         .map((item) => (item.kind === 'contour' ? '' : item.id)),
     )
   const verticesToDelete = ids('vertex'),
-    edgesToDelete = ids('segment')
-  let next = state
+    edgesToDelete = new Set<string>(),
+    bindingsToDelete = new Set<string>()
+  for (const id of ids('segment')) {
+    const origin = segmentOrigin(state, id)!
+    if (origin.kind === 'avoidance') bindingsToDelete.add(origin.avoidanceId)
+    else edgesToDelete.add(origin.sourceSegmentId)
+  }
+  const labelEdits: SelectionWorkspaceEdit[] = []
   for (const item of selected) {
     if (item.kind === 'contour' || item.part !== 'label') continue
     const label = itemLabel(state, item)
     if (label?.visible)
-      next = workspaceReducer(next, {
-        type: 'label',
-        target: item,
-        label: { ...label, visible: false },
-      })
+      labelEdits.push(
+        selectionWorkspaceAction(state, {
+          type: 'label',
+          target: item,
+          label: { ...label, visible: false },
+        }),
+      )
   }
+  const next = labelEdits.reduce(
+    (candidate, action) => workspaceReducer(candidate, action, state),
+    state,
+  )
   const geometryChanged =
     contour || verticesToDelete.size > 0 || next.segments.some((s) => edgesToDelete.has(s.id))
   const vertices = contour
@@ -206,11 +267,20 @@ export function deleteItems(state: ContourState, items: SelectionItem[]): Contou
     (s) =>
       !edgesToDelete.has(s.id) && remainingPoints.has(s.startId) && remainingPoints.has(s.endId),
   )
+  const liveSegments = new Set([...segments, ...connections].map((s) => s.id))
+  const avoidances = next.avoidances.filter(
+    (a) =>
+      !bindingsToDelete.has(a.id) &&
+      liveSegments.has(a.targetSegmentId) &&
+      (a.exitSegmentId === undefined || liveSegments.has(a.exitSegmentId)) &&
+      remainingPoints.has(a.markerId),
+  )
   return {
     ...next,
     vertices,
     segments,
     connections,
+    avoidances: avoidances.length === next.avoidances.length ? next.avoidances : avoidances,
     markers: markers.size ? next.markers.filter((o) => !markers.has(o.id)) : next.markers,
     formulas: formulas.size ? next.formulas.filter((o) => !formulas.has(o.id)) : next.formulas,
     closed: next.closed && (!geometryChanged || isSingleCycle({ vertices, segments })),

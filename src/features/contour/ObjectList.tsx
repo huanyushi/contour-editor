@@ -1,10 +1,22 @@
-import type { Dispatch } from 'react'
+import type { Dispatch, MouseEvent } from 'react'
+import { Pentagon, Slash, Spline } from 'lucide-react'
 import { MathText } from '../../components/MathText'
-import type { ContourAction, ContourState } from './model'
+import type { ContourAction, ContourState, PathSegment } from './model'
 import type { SelectionItem } from './appearance'
 import { selectionItems } from './selectionModel'
-import type { MouseEvent } from 'react'
 import { isSingleCycle } from './pathTopology'
+
+const mathematicalNames = {
+  ordinary: '普通标记',
+  pole: '极点',
+  isolated: '其他孤立奇点',
+  branch: '支点',
+}
+
+function SegmentIcon({ kind }: { kind: PathSegment['kind'] }) {
+  const Icon = kind === 'arc' ? Spline : Slash
+  return <Icon className="ui-icon" aria-hidden="true" focusable="false" />
+}
 
 export function ObjectList({
   state,
@@ -25,6 +37,12 @@ export function ObjectList({
         ? { type: 'toggleSelection', item }
         : { type: 'selectObject', selection: item },
     )
+  const bindingInfo = (id: string) => {
+    const count = state.avoidances.filter(
+      (a) => a.targetSegmentId === id || a.exitSegmentId === id,
+    ).length
+    return count ? ` · ${count} 处绕行` : ''
+  }
   return (
     <section className="object-list" aria-label="对象列表">
       <h3>
@@ -34,7 +52,11 @@ export function ObjectList({
         className={isSelected({ kind: 'contour' }) ? 'object-row selected' : 'object-row'}
         onClick={(event) => choose(event, { kind: 'contour' })}
       >
-        ▱ 整体围道 <span>{state.closed ? '闭合' : '开放'}</span>
+        <span className="object-row-name">
+          <Pentagon className="ui-icon" aria-hidden="true" focusable="false" />
+          整体围道
+        </span>{' '}
+        <span>{state.closed ? '闭合' : '开放'}</span>
       </button>
       {state.vertices.map((vertex, index) => (
         <button
@@ -46,7 +68,11 @@ export function ObjectList({
           onClick={(event) => choose(event, { kind: 'vertex', id: vertex.id })}
         >
           <MathText tex={vertex.label?.tex || `z_{${index + 1}}`} />
-          <span>端点 {index + 1}</span>
+          <span>
+            {vertex.mathematicalKind && vertex.mathematicalKind !== 'ordinary'
+              ? mathematicalNames[vertex.mathematicalKind]
+              : `端点 ${index + 1}`}
+          </span>
         </button>
       ))}
       {state.segments.map((segment, index) => (
@@ -58,8 +84,9 @@ export function ObjectList({
           aria-label={`选择路径段 ${index + 1}`}
           onClick={(event) => choose(event, { kind: 'segment', id: segment.id })}
         >
-          <span>
-            {segment.kind === 'arc' ? '⌒' : '╱'} 路径段 {index + 1}
+          <span className="object-row-name">
+            <SegmentIcon kind={segment.kind} />
+            路径段 {index + 1}
           </span>
           <span>
             {!state.closed && isSingleCycle(state) && index === state.segments.length - 1
@@ -67,6 +94,7 @@ export function ObjectList({
               : segment.kind === 'arc'
                 ? '圆弧'
                 : '线段'}
+            {bindingInfo(segment.id)}
           </span>
         </button>
       ))}
@@ -80,10 +108,11 @@ export function ObjectList({
           aria-label={`选择独立路径段 ${index + 1}`}
           onClick={(event) => choose(event, { kind: 'segment', id: segment.id })}
         >
-          <span>
-            {segment.kind === 'arc' ? '⌒ 圆弧' : '╱ 线段'} {index + 1}
+          <span className="object-row-name">
+            <SegmentIcon kind={segment.kind} />
+            {segment.kind === 'arc' ? '圆弧' : '线段'} {index + 1}
           </span>
-          <span>已有端点连接</span>
+          <span>已有端点连接{bindingInfo(segment.id)}</span>
         </button>
       ))}
       {state.markers.map((point, index) => (
@@ -96,7 +125,7 @@ export function ObjectList({
           onClick={(event) => choose(event, { kind: 'marker', id: point.id })}
         >
           <MathText tex={point.label.tex} />
-          <span>独立点</span>
+          <span>{mathematicalNames[point.mathematicalKind ?? 'ordinary']}</span>
         </button>
       ))}
       {state.formulas.map((point, index) => (

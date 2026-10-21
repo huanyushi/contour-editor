@@ -1,5 +1,7 @@
 import type { ComplexPoint } from '../../lib/geometry'
 import { arcThrough } from '../../lib/arc'
+import { nearestGridPoint } from '../../lib/snap'
+import { formatTick, gridStep, type Viewport } from '../../lib/viewport'
 import {
   nearestPath,
   nearestPathPoint,
@@ -19,11 +21,12 @@ export type SourceSnapPath = PathGeometry & {
 }
 
 /** Find nearby lattice points on the finite path, not on its chord or extension. */
-export function snapPathInteger(
+export function snapPathGrid(
   raw: ComplexPoint,
   hit: PathProjection & { path: PathGeometry },
   metric: PathScreenMetric,
   enabled: boolean,
+  view: Viewport,
 ): ComplexPoint {
   if (!enabled) return hit.point
   // Membership is translation-invariant: a huge coordinate on one axis must
@@ -41,7 +44,7 @@ export function snapPathInteger(
   let best = hit.point
   let distance = 8
   const consider = (point: ComplexPoint) => {
-    const candidate = { re: Math.round(point.re) || 0, im: Math.round(point.im) || 0 }
+    const candidate = nearestGridPoint(point, view)
     const re = candidate.re - raw.re,
       im = candidate.im - raw.im
     const d = Math.hypot(metric.a * re + metric.c * im, metric.b * re + metric.d * im)
@@ -62,18 +65,21 @@ export function snapPathInteger(
   if (arc && !arc.ok) return best
   const dx = path.end.re - path.start.re,
     dy = path.end.im - path.start.im
-  // Slice by one integer coordinate and solve the curve, avoiding a 2-D grid scan.
+  // Slice by one grid coordinate and solve the curve, avoiding a 2-D grid scan.
   const axis =
     path.kind === 'line' ? (Math.abs(dx) >= Math.abs(dy) ? 're' : 'im') : rx <= ry ? 're' : 'im'
   const other = axis === 're' ? 'im' : 're'
   const at = (value: number, perpendicular: number): ComplexPoint =>
     axis === 're' ? { re: value, im: perpendicular } : { re: perpendicular, im: value }
   const radius = axis === 're' ? rx : ry
-  const lo = Math.ceil(raw[axis] - radius),
-    hi = Math.floor(raw[axis] + radius)
+  const step =
+    axis === 're' ? gridStep(view.scaleX, view.centerRe) : gridStep(view.scaleY, view.centerIm)
+  const lo = Math.ceil((raw[axis] - radius) / step),
+    hi = Math.floor((raw[axis] + radius) / step)
   // Path projection remains responsive even under nearly singular CSS transforms.
   if (!Number.isSafeInteger(lo) || !Number.isSafeInteger(hi) || hi - lo > 10000) return best
-  for (let value = lo; value <= hi; value++) {
+  for (let index = lo; index <= hi; index++) {
+    const value = Number(formatTick(index * step, step))
     if (path.kind === 'line') {
       const delta = path.end[axis] - path.start[axis]
       if (delta === 0) continue

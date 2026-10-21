@@ -9,7 +9,7 @@ import {
   type RefObject,
 } from 'react'
 import { fromSvg, toSvg, type ComplexPoint, type SvgPoint } from '../../lib/geometry'
-import { snapToInteger } from '../../lib/snap'
+import { snapToGrid } from '../../lib/snap'
 import { nearestPath, type PathScreenMetric } from '../../lib/pathSnap'
 import { panViewport, type Viewport } from '../../lib/viewport'
 import { LABEL_OFFSET_LIMIT, type LabelSettings, type SelectionItem } from './appearance'
@@ -21,12 +21,7 @@ import { itemsWithinRect, rectangle, type SelectionRect } from './selectionGeome
 import { translationAnchor } from './selectionTransform'
 import { findPoint, scenePoints } from './sceneObjects'
 import type { AvoidanceWorkflow } from './useAvoidanceDraft'
-import {
-  captureMarkerPath,
-  snapPathInteger,
-  sourceSnapPaths,
-  type SourceSnapPath,
-} from './pathSnap'
+import { captureMarkerPath, snapPathGrid, sourceSnapPaths, type SourceSnapPath } from './pathSnap'
 
 type PointKind = 'vertex' | 'through' | 'marker' | 'formula'
 type LabelKind = 'vertex' | 'segment' | 'marker'
@@ -218,13 +213,14 @@ export function useCanvasInteraction({
   ) {
     const raw = fromSvg(point, view)
     const matrix = svgRef.current!.getScreenCTM()!
-    return snapToInteger(
+    return snapToGrid(
       { re: raw.re - offset.re, im: raw.im - offset.im },
       {
         x: view.scaleX * Math.hypot(matrix.a, matrix.b),
         y: view.scaleY * Math.hypot(matrix.c, matrix.d),
       },
       state.snap && !alt,
+      view,
     )
   }
   function capture(
@@ -520,7 +516,7 @@ export function useCanvasInteraction({
         }
         const location = svgPoint(event.clientX, event.clientY)
         if (!location) return
-        // Project the raw pointer first: integer snapping must not pull a hit off its path.
+        // Project the raw pointer first: grid snapping must not pull a hit off its path.
         const pathHit =
           tool === 'marker' && !event.altKey
             ? nearestPath(
@@ -531,7 +527,13 @@ export function useCanvasInteraction({
               )
             : null
         const point = pathHit
-          ? snapPathInteger(fromSvg(location, state.viewport), pathHit, pathMetric(), state.snap)
+          ? snapPathGrid(
+              fromSvg(location, state.viewport),
+              pathHit,
+              pathMetric(),
+              state.snap,
+              state.viewport,
+            )
           : snapped(location, event.altKey)
         if (tool === 'line') {
           // Connection and free-point tools only reuse source points, never generated joints.
@@ -652,11 +654,12 @@ export function useCanvasInteraction({
               )
             : null
         const math = pathHit
-          ? snapPathInteger(
+          ? snapPathGrid(
               { re: raw.re - current.offset.re, im: raw.im - current.offset.im },
               pathHit,
               pathMetric(current.view),
               state.snap,
+              current.view,
             )
           : snapped(point, event.altKey, current.view, current.offset)
         if (current.kind === 'vertex' || current.kind === 'through')

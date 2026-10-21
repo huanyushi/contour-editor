@@ -72,7 +72,7 @@ async function drag(
 }
 
 test(
-  'marker creation combines source projection with on-path integer snapping',
+  'marker creation combines source projection with on-path grid snapping',
   { tag: '@desktop-only' },
   async ({ page }) => {
     const state = fixture()
@@ -97,6 +97,43 @@ test(
     const freeMarker = (await savedProject(page)).document.markers[0]
     expect(freeMarker.re).toBeCloseTo(0.08, 5)
     expect(freeMarker.im).toBeCloseTo(0.08, 5)
+  },
+)
+
+test(
+  'marker creation and constrained drag use the adaptive grid after zoom and pan',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    await page.goto('/')
+    for (const [scale, rawRe, rawIm, re, im] of [
+      [400, 0.61, 0.3, 0.6, 0.3],
+      [4, 20.5, 10.2, 20, 10],
+    ]) {
+      const state = fixture()
+      state.vertices = [
+        { id: 'a', re: -30, im: -15 },
+        { id: 'b', re: 30, im: 15 },
+      ]
+      state.viewport = {
+        ...state.viewport,
+        scaleX: scale,
+        scaleY: scale,
+        centerRe: 0.1,
+        centerIm: -0.1,
+      }
+      addMarker(state)
+      await openAvoidanceProject(page, state)
+      await page.getByRole('button', { name: '独立点工具', exact: true }).click()
+      const target = await at(page, state, rawRe, rawIm)
+      await page.mouse.click(target.x, target.y)
+      expect((await savedProject(page)).document.markers[1]).toMatchObject({ re, im })
+      await page.getByRole('button', { name: '撤销', exact: true }).click()
+      await page.getByRole('button', { name: '选择工具', exact: true }).click()
+      await drag(page, await at(page, state, 0, 0), target)
+      const saved = (await savedProject(page)).document
+      expect(saved.markers[0]).toMatchObject({ re, im })
+      expect(saved.vertices).toEqual(state.vertices)
+    }
   },
 )
 

@@ -10,7 +10,7 @@ import {
   viewBounds,
 } from './viewport'
 import { fromSvg, toSvg } from './geometry'
-import { snapToInteger } from './snap'
+import { snapToGrid } from './snap'
 import { fitScene } from '../features/contour/sceneView'
 import { createArcFixture } from '../test/fixtures'
 import { contourTemplates } from '../features/contour/templates'
@@ -97,7 +97,7 @@ describe('mathematical viewport', () => {
   })
   it('measures snapping using both axis screen scales', () => {
     const point = { re: 0.1, im: 0.1 }
-    expect(snapToInteger(point, { x: 80, y: 20 }, true)).toEqual(point)
-    expect(snapToInteger(point, { x: 40, y: 20 }, true)).toEqual({ re: 0, im: 0 })
+    expect(snapToGrid(point, { x: 80, y: 20 }, true, defaultViewport())).toEqual(point)
+    expect(snapToGrid(point, { x: 40, y: 20 }, true, defaultViewport())).toEqual({ re: 0, im: 0 })
   })
 })

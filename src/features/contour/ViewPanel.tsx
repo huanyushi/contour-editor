@@ -64,7 +64,7 @@ export function ViewPanel({
             checked={state.snap}
             onChange={() => dispatch({ type: 'toggleSnap' })}
           />
-          整数点吸附
+          网格吸附
         </label>
         <label className="check-row">
           <input

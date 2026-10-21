@@ -419,7 +419,7 @@ export default function App() {
                 {pointer
                   ? `Re ${pointer.re.toFixed(2)} · Im ${pointer.im.toFixed(2)}`
                   : state.snap
-                    ? '整数吸附'
+                    ? '网格吸附'
                     : '自由定位'}
               </span>
             </div>

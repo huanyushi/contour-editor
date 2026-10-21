@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { nearestPath } from '../../lib/pathSnap'
+import { defaultViewport } from '../../lib/viewport'
 import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
 import { createInitialState } from './model'
-import { captureMarkerPath, snapPathInteger, sourceSnapPaths } from './pathSnap'
+import { captureMarkerPath, snapPathGrid, sourceSnapPaths } from './pathSnap'
 
 const metric = { a: 40, b: 0, c: 0, d: -40 }
 
-describe('integer snapping on finite paths', () => {
+describe('grid snapping on finite paths', () => {
   const line = {
     kind: 'line' as const,
     start: { re: -3, im: 0 },
@@ -18,11 +19,45 @@ describe('integer snapping on finite paths', () => {
     im: number,
     screen = metric,
     enabled = true,
+    view = defaultViewport(),
   ) {
     const raw = { re, im }
     const hit = nearestPath([path], raw, screen)!
-    return snapPathInteger(raw, hit, screen, enabled)
+    return snapPathGrid(raw, hit, screen, enabled, view)
   }
+
+  it('uses fractional grid intersections on a zoomed sloped path', () => {
+    const view = { ...defaultViewport(), scaleX: 400, scaleY: 400 }
+    const screen = { a: 400, b: 0, c: 0, d: -400 }
+    const sloped = { ...line, start: { re: -3, im: -1.5 }, end: { re: 3, im: 1.5 } }
+    expect(snap(sloped, 0.61, 0.3, screen, true, view)).toEqual({ re: 0.6, im: 0.3 })
+    const projected = snap(sloped, 0.31, 0.16, screen, true, view)
+    expect(projected.im).toBeCloseTo(projected.re / 2, 12)
+    expect(projected.re).not.toBe(0.3)
+    expect(snap(sloped, 0.61, 0.3, screen, false, view).re).not.toBe(0.6)
+  })
+
+  it('uses coarse grid intersections rather than hidden integer points when zoomed out', () => {
+    const view = { ...defaultViewport(), scaleX: 4, scaleY: 4 }
+    const screen = { a: 4, b: 0, c: 0, d: -4 }
+    const long = { ...line, start: { re: -30, im: 0 }, end: { re: 30, im: 0 } }
+    expect(snap(long, 10.5, 0.1, screen, true, view)).toEqual({ re: 10, im: 0 })
+    expect(snap(long, 13.1, 0.1, screen, true, view).re).toBeCloseTo(13.1)
+  })
+
+  it('keeps fractional arc grid points on the true finite arc', () => {
+    const view = { ...defaultViewport(), scaleX: 400, scaleY: 400 }
+    const screen = { a: 400, b: 0, c: 0, d: -400 }
+    const arc = {
+      kind: 'arc' as const,
+      start: { re: 0.5, im: 0 },
+      end: { re: -0.5, im: 0 },
+      through: { re: 0, im: 0.5 },
+    }
+    expect(snap(arc, 0.305, 0.402, screen, true, view)).toEqual({ re: 0.3, im: 0.4 })
+    const projected = snap(arc, 0.105, 0.495, screen, true, view)
+    expect(Math.hypot(projected.re, projected.im)).toBeCloseTo(0.5, 12)
+  })
 
   it('snaps near an integer on the source without disabling ordinary path projection', () => {
     expect(snap(line, 1.1, 0.05)).toEqual({ re: 1, im: 0 })

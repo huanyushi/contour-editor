@@ -60,6 +60,7 @@ button:disabled {
 .history-controls button,
 .project-buttons > button,
 .application-menu > button,
+.header-link,
 .rail-collapse,
 .panel-heading button,
 .view-toolbar button {
@@ -71,6 +72,10 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
+  outline: 3px solid #8fc8bd;
+  outline-offset: 2px;
+}
+.header-link:focus-visible {
   outline: 3px solid #8fc8bd;
   outline-offset: 2px;
 }
@@ -99,6 +104,7 @@ h3 {
   grid-template-rows: 56px minmax(0, 1fr);
 }
 .site-header {
+  min-width: 0;
   position: relative;
   z-index: 30;
   display: flex;
@@ -131,11 +137,42 @@ h3 {
 .brand h1 {
   white-space: nowrap;
 }
-.brand p {
+.brand-text {
+  min-width: 0;
+}
+.project-name {
+  min-width: 0;
+  height: 16px;
+  max-width: 240px;
   margin-top: 3px;
   color: #6c7f82;
   font-size: 10px;
   letter-spacing: 0.5px;
+}
+.project-name button,
+.project-name input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: 16px;
+  text-align: left;
+}
+.project-name button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-name input {
+  background: #fff;
+  box-shadow: 0 0 0 1px #a9ccc2;
 }
 .global-actions,
 .history-controls,
@@ -162,6 +199,26 @@ h3 {
   background: transparent;
   border-color: transparent;
   color: #37695a;
+}
+.header-link {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #37695a;
+  background: transparent;
+  transition: background 0.15s;
+}
+.header-link:hover:not([aria-disabled='true']) {
+  background: #edf5f3;
+  border-color: #a9ccc2;
+}
+.external-project {
+  padding-left: 6px;
+  border-left: 1px solid #dce7e1;
 }
 .project-controls {
   position: relative;
@@ -326,6 +383,12 @@ summary::-webkit-details-marker {
   flex-direction: column;
   gap: 5px;
 }
+.tool-separator {
+  flex-shrink: 0;
+  height: 1px;
+  margin: 3px 8px;
+  background: #dce7e1;
+}
 .tool-button {
   display: grid;
   place-items: center;
@@ -355,6 +418,7 @@ summary::-webkit-details-marker {
   box-shadow: 0 3px 12px #173a3a18;
 }
 .rail-bottom {
+  flex-shrink: 0;
   margin-top: auto;
   padding-top: 8px;
   display: flex;
@@ -705,7 +769,6 @@ fieldset.property-group legend + * {
 .contour-actions {
   margin: 0 18px;
   padding: 16px 0 20px;
-  border-top: 1px solid #e8eef0;
 }
 .coordinate-fields {
   display: grid;
@@ -717,7 +780,7 @@ fieldset.property-group legend + * {
   font-size: 11px;
   color: #58706d;
 }
-input:not([type='checkbox']):not([type='range']):not([type='color']),
+input:not([type='checkbox']):not([type='range']):not([type='color']):not(.project-name-input),
 textarea,
 select {
   color: #2e4649;
@@ -933,9 +996,6 @@ input[type='checkbox'] {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .brand p {
-    display: none;
-  }
   h1 {
     font-size: 14px;
   }
@@ -975,6 +1035,9 @@ input[type='checkbox'] {
     width: 30px;
     height: 32px;
   }
+  .brand h1 {
+    display: none;
+  }
   .brand h1::after {
     display: none;
   }
@@ -991,6 +1054,15 @@ input[type='checkbox'] {
   .project-buttons > button,
   .application-menu > button {
     width: 27px;
+  }
+  .header-link {
+    width: 27px;
+  }
+  .external-project {
+    padding-left: 3px;
+  }
+  .export-menu > summary span {
+    display: none;
   }
   .export-menu > summary {
     font-size: 11px;

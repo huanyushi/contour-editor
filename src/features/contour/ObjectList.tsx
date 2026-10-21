@@ -5,13 +5,7 @@ import type { ContourAction, ContourState, PathSegment } from './model'
 import type { SelectionItem } from './appearance'
 import { selectionItems } from './selectionModel'
 import { isSingleCycle } from './pathTopology'
-
-const mathematicalNames = {
-  ordinary: '普通标记',
-  pole: '极点',
-  isolated: '其他孤立奇点',
-  branch: '支点',
-}
+import { mathematicalCategory, mathematicalNames } from './mathematicalKind'
 
 function SegmentIcon({ kind }: { kind: PathSegment['kind'] }) {
   const Icon = kind === 'arc' ? Spline : Slash
@@ -70,7 +64,7 @@ export function ObjectList({
           <MathText tex={vertex.label?.tex || `z_{${index + 1}}`} />
           <span>
             {vertex.mathematicalKind && vertex.mathematicalKind !== 'ordinary'
-              ? mathematicalNames[vertex.mathematicalKind]
+              ? mathematicalNames[mathematicalCategory(vertex.mathematicalKind)]
               : `端点 ${index + 1}`}
           </span>
         </button>
@@ -125,7 +119,7 @@ export function ObjectList({
           onClick={(event) => choose(event, { kind: 'marker', id: point.id })}
         >
           <MathText tex={point.label.tex} />
-          <span>{mathematicalNames[point.mathematicalKind ?? 'ordinary']}</span>
+          <span>{mathematicalNames[mathematicalCategory(point.mathematicalKind)]}</span>
         </button>
       ))}
       {state.formulas.map((point, index) => (

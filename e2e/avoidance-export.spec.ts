@@ -41,8 +41,8 @@ test(
       )
     const historyBefore = await history()
     await page.locator('summary[aria-label="导出图像"]').click()
-    await page.getByRole('checkbox', { name: '导出坐标轴', exact: true }).uncheck()
-    await page.getByRole('checkbox', { name: '导出围道端点标记', exact: true }).check()
+    await page.getByRole('checkbox', { name: '包含坐标轴', exact: true }).uncheck()
+    await page.getByRole('checkbox', { name: '包含围道端点标记', exact: true }).check()
     const svg = (await download(page, '导出 SVG')).toString()
     expect(svg).not.toMatch(
       /data-|segment-hit|selection-rectangle|avoidance-preview|data-preview-part|through-|<foreignObject|https?:\/\/(?!www\.w3\.org)/,

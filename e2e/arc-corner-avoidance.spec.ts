@@ -176,7 +176,7 @@ test(
     await page.getByRole('button', { name: '独立点工具', exact: true }).click()
     await clickPoint(page, 0, 3)
     await selectObject(page, '选择标记点 1')
-    await page.getByLabel('数学类型', { exact: true }).selectOption('pole')
+    await page.getByLabel('数学类型', { exact: true }).selectOption('isolated')
     await page.getByRole('button', { name: '添加绕行', exact: true }).click()
     await clickPoint(page, -Math.sqrt(4.5), Math.sqrt(4.5))
     await radius(page, '0.5')
@@ -217,7 +217,7 @@ test(
     await page.getByRole('button', { name: '独立点工具', exact: true }).click()
     await clickPoint(page, 0, 0)
     await selectObject(page, '选择顶点 z2')
-    await page.getByLabel('数学类型', { exact: true }).selectOption('pole')
+    await page.getByLabel('数学类型', { exact: true }).selectOption('isolated')
     await page.getByRole('button', { name: '添加绕行', exact: true }).click()
     await clickPoint(page, 1, 0) // Picking the outgoing edge must still normalize to incoming.
     await radius(page, '0.5')
@@ -261,9 +261,9 @@ test(
     const historyBefore = await history()
     expect(historyBefore).toEqual([true, true])
     await page.locator('summary[aria-label="导出图像"]').click()
-    await page.getByRole('checkbox', { name: '导出坐标轴', exact: true }).uncheck()
-    await page.getByRole('checkbox', { name: '导出网格', exact: true }).uncheck()
-    await page.getByRole('checkbox', { name: '导出围道端点标记', exact: true }).uncheck()
+    await page.getByRole('checkbox', { name: '包含坐标轴', exact: true }).uncheck()
+    await page.getByRole('checkbox', { name: '包含网格', exact: true }).uncheck()
+    await page.getByRole('checkbox', { name: '包含围道端点标记', exact: true }).uncheck()
     const svg = (await download(page, '导出 SVG')).toString()
     expect(svg).not.toMatch(
       /data-|segment-hit|selection-rectangle|avoidance-preview|through-|<foreignObject/,
@@ -422,7 +422,7 @@ test(
     state.segments[1] = { ...state.segments[1], kind: 'arc', through: { re: 1, im: -1 } }
     await openAvoidanceProject(page, state)
     await selectObject(page, '选择顶点 z2')
-    await page.getByLabel('数学类型', { exact: true }).selectOption('pole')
+    await page.getByLabel('数学类型', { exact: true }).selectOption('isolated')
     await page.getByRole('button', { name: '添加绕行', exact: true }).click()
     await clickPoint(page, 1 + Math.SQRT1_2, -Math.SQRT1_2)
     await radius(page, '0.5')

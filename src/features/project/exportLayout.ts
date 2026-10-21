@@ -187,7 +187,7 @@ export function computeExportLayout(state: ContourState, options: ExportOptions)
   let scene: ContourState = {
     ...state,
     viewport: { ...state.viewport },
-    axes: { ...state.axes, visible: options.axes },
+    axes: { ...state.axes, visible: options.axes, ticks: options.ticks },
     selection: { kind: 'none' },
     handles: false,
   }

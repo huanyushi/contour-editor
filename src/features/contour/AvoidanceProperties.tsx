@@ -17,6 +17,7 @@ import {
 } from './sceneObjects'
 import { StrokeFields } from './StyleFields'
 import type { AvoidanceWorkflow } from './useAvoidanceDraft'
+import { mathematicalCategories, mathematicalCategory, mathematicalNames } from './mathematicalKind'
 
 export interface AvoidancePropertiesProps {
   state: ContourState
@@ -279,6 +280,7 @@ export function AvoidanceProperties({
       />
     )
   const marker = markerId ? findPoint(state, markerId) : undefined
+  const category = mathematicalCategory(marker?.mathematicalKind)
   const selection = state.selection
   const sourceId =
     selection.kind === 'segment' ? segmentOrigin(state, selection.id)?.sourceSegmentId : undefined
@@ -294,22 +296,20 @@ export function AvoidanceProperties({
           数学类型
           <select
             aria-label="数学类型"
-            value={marker.mathematicalKind ?? 'ordinary'}
+            value={category}
             onChange={(event) => {
-              const value = event.target.value
-              if (
-                value === 'ordinary' ||
-                value === 'pole' ||
-                value === 'isolated' ||
-                value === 'branch'
+              const value = mathematicalCategories.find(
+                (kind) => kind === event.currentTarget.value,
               )
+              if (value && value !== category)
                 dispatch({ type: 'mathematicalKind', id: marker.id, value })
             }}
           >
-            <option value="ordinary">普通标记</option>
-            <option value="pole">极点</option>
-            <option value="isolated">其他孤立奇点</option>
-            <option value="branch">支点</option>
+            {mathematicalCategories.map((kind) => (
+              <option key={kind} value={kind}>
+                {mathematicalNames[kind]}
+              </option>
+            ))}
           </select>
         </label>
       )}

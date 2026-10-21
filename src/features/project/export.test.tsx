@@ -27,6 +27,38 @@ function canvas(handles = true) {
 }
 
 describe('standalone SVG export', () => {
+  it.each(['content', 'view'] as const)(
+    'controls axis tick labels independently of the live view in %s exports',
+    (region) => {
+      const state = createArcFixture()
+      state.axes.ticks = false
+      const original = JSON.stringify(state)
+      const options = { ...defaultExportOptions(), region, axes: true, ticks: true }
+      const withTicks = new DOMParser().parseFromString(
+        renderExport(state, options),
+        'image/svg+xml',
+      )
+      expect(withTicks.querySelectorAll('text').length).toBeGreaterThan(0)
+      expect(withTicks.querySelector('g[visibility="hidden"] text')).toBeNull()
+      const withoutTicks = new DOMParser().parseFromString(
+        renderExport(state, { ...options, ticks: false }),
+        'image/svg+xml',
+      )
+      expect(withoutTicks.querySelectorAll('text')).toHaveLength(0)
+      expect(
+        [...withoutTicks.querySelectorAll('[aria-label]')].some(
+          (node) => node.getAttribute('aria-label') === '\\mathrm{Re}',
+        ),
+      ).toBe(true)
+      const withoutAxes = new DOMParser().parseFromString(
+        renderExport(state, { ...options, axes: false }),
+        'image/svg+xml',
+      )
+      expect(withoutAxes.querySelectorAll('text')).toHaveLength(0)
+      expect(JSON.stringify(state)).toBe(original)
+    },
+  )
+
   it('renders a separate fixed export region with full axes without changing the document', () => {
     const state = createArcFixture()
     const original = JSON.stringify(state)

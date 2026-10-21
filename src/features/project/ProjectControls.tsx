@@ -9,16 +9,25 @@ import { renderMath } from '../../lib/math'
 import { transientLock } from '../../components/transientLock'
 import { useOutsideDismiss } from '../../components/useOutsideDismiss'
 import { computeExportLayout } from './exportLayout'
+import { DEFAULT_PROJECT_NAME, normalizeProjectName, projectDownloadName } from './projectName'
 
 interface Props {
   state: ContourState
+  projectName: string
   disabled: boolean
   onLoad: (state: ContourState, name: string) => void
   onReadingChange: (reading: boolean) => void
   draft: { status: string; error: string; clear: () => void }
 }
 
-export function ProjectControls({ state, disabled, onLoad, onReadingChange, draft }: Props) {
+export function ProjectControls({
+  state,
+  projectName,
+  disabled,
+  onLoad,
+  onReadingChange,
+  draft,
+}: Props) {
   const input = useRef<HTMLInputElement>(null)
   const [working, setWorking] = useState<'reading' | 'exporting' | null>(null)
   const [open, setOpen] = useState(false)
@@ -58,7 +67,7 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
       parseProject(text)
       downloadBlob(
         new Blob([text], { type: 'application/json;charset=utf-8' }),
-        'contour-project.json',
+        projectDownloadName(projectName),
       )
       setMessage('项目文件已生成。')
     } catch (problem) {
@@ -75,7 +84,10 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
     try {
       if (file.size > MAX_PROJECT_BYTES) throw new Error('项目文件不能超过 2 MB。')
       const loaded = parseProject(await file.text())
-      onLoad(loaded, file.name.replace(/\.json$/i, ''))
+      onLoad(
+        loaded,
+        normalizeProjectName(file.name.replace(/\.json$/i, '')) ?? DEFAULT_PROJECT_NAME,
+      )
       setMessage(`已打开 ${file.name}`)
     } catch (problem) {
       fail(problem)
@@ -108,7 +120,7 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
         format === 'svg'
           ? new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
           : await renderPng(svg, options.scale)
-      downloadBlob(blob, `contour.${format}`)
+      downloadBlob(blob, projectDownloadName(projectName, format))
       setMessage(`${format.toUpperCase()} 已生成。`)
     } catch (problem) {
       fail(problem)
@@ -122,7 +134,7 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
       <div className="project-buttons">
         <button
           aria-label="保存项目"
-          title="保存项目"
+          title="下载项目文件 (.json)"
           disabled={unavailable}
           {...transientLock(disabled)}
           onClick={saveProject}
@@ -219,7 +231,15 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
                   checked={options.axes}
                   onChange={(event) => update({ axes: event.target.checked })}
                 />
-                导出坐标轴
+                包含坐标轴
+              </label>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={options.ticks}
+                  onChange={(event) => update({ ticks: event.target.checked })}
+                />
+                包含坐标轴刻度标签
               </label>
               <label className="check-row">
                 <input
@@ -227,7 +247,7 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
                   checked={options.grid}
                   onChange={(event) => update({ grid: event.target.checked })}
                 />
-                导出网格
+                包含网格
               </label>
               <label className="check-row">
                 <input
@@ -235,7 +255,7 @@ export function ProjectControls({ state, disabled, onLoad, onReadingChange, draf
                   checked={options.endpoints}
                   onChange={(event) => update({ endpoints: event.target.checked })}
                 />
-                导出围道端点标记
+                包含围道端点标记
               </label>
               <label className="field-row">
                 PNG 分辨率

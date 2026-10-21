@@ -2,6 +2,7 @@ export interface ExportOptions {
   region: 'content' | 'view'
   background: 'white' | 'transparent'
   axes: boolean
+  ticks: boolean
   grid: boolean
   endpoints: boolean
   scale: 1 | 2 | 3
@@ -10,6 +11,7 @@ export const defaultExportOptions = (): ExportOptions => ({
   region: 'content',
   background: 'white',
   axes: true,
+  ticks: false,
   grid: false,
   endpoints: false,
   scale: 2,
@@ -26,6 +28,7 @@ export function serializeSvg(source: SVGSVGElement, options: ExportOptions): str
   })
   for (const [flag, enabled] of [
     ['axes', options.axes],
+    ['axis-ticks', options.ticks],
     ['grid', options.grid],
     ['endpoint', options.endpoints],
   ] as const) {

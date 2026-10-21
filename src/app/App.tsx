@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { PanelRightOpen, Redo2, Undo2 } from 'lucide-react'
+import { Github } from '../components/Github'
 import { ContourCanvas, type DrawingTool } from '../features/contour/ContourCanvas'
 import { PropertiesPanel } from '../features/contour/PropertiesPanel'
 import { contourReducer } from '../features/contour/model'
@@ -10,6 +11,7 @@ import { ToolPalette } from './ToolPalette'
 import { ApplicationMenu, ObjectPanel, ViewSettingsPanel } from './WorkspacePanels'
 import { readLocalDraft, useLocalDraft } from '../features/project/useLocalDraft'
 import { ProjectControls } from '../features/project/ProjectControls'
+import { ProjectName } from '../features/project/ProjectName'
 import { ViewToolbar } from '../features/contour/ViewToolbar'
 import type { ComplexPoint } from '../lib/geometry'
 import { TemplatePanel } from '../features/contour/TemplatePanel'
@@ -48,7 +50,7 @@ export default function App() {
   const avoidanceWorkflow = useAvoidanceDraft(state, dispatch)
   const [tool, setTool] = useState<DrawingTool>('select')
   const [reading, setReading] = useState(false)
-  const [projectName, setProjectName] = useState('未命名项目')
+  const [projectName, setProjectName] = useState(startup.name)
   const [toolsCollapsed, setToolsCollapsed] = useState(false)
   const [objectsOpen, setObjectsOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
@@ -111,7 +113,7 @@ export default function App() {
   }, [avoidanceWorkflow.draft.kind, targetError, inspectorVisible])
   const size = useCanvasSize(canvasArea)
   const busy = history.gesture !== null || reading
-  const draft = useLocalDraft(state, busy, startup)
+  const draft = useLocalDraft(state, busy, startup, projectName)
   useHistoryShortcuts(dispatch, busy)
   useSelectionShortcuts(dispatch, state.selection, busy)
   useEffect(() => {
@@ -198,7 +200,7 @@ export default function App() {
     dispatch({ type: 'loadProject', state: next })
     setProjectName(template.name)
     setTool('select')
-    draft.saveNow(next)
+    draft.saveNow(next, template.name)
     if (narrowScreen()) {
       setTemplatesOpen(false)
       requestAnimationFrame(() => canvasRef.current?.focus({ preventScroll: true }))
@@ -209,6 +211,7 @@ export default function App() {
       className="app-shell"
       onKeyDownCapture={(event) => {
         if (event.key !== 'Escape' || avoidanceWorkflow.draft.kind === 'idle') return
+        if ((event.target as HTMLElement).closest('.project-name')) return
         // Canvas owns pointer capture and must release its local drag as well.
         if (canvasRef.current?.contains(event.target as Node)) return
         event.preventDefault()
@@ -240,9 +243,9 @@ export default function App() {
           <span className="brand-icon" aria-hidden="true">
             ∮
           </span>
-          <div>
+          <div className="brand-text">
             <h1>Complex Contour Editor</h1>
-            <p title={projectName}>{projectName}</p>
+            <ProjectName name={projectName} onChange={setProjectName} busy={busy} />
           </div>
         </div>
         <div className="global-actions">
@@ -268,6 +271,7 @@ export default function App() {
           </div>
           <ProjectControls
             state={state}
+            projectName={projectName}
             disabled={busy}
             draft={draft}
             onReadingChange={setReading}
@@ -276,9 +280,22 @@ export default function App() {
               dispatch({ type: 'loadProject', state: loaded })
               setProjectName(name)
               setTool('select')
-              draft.saveNow(loaded)
+              draft.saveNow(loaded, name)
             }}
           />
+          <div className="external-project">
+            <a
+              className="header-link"
+              href="https://github.com/huanyushi/contour-editor"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub · 查看源代码"
+              title="GitHub · 查看源代码"
+              {...transientLock(busy)}
+            >
+              <Github className="ui-icon" aria-hidden="true" />
+            </a>
+          </div>
           <ApplicationMenu
             state={state}
             dispatch={dispatch}

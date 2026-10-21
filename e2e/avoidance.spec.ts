@@ -22,7 +22,7 @@ test(
     await page.getByRole('button', { name: '独立点工具', exact: true }).click()
     await clickPoint(page, 0, 0)
     await selectObject(page, '选择标记点 1')
-    await page.getByLabel('数学类型', { exact: true }).selectOption('pole')
+    await page.getByLabel('数学类型', { exact: true }).selectOption('isolated')
     const unbound = await savedProject(page)
     expect(unbound.document.avoidances).toBeUndefined()
     await configureAvoidance(page, 1, -1)
@@ -234,7 +234,7 @@ test(
     await page.getByRole('button', { name: '独立点工具', exact: true }).click()
     await clickPoint(page, 0, -2)
     await selectObject(page, '选择标记点 1')
-    for (const kind of ['branch', 'isolated', 'pole', 'ordinary']) {
+    for (const kind of ['branch', 'isolated', 'ordinary']) {
       await page.getByLabel('数学类型', { exact: true }).selectOption(kind)
       const file = await savedProject(page)
       expect(file.document.avoidances).toBeUndefined()

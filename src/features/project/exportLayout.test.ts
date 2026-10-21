@@ -237,7 +237,7 @@ describe('content export layout', () => {
     state.viewport.centerRe = 1e12 - 4.25
     state.axes.reLabel = '\\frac{\\mathrm{Real}}{z}'
     state.axes.imLabel = '\\frac{1}{\\frac{1}{z}}'
-    const { size } = computeExportLayout(state, defaultExportOptions())
+    const { size } = computeExportLayout(state, { ...defaultExportOptions(), ticks: true })
     // Tick 999999999995 is 30px left of center. Its conservative 84px text
     // box starts at x=328; the marker-only canvas would start at x=339.
     expect(canvasBounds(size).left).toBeLessThanOrEqual(328)

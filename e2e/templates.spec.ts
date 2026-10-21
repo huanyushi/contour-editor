@@ -169,7 +169,7 @@ test(
     const viewport = saved.document.view.viewport!
     await page.locator('summary[aria-label="导出图像"]').click()
     await page.getByLabel('导出范围').selectOption('view')
-    await page.getByRole('checkbox', { name: '导出坐标轴' }).uncheck()
+    await page.getByRole('checkbox', { name: '包含坐标轴', exact: true }).uncheck()
     for (const [name, mime] of [
       ['导出 SVG', 'image/svg+xml'],
       ['导出 PNG', 'image/png'],
@@ -217,7 +217,7 @@ test(
       '显示坐标轴',
       '整数点吸附',
       '显示编辑手柄',
-      '显示刻度数字',
+      '显示坐标轴刻度标签',
       '锁定两轴 1:1',
     ])
       await page.getByRole('checkbox', { name, exact: true }).uncheck()

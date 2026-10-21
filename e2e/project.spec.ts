@@ -68,7 +68,7 @@ test(
     await page.getByLabel('填充形式').selectOption('hatch')
     const original = await page.getByTestId('contour-path').getAttribute('d')
     const saved = await download(page, '保存项目')
-    expect(saved.name).toBe('contour-project.json')
+    expect(saved.name).toBe('arc-fixture.json')
     const json = JSON.parse(saved.bytes.toString()) as ProjectFile
     expect(json.version).toBe(1)
     expect(json.document.segments[1].kind).toBe('arc')
@@ -96,6 +96,82 @@ test(
     })
     await expect(page.getByRole('alert')).toContainText('版本')
     await expect(page.getByTestId('contour-path')).toHaveAttribute('d', original!)
+  },
+)
+
+test('renames project downloads, restores the name, and derives names from opened files and templates', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const rename = page.getByRole('button', { name: '重命名项目', exact: true })
+  const edit = page.getByRole('textbox', { name: '项目名称', exact: true })
+  const before = await download(page, '保存项目')
+  expect(before.name).toBe('Untitled.json')
+  await rename.click()
+  await edit.fill('Keyhole Contour.JSON.json')
+  await edit.press('Enter')
+  const renamed = await download(page, '保存项目')
+  expect(renamed.name).toBe('Keyhole Contour.json')
+  expect(renamed.bytes).toEqual(before.bytes)
+  await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
+  await page.reload()
+  await expect(rename).toHaveText('Keyhole Contour.JSON.json')
+  await page.getByLabel('打开项目文件').setInputFiles({
+    name: '恢复名称.JSON',
+    mimeType: 'application/json',
+    buffer: before.bytes,
+  })
+  await expect(rename).toHaveText('恢复名称')
+  expect((await download(page, '保存项目')).name).toBe('恢复名称.json')
+  await rename.click()
+  await edit.fill('手动改名 / contour')
+  await page.getByRole('button', { name: '保存项目', exact: true }).click()
+  await expect(rename).toHaveText('手动改名 / contour')
+  expect((await download(page, '保存项目')).name).toBe('手动改名 - contour.json')
+  await page.getByLabel('打开项目文件').setInputFiles({
+    name: 'bad.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{broken'),
+  })
+  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(rename).toHaveText('手动改名 / contour')
+  await loadTemplate(page, '矩形围道')
+  await expect(rename).toHaveText('矩形围道')
+  await rename.click()
+  await edit.fill('模板新名称')
+  await edit.press('Enter')
+  expect((await download(page, '保存项目')).name).toBe('模板新名称.json')
+})
+
+test(
+  'uses the current project name for JSON, SVG and PNG and resets cleared names to Untitled',
+  {
+    tag: '@desktop-only',
+  },
+  async ({ page }) => {
+    await page.goto('/')
+    const rename = page.getByRole('button', { name: '重命名项目', exact: true })
+    const edit = page.getByRole('textbox', { name: '项目名称', exact: true })
+    const checkDownloads = async (base: string) => {
+      expect((await download(page, '保存项目')).name).toBe(`${base}.json`)
+      const menu = page.locator('summary[aria-label="导出图像"]')
+      if ((await menu.getAttribute('aria-expanded')) !== 'true') await menu.click()
+      expect((await download(page, '导出 SVG')).name).toBe(`${base}.svg`)
+      expect((await download(page, '导出 PNG')).name).toBe(`${base}.png`)
+    }
+    await expect(rename).toHaveText('Untitled')
+    await checkDownloads('Untitled')
+    await rename.click()
+    await edit.fill('Keyhole / Contour.json')
+    await edit.press('Enter')
+    await checkDownloads('Keyhole - Contour')
+    await rename.click()
+    await edit.fill('')
+    await edit.press('Enter')
+    await expect(rename).toHaveText('Untitled')
+    await checkDownloads('Untitled')
+    await page.reload()
+    await expect(rename).toHaveText('Untitled')
   },
 )
 
@@ -170,9 +246,9 @@ test('downloads standalone SVG and PNG with correct math, fill, dimensions and b
   const selected = await page.getByRole('heading', { name: '公式属性' }).textContent()
   await page.locator('summary[aria-label="导出图像"]').click()
   await page.getByLabel('导出范围').selectOption('view')
-  await page.getByRole('checkbox', { name: '导出坐标轴' }).uncheck()
+  await page.getByRole('checkbox', { name: '包含坐标轴', exact: true }).uncheck()
   const svg = await download(page, '导出 SVG')
-  expect(svg.name).toBe('contour.svg')
+  expect(svg.name).toBe('arc-fixture.svg')
   const svgText = svg.bytes.toString()
   expect(svgText).not.toContain('data-export-omit')
   expect(svgText).not.toContain('data-testid')
@@ -197,6 +273,7 @@ test('downloads standalone SVG and PNG with correct math, fill, dimensions and b
   // standalone rendering; an exact count is sensitive to glyph antialiasing.
   expect(svgImage.ink).toBeGreaterThan(0)
   const png = await download(page, '导出 PNG')
+  expect(png.name).toBe('arc-fixture.png')
   const pngImage = await imagePixels(page, png.bytes, 'image/png')
   expect([pngImage.width, pngImage.height]).toEqual([1600, 1200])
   expect(pngImage.corner).toEqual([255, 255, 255, 255])
@@ -209,7 +286,7 @@ test('downloads standalone SVG and PNG with correct math, fill, dimensions and b
   expect(alphaImage.corner[3]).toBe(0)
   expect(alphaImage.inside[3]).toBeGreaterThan(0)
   expect(alphaImage.outside[3]).toBe(0)
-  await page.getByRole('checkbox', { name: '导出围道端点标记' }).check()
+  await page.getByRole('checkbox', { name: '包含围道端点标记' }).check()
   const endpoints = await download(page, '导出 SVG')
   expect(
     await page.evaluate(

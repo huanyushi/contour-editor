@@ -53,6 +53,14 @@ export function ViewPanel({
         <label className="check-row">
           <input
             type="checkbox"
+            checked={axes.ticks}
+            onChange={(event) => axis({ ticks: event.target.checked })}
+          />
+          显示坐标轴刻度标签
+        </label>
+        <label className="check-row">
+          <input
+            type="checkbox"
             checked={state.snap}
             onChange={() => dispatch({ type: 'toggleSnap' })}
           />
@@ -154,14 +162,6 @@ export function ViewPanel({
       <AxesLabelForm value={axes} onApply={axis} />
       <fieldset className="property-group">
         <legend>坐标轴外观</legend>
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={axes.ticks}
-            onChange={(event) => axis({ ticks: event.target.checked })}
-          />
-          显示刻度数字
-        </label>
         <ColorField
           label="轴颜色"
           name="坐标轴颜色"

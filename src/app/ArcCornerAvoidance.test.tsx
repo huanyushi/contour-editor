@@ -80,7 +80,7 @@ function saved() {
 }
 async function startCorner(user: ReturnType<typeof userEvent.setup>, edge = 'edge-b') {
   await selectObject(user, '选择顶点 z2')
-  await user.selectOptions(screen.getByLabelText('数学类型'), 'pole')
+  await user.selectOptions(screen.getByLabelText('数学类型'), 'isolated')
   await user.click(screen.getByRole('button', { name: '添加绕行' }))
   pick(edge)
   await waitFor(() => expect(screen.getByLabelText('属性面板内容')).toHaveFocus())
@@ -202,9 +202,11 @@ describe('source arc and semantic corner Inspector', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/端点|半径/)
       await user.click(screen.getByRole('button', { name: '定位奇点' }))
       expect(screen.getByRole('button', { name: '删除选中顶点' })).toBeInTheDocument()
-      expect(screen.getByLabelText('数学类型')).toHaveValue('pole')
+      expect(screen.getByLabelText('数学类型')).toHaveValue('isolated')
       const list = screen.getByRole('complementary', { name: '对象列表' })
-      expect(within(list).getByRole('button', { name: '选择顶点 z2' })).toHaveTextContent('极点')
+      expect(within(list).getByRole('button', { name: '选择顶点 z2' })).toHaveTextContent(
+        '孤立奇点',
+      )
       expect(within(list).getByRole('button', { name: '选择路径段 2' })).toHaveTextContent(
         '1 处绕行',
       )
@@ -223,13 +225,13 @@ describe('source arc and semantic corner Inspector', () => {
     state.closed = false
     mount(state)
     await selectObject(user, '选择顶点 z1')
-    await user.selectOptions(screen.getByLabelText('数学类型'), 'pole')
+    await user.selectOptions(screen.getByLabelText('数学类型'), 'isolated')
     await user.click(screen.getByRole('button', { name: '添加绕行' }))
     pick('edge-a')
     expect(screen.getByRole('alert')).toHaveTextContent(/进入.*离开|可见/)
     await user.click(screen.getByRole('button', { name: '取消选择目标' }))
     expect(screen.getByRole('button', { name: '删除选中顶点' })).toBeInTheDocument()
-    expect(screen.getByLabelText('数学类型')).toHaveValue('pole')
+    expect(screen.getByLabelText('数学类型')).toHaveValue('isolated')
     expect(saved().avoidances).toHaveLength(0)
   })
 

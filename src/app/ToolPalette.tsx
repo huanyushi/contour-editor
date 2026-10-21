@@ -1,4 +1,4 @@
-import type { Dispatch, ReactNode } from 'react'
+import { Fragment, type Dispatch, type ReactNode } from 'react'
 import {
   CircleDot,
   Hand,
@@ -118,21 +118,25 @@ export function ToolPalette({
           aria-orientation="vertical"
         >
           {tools.map((item) => (
-            <button
-              key={item.id}
-              className={`tool-button ${tool === item.id ? 'active' : ''}`}
-              aria-label={item.name}
-              aria-pressed={tool === item.id}
-              title={item.hint}
-              data-tooltip={item.hint}
-              onClick={() => {
-                setTool(item.id)
-                if (item.id === 'arc')
-                  dispatch({ type: 'selectSegment', id: state.selectedSegmentId })
-              }}
-            >
-              {item.icon}
-            </button>
+            <Fragment key={item.id}>
+              {(item.id === 'add' || item.id === 'formula') && (
+                <span className="tool-separator" aria-hidden="true" />
+              )}
+              <button
+                className={`tool-button ${tool === item.id ? 'active' : ''}`}
+                aria-label={item.name}
+                aria-pressed={tool === item.id}
+                title={item.hint}
+                data-tooltip={item.hint}
+                onClick={() => {
+                  setTool(item.id)
+                  if (item.id === 'arc')
+                    dispatch({ type: 'selectSegment', id: state.selectedSegmentId })
+                }}
+              >
+                {item.icon}
+              </button>
+            </Fragment>
           ))}
           <button
             className="tool-button"

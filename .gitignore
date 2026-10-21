@@ -5,6 +5,7 @@ playwright-report/
 test-results/
 .worktrees/
 .superpowers/
+/docs/superpowers/
 *.log
 *.tsbuildinfo
 .env*

@@ -122,6 +122,7 @@ export function AxesLayer({
           />
         )}
         <g
+          data-export-axis-ticks=""
           data-testid="axis-ticks"
           visibility={axes.ticks ? 'visible' : 'hidden'}
           fill={axes.color}

@@ -58,6 +58,16 @@ it('updates the saved manual angle on a subsequent unsnapped port drag', () => {
     ok: true,
     value: { alignment: { kind: 'direction', angle: expect.closeTo(5, 9) } },
   })
+  if (!patch.ok) throw new Error(patch.error)
+  const committed = contourReducer(state, {
+    type: 'updateAvoidance',
+    id: 'parent',
+    patch: patch.value,
+  })
+  expect(committed.error).toBe('')
+  expect(committed.avoidances[0]).toMatchObject({
+    alignment: { kind: 'direction', angle: expect.closeTo(5, 9) },
+  })
 })
 import { contourReducer, type ContourState } from './model'
 import { validateAvoidances } from './avoidanceValidation'

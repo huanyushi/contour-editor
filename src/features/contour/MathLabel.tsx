@@ -1,4 +1,5 @@
 import { renderMath } from '../../lib/math'
+import type { MathRenderer } from '../../lib/mathRenderingScope'
 import type { LabelSettings } from './appearance'
 
 export function MathLabel({
@@ -6,14 +7,16 @@ export function MathLabel({
   x,
   y,
   id,
+  mathRenderer = renderMath,
 }: {
   label: LabelSettings
   x: number
   y: number
   id?: string
+  mathRenderer?: MathRenderer
 }) {
   if (!label.visible || !label.tex.trim()) return null
-  const result = renderMath(label.tex)
+  const result = mathRenderer(label.tex)
   if (result.error) return null
   return (
     <g

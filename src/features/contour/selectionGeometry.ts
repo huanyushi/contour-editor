@@ -1,6 +1,7 @@
 import { arcExtrema, arcThrough, pointOnArc } from '../../lib/arc'
 import { toSvg, type SvgPoint } from '../../lib/geometry'
 import { renderMath } from '../../lib/math'
+import type { MathRenderer } from '../../lib/mathRenderingScope'
 import {
   defaultLabel,
   defaultPointStyle,
@@ -36,9 +37,13 @@ function union(bounds: SelectionRect[]): SelectionRect | null {
       }
     : null
 }
-function labelBounds(point: SvgPoint, label: LabelSettings | undefined): SelectionRect | null {
+function labelBounds(
+  point: SvgPoint,
+  label: LabelSettings | undefined,
+  mathRenderer: MathRenderer,
+): SelectionRect | null {
   if (!label?.visible || !label.tex.trim()) return null
-  const math = renderMath(label.tex)
+  const math = mathRenderer(label.tex)
   return {
     left: point.x + label.dx,
     top: point.y + label.dy,
@@ -114,6 +119,7 @@ function itemBounds(
   state: ContourState,
   item: SelectionItem,
   includeLabels: boolean,
+  mathRenderer: MathRenderer = renderMath,
 ): SelectionRect | null {
   if (item.kind === 'contour') {
     const members: SelectionItem[] = [
@@ -122,7 +128,7 @@ function itemBounds(
     ]
     return union(
       members
-        .map((member) => itemBounds(state, member, includeLabels))
+        .map((member) => itemBounds(state, member, includeLabels, mathRenderer))
         .filter((b): b is SelectionRect => b !== null),
     )
   }
@@ -142,7 +148,7 @@ function itemBounds(
     )
     const text = union(
       labels
-        .map((l) => labelBounds(toSvg(l.anchor, state.viewport), l.value))
+        .map((l) => labelBounds(toSvg(l.anchor, state.viewport), l.value, mathRenderer))
         .filter((b): b is SelectionRect => b !== null),
     )
     return item.part === 'label'
@@ -169,7 +175,7 @@ function itemBounds(
         : state.formulas
   )[index]
   const p = toSvg(object, state.viewport)
-  const label = labelBounds(p, object.label ?? defaultLabel(`z_{${index + 1}}`))
+  const label = labelBounds(p, object.label ?? defaultLabel(`z_{${index + 1}}`), mathRenderer)
   if (item.kind === 'formula' || item.part === 'label') return label
   const radius = object.pointStyle?.radius ?? defaultPointStyle().radius
   const bounds = {
@@ -184,9 +190,9 @@ function itemBounds(
 export function itemsWithinRect(state: ContourState, rect: SelectionRect): SelectionItem[] {
   const scene = resolvedScene(state)
   const candidates: SelectionItem[] = [
-    ...(state.handles
-      ? state.vertices.map((v): SelectionItem => ({ kind: 'vertex', id: v.id }))
-      : []),
+    ...state.vertices
+      .filter((v) => state.handles || (v.mathematicalKind ?? 'ordinary') !== 'ordinary')
+      .map((v): SelectionItem => ({ kind: 'vertex', id: v.id })),
     ...[
       ...new Set(
         [...scene.contourSegments, ...scene.connectionSegments].map((s) =>
@@ -227,10 +233,14 @@ export function itemsWithinRect(state: ContourState, rect: SelectionRect): Selec
   ]
 }
 
-export function selectionBounds(state: ContourState, items: SelectionItem[]): SelectionRect | null {
+export function selectionBounds(
+  state: ContourState,
+  items: SelectionItem[],
+  mathRenderer: MathRenderer = renderMath,
+): SelectionRect | null {
   return union(
     items
-      .map((item) => itemBounds(state, item, true))
+      .map((item) => itemBounds(state, item, true, mathRenderer))
       .filter((b): b is SelectionRect => b !== null),
   )
 }

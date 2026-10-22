@@ -7,6 +7,7 @@ import type { ContourState, PathSegment, Vertex } from './model'
 import { isSingleCycle, validTopology } from './pathTopology'
 import { spliceSourcePaths } from './scenePathSplicing'
 import type { SourcePieceBoundary } from './sourcePieces'
+import type { ConstructionTable } from './avoidanceConstructionTypes'
 
 export type SceneDocument = Pick<
   ContourState,
@@ -48,11 +49,13 @@ export interface ResolvedScene {
   partChains?: ReadonlyMap<string, readonly ResolvedSegment[]>
 }
 export type SceneResolution = { ok: true; scene: ResolvedScene } | { ok: false; error: string }
+export type SceneConstructionResult =
+  { ok: true; scene: ResolvedScene; table: ConstructionTable } | { ok: false; error: string }
 
 /** Pure source validation followed by one shared parent/child scene pipeline. */
-export function resolveScene(document: SceneDocument): SceneResolution {
+export function constructScene(document: SceneDocument): SceneConstructionResult {
   try {
-    const invalid = (error: string): SceneResolution => ({ ok: false, error })
+    const invalid = (error: string): SceneConstructionResult => ({ ok: false, error })
     const sourcePoints = [...document.vertices, ...document.markers]
     const sourceSegments = [...document.segments, ...document.connections]
     const ids = new Set<string>()
@@ -116,11 +119,18 @@ export function resolveScene(document: SceneDocument): SceneResolution {
     )
       return invalid('源围道拓扑不能构成有效闭合围道。')
     const table = constructAvoidances(document)
-    return table.ok ? spliceSourcePaths(document, table.value) : table
+    if (!table.ok) return table
+    const resolution = spliceSourcePaths(document, table.value)
+    return resolution.ok ? { ok: true, scene: resolution.scene, table: table.value } : resolution
   } catch (error) {
     return {
       ok: false,
       error: `派生场景数值构造失败：${error instanceof Error ? error.message : '无法可靠计算路径。'}`,
     }
   }
+}
+
+export function resolveScene(document: SceneDocument): SceneResolution {
+  const result = constructScene(document)
+  return result.ok ? { ok: true, scene: result.scene } : result
 }

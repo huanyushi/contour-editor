@@ -5,6 +5,8 @@ import { createConnectedFixture } from '../../test/connectedAvoidanceFixtures'
 import { ContourCanvas } from './ContourCanvas'
 import { createHistory, historyReducer, type EditorHistory } from './history'
 import { buildContourGeometry } from './pathGeometry'
+import { CanvasScene } from './CanvasScene'
+import { defaultLabel } from './appearance'
 
 beforeEach(() =>
   vi.stubGlobal(
@@ -85,4 +87,24 @@ it('places a parent bank arrow once and gives the separately editable child its 
   expect(paintedArrows.filter((s) => s.segment.id.startsWith('avoid:parent:entry'))).toHaveLength(1)
   expect(paintedArrows.filter((s) => s.segment.id === 'avoid:clearance:bank-entry')).toHaveLength(1)
   expect(paintedArrows).toHaveLength(2)
+})
+
+it('draws a parent label at its own remaining bank arrow rather than on the child arc', () => {
+  const state = createConnectedFixture({ clearanceRadius: 0.12 })
+  state.viewport = { ...state.viewport, scaleX: 200, scaleY: 100, locked: false }
+  state.avoidances[0].partLabels = { entry: { ...defaultLabel('L'), dx: 0, dy: 0 } }
+  const geometry = buildContourGeometry(state)
+  const arrow = geometry.segments.find(
+    (s) => s.segment.id.startsWith('avoid:parent:entry') && s.arrow,
+  )!.arrow!
+  const label = geometry.labels.find((l) => l.value.tex === 'L')!
+  expect(label.point.x).toBeCloseTo(arrow.point.x, 10)
+  expect(label.point.y).toBeCloseTo(arrow.point.y, 10)
+  const { container } = render(<CanvasScene state={state} />)
+  const labels = container.querySelectorAll('g[aria-label="L"]')
+  expect(labels).toHaveLength(1)
+  expect(labels[0]).toHaveAttribute(
+    'transform',
+    `translate(${label.point.x} ${label.point.y}) scale(1)`,
+  )
 })

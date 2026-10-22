@@ -13,6 +13,7 @@ import { serializeProject } from '../project/format'
 import { parseProject } from '../project/project'
 import { constructAvoidances } from './avoidanceConstructionTable'
 import { followAvoidance } from './avoidanceFollowing'
+import { createHistory, historyReducer } from './history'
 
 function automatic(state: ContourState) {
   state.avoidances = state.avoidances.map((a) =>
@@ -28,6 +29,56 @@ function move(state: ContourState, re: number, im: number) {
     point: { re, im },
   })
 }
+
+it('accepts a second manual direction near the source boundary', () => {
+  let history = createHistory(createRectangleConnectedFixture())
+  const first = avoidanceDirectionPatch(history.present, history.present.avoidances[0], 270)
+  if (!first.ok) throw new Error(first.error)
+  history = historyReducer(history, { type: 'updateAvoidance', id: 'parent', patch: first.value })
+  history = historyReducer(history, {
+    type: 'moveObject',
+    kind: 'marker',
+    id: 'center',
+    point: { re: 0, im: 0.3 },
+  })
+  expect(history.present.error).toBe('')
+  const before = history
+  const second = avoidanceDirectionPatch(history.present, history.present.avoidances[0], 315)
+  expect(second.ok).toBe(true)
+  if (!second.ok) throw new Error(second.error)
+  history = historyReducer(history, { type: 'updateAvoidance', id: 'parent', patch: second.value })
+  expect(history.present.error).toBe('')
+  expect(history.present.avoidances[0]).toMatchObject({
+    radius: 0.4,
+    gap: 0.2,
+    alignment: { kind: 'direction', angle: 315 },
+    anchor: { kind: 'segment', segmentId: 'edge-a', t: expect.closeTo(0.575, 10) },
+  })
+  expect(history.past).toHaveLength(before.past.length + 1)
+  const undone = historyReducer(history, { type: 'undo' })
+  expect(undone.present.avoidances).toEqual(before.present.avoidances)
+  expect(undone.present.avoidances[0]).toMatchObject({ alignment: { angle: 270 } })
+  expect(historyReducer(undone, { type: 'redo' }).present.avoidances).toEqual(
+    history.present.avoidances,
+  )
+  expect(parseProject(serializeProject(history.present)).avoidances).toEqual(
+    history.present.avoidances,
+  )
+  const value = history.present.avoidances[0]
+  if (value.kind !== 'corridor') throw new Error('Expected corridor')
+  const normal = avoidanceNormalPatch(history.present, value)
+  if (!normal.ok) throw new Error(normal.error)
+  const restored = contourReducer(history.present, {
+    type: 'updateAvoidance',
+    id: 'parent',
+    patch: normal.value,
+  })
+  expect(restored.error).toBe('')
+  expect(restored.avoidances[0]).toMatchObject({
+    alignment: { kind: 'normal' },
+    anchor: { t: 0.5 },
+  })
+})
 
 it('follows the foot on a line rather than keeping the original contact fixed', () => {
   const initial = automatic(createRectangleConnectedFixture())

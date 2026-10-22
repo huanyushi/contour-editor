@@ -7,7 +7,6 @@ import {
   edgeParameter,
   edgePointAt,
   type GeometryResult,
-  type SourceAnchor,
 } from '../../lib/connectedAvoidanceGeometry'
 import { constructAvoidance, sourceEdge } from './avoidanceConstruction'
 import { isLegacyAvoidance, type Avoidance, type CorridorAvoidance } from './avoidanceTypes'
@@ -123,16 +122,11 @@ export function avoidanceDirectionPatch(
     direction: { re: Math.cos(radians), im: Math.sin(radians) },
   })
   if (!result.ok) return result
-  const patch = visibleAnchorPatch(document, editable, result.value)
-  return patch.ok
-    ? {
-        ok: true,
-        value: {
-          ...patch.value,
-          alignment: { kind: 'direction', angle: ((degrees % 360) + 360) % 360 },
-        },
-      }
-    : patch
+  return visibleAnchorPatch(document, {
+    ...editable,
+    anchor: result.value,
+    alignment: { kind: 'direction', angle: ((degrees % 360) + 360) % 360 },
+  })
 }
 
 export function avoidancePortPatch(
@@ -200,21 +194,21 @@ export function avoidancePortPatch(
     outward,
   })
   if (!result.ok) return result
-  const patch = visibleAnchorPatch(document, editable, result.value)
   const angle = avoidanceAngle(document, {
     ...editable,
     anchor: result.value,
     alignment: undefined,
   })
-  return patch.ok
-    ? { ok: true, value: { ...patch.value, alignment: { kind: 'direction', angle } } }
-    : patch
+  return visibleAnchorPatch(document, {
+    ...editable,
+    anchor: result.value,
+    alignment: { kind: 'direction', angle },
+  })
 }
 
 function visibleAnchorPatch(
   document: SceneDocument,
   editable: CorridorAvoidance,
-  anchor: SourceAnchor,
 ): GeometryResult<AvoidancePatch> {
   const visible = new Set([...activeSegments(document), ...document.connections].map((s) => s.id))
   const center = [...document.vertices, ...document.markers].find(
@@ -229,18 +223,18 @@ function visibleAnchorPatch(
     center,
     radius: editable.radius,
     gap: editable.gap,
-    anchor,
+    anchor: editable.anchor,
   }
   const construction = editable.alignment
     ? buildApproachingAvoidance({
         ...input,
-        direction: corridorDirection(document, { ...editable, anchor }),
+        direction: corridorDirection(document, editable),
       })
     : buildConnectedAvoidance(input)
   if (!construction.ok) return construction
   if (construction.value.trims.some((trim) => !visible.has(trim.sourceSegmentId)))
     return { ok: false, error: '该朝向需要暂存的关闭边，请恢复闭合或选择可见路径方向。' }
-  return { ok: true, value: { anchor } }
+  return { ok: true, value: { anchor: editable.anchor, alignment: editable.alignment } }
 }
 
 function patchAvoidanceForPort(value: CorridorAvoidance, patch: AvoidancePatch): CorridorAvoidance {
@@ -261,8 +255,5 @@ export function avoidanceNormalPatch(
     alignment: { kind: 'normal', angle: (Math.atan2(direction.im, direction.re) * 180) / Math.PI },
   })
   if (!result.ok) return result
-  const patch = visibleAnchorPatch(document, result.value, result.value.anchor)
-  return patch.ok
-    ? { ok: true, value: { ...patch.value, alignment: result.value.alignment } }
-    : patch
+  return visibleAnchorPatch(document, result.value)
 }

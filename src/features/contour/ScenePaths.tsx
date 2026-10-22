@@ -7,6 +7,7 @@ import { isSelected, selectionItems } from './selectionModel'
 import { DraggableLabel } from './DraggableLabel'
 import { MathLabel } from './MathLabel'
 import { logicalSegmentId } from './sceneObjects'
+import type { MathRenderer } from '../../lib/mathRenderingScope'
 
 /** Shared applied/preview drawing; neither branch constructs its own geometry. */
 export function ScenePaths({
@@ -16,6 +17,7 @@ export function ScenePaths({
   interaction,
   previewId,
   exportOriginal = false,
+  mathRenderer,
 }: {
   state: ContourState
   scene: ResolvedScene
@@ -23,6 +25,7 @@ export function ScenePaths({
   interaction?: ReturnType<typeof useCanvasInteraction>
   previewId?: string | null
   exportOriginal?: boolean
+  mathRenderer?: MathRenderer
 }) {
   const fill = state.appearance.fill
   const prefix = exportOriginal ? 'export-original-' : ''
@@ -147,6 +150,7 @@ export function ScenePaths({
       {geometry.labels.map(({ target, point, value }) =>
         editable ? (
           <DraggableLabel
+            mathRenderer={mathRenderer}
             key={target.id}
             label={value}
             x={point.x}
@@ -164,6 +168,7 @@ export function ScenePaths({
           />
         ) : (
           <MathLabel
+            mathRenderer={mathRenderer}
             key={target.id}
             label={value}
             x={point.x}

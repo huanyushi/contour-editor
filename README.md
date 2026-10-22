@@ -135,6 +135,8 @@ npm run dev
 
 子避让中的“两岸间距”修改的是**整个父通道**，会同步检查其他子避让；每个孤立奇点仍有自己的半径。半径较小时，圆盘已完全处于通道留空区，可保留为“当前无需额外绕行”，重新增大半径后恢复圆弧及外观。可沿通道设置多个孤立奇点，但避让区间不能相交或相切，也不能侵入通道端部；不自动合并多个圆盘或继续任意嵌套。
 
+父岸的标签与箭头按其自身剩余片段总弧长的中点定位，子圆弧独立计算。父岸暂时消失时不显示其标签，但保留设置，岸线恢复后重新显示。
+
 拖动任一父／子圆弧端点可调整该绑定的公共半径；子避让两岸同步变化，一次拖动一步撤销，Esc 恢复。取消子避让恢复相应岸线，保留父绕行；取消父绕行会一起清理其子避让，但保留真实奇点。父几何或真实奇点移动时整体重算，任何依赖失效都保留上一次有效作品。
 
 也可以直接在画布上调整：
@@ -196,13 +198,13 @@ npm run dev
 
 在线站点由本仓库独立发布到 <https://huanyushi.github.io/contour-editor/>。Vite 的 `base` 配置为 `/contour-editor/`，确保脚本和样式使用正确的项目路径。
 
-向 `main` 分支推送后，[部署工作流](.github/workflows/deploy-pages.yml)会自动安装依赖、运行单元和组件测试、构建网站，并将 `dist/` 作为 Pages 产物部署。也可以在仓库的 Actions 页面手动运行“Deploy to GitHub Pages”。构建产物通过工作流上传，无需提交 `dist/`，也无需同步博客仓库。
+向 `main` 分支推送后，[部署工作流](.github/workflows/deploy-pages.yml)会自动安装 npm 依赖、Chromium 及其 Linux 系统依赖，依次进行代码规范、格式、单元／组件测试、生产构建和浏览器测试。所有检查通过后，才将 `dist/` 作为 Pages 产物交给部署任务；任一步失败都会阻止部署。单元与浏览器测试串行运行，各使用两个 worker，限制同时执行的任务数。也可以在仓库的 Actions 页面手动运行“Deploy to GitHub Pages”。构建产物通过工作流上传，无需提交 `dist/`，也无需同步博客仓库。
 
 首次启用时，仓库的 **Settings → Pages → Build and deployment → Source** 应选择 **GitHub Actions**。部署结果可在 Actions 中查看：`build` 和 `deploy` 均成功后，通过部署记录中的站点链接访问并刷新确认。
 
 ## 开发与验证
 
-界面布局位于 `src/app/`，围道模型和交互位于 `src/features/contour/`，持久化及导出位于 `src/features/project/`。几何、视图投影和数学排版等基础代码放在 `src/lib/`。实现约定见 [AGENTS.md](AGENTS.md)。
+界面布局位于 `src/app/`，围道模型和交互位于 `src/features/contour/`，持久化及导出位于 `src/features/project/`。几何、视图投影和数学排版等基础代码放在 `src/lib/`。现行说明与历史记录的区别见[文档入口](docs/README.md)，实现约定见 [AGENTS.md](AGENTS.md)。
 
 | 命令                                      | 用途                |
 | ----------------------------------------- | ------------------- |
@@ -219,4 +221,6 @@ npm run dev
 npx playwright install chromium
 ```
 
-Linux 系统依赖可通过 `npx playwright install-deps chromium` 安装；中文截图需要中文字库，例如 `fonts-noto-cjk`。测试会自动启动开发服务器，以桌面覆盖完整流程，并在窄屏下验证与尺寸有关的交互。
+Linux 系统依赖可通过 `npx playwright install-deps chromium` 安装，或用 `npx playwright install --with-deps chromium` 一并安装浏览器和系统依赖；安装系统库通常需要管理员权限。若提示缺少 `libasound.so.2` 等共享库，应先补齐运行环境，浏览器启动失败不代表产品断言失败。中文截图需要中文字库，例如 `fonts-noto-cjk`。
+
+本地可按工作流顺序运行 `npm run lint`、`npm run format:check`、`npm test -- --maxWorkers=2`、`npm run build` 和 `npm run test:e2e -- --workers=2`。build 已包含 TypeScript 检查。浏览器测试会自动启动**开发服务器**，以桌面覆盖完整流程，并在窄屏下验证与尺寸、焦点或覆盖层有关的交互；失败时保留轨迹供排查。生产构建通过与开发服务器上的交互测试是不同检查，不能据此声称已验证生产构建的全部运行行为。

@@ -4,7 +4,39 @@ import { itemAnchor, itemsWithinRect, selectionBounds } from './selectionGeometr
 import { createLegacyTemplateFixture } from '../../test/legacyTemplates'
 import { createConnectedFixture } from '../../test/connectedAvoidanceFixtures'
 import { logicalSegmentId } from './sceneObjects'
-import type { SelectionItem } from './appearance'
+import { defaultLabel, type SelectionItem } from './appearance'
+
+it.each(['isolated', 'branch', 'pole', 'ordinary'] as const)(
+  'marquee-selects visible semantic vertices with handles hidden: %s',
+  (mathematicalKind) => {
+    const state = createInitialState()
+    state.handles = false
+    state.vertices[0] = {
+      ...state.vertices[0],
+      mathematicalKind,
+      label: { ...defaultLabel('a'), visible: false },
+    }
+    const rect = { left: 0, top: 0, right: 800, bottom: 600 }
+    const owner = { kind: 'vertex', id: 'a' }
+    expect(
+      itemsWithinRect(state, rect).some((item) => item.kind === 'vertex' && item.id === 'a'),
+    ).toBe(mathematicalKind !== 'ordinary')
+    state.handles = true
+    expect(
+      itemsWithinRect(state, rect).filter((item) => item.kind === 'vertex' && item.id === 'a'),
+    ).toEqual([owner])
+    state.handles = false
+    state.vertices[0].label = defaultLabel('a')
+    const items = itemsWithinRect(state, rect).filter(
+      (item) => item.kind === 'vertex' && item.id === 'a',
+    )
+    expect(items).toEqual([mathematicalKind === 'ordinary' ? { ...owner, part: 'label' } : owner])
+    expect(itemsWithinRect(state, { left: 0, right: 800, top: 260, bottom: 299 })).toContainEqual({
+      ...owner,
+      part: 'label',
+    })
+  },
+)
 
 it('selects only complete segments, including the full extent of major arcs', () => {
   const state = createLegacyTemplateFixture('keyhole')

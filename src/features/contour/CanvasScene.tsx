@@ -1,7 +1,8 @@
-import type { RefObject } from 'react'
+import { useState, type RefObject } from 'react'
 import { toSvg } from '../../lib/geometry'
 import { canvasBounds, exportSize, type CanvasSize } from '../../lib/viewport'
-import { renderMath } from '../../lib/math'
+import { createMathRenderingScope, type MathRenderer } from '../../lib/mathRenderingScope'
+import { sceneMathTexts } from './sceneMath'
 import type { ContourState } from './model'
 import { buildSceneGeometry } from './pathGeometry'
 import { defaultLabel, defaultPointStyle } from './appearance'
@@ -23,6 +24,7 @@ interface Props {
   interaction?: ReturnType<typeof useCanvasInteraction>
   canvasRef?: RefObject<SVGSVGElement | null>
   avoidanceWorkflow?: AvoidanceWorkflow
+  mathRenderer?: MathRenderer
 }
 
 export function CanvasScene({
@@ -31,6 +33,7 @@ export function CanvasScene({
   interaction,
   canvasRef,
   avoidanceWorkflow,
+  mathRenderer,
 }: Props) {
   const bounds = canvasBounds(size)
   const appliedScene = resolvedScene(state)
@@ -41,11 +44,14 @@ export function CanvasScene({
   const scene = showingPreview && preview?.ok ? preview.scene : appliedScene
   const drawingState = showingPreview ? (avoidanceWorkflow?.previewDocument ?? state) : state
   const geometry = buildSceneGeometry(scene, drawingState)
+  const [mathScope] = useState(() => createMathRenderingScope())
+  mathScope.retain(mathRenderer ? [] : sceneMathTexts(state, [appliedScene, scene]))
+  const render = mathRenderer ?? mathScope.render
   const fill = state.appearance.fill
   const selectedItems = selectionItems(state.selection)
   const selectedBounds =
     interaction?.showSelection && !interaction.marquee
-      ? selectionBounds(state, selectedItems)
+      ? selectionBounds(state, selectedItems, render)
       : null
   const selectedLabel = (id: string) =>
     state.handles &&
@@ -63,7 +69,7 @@ export function CanvasScene({
       aria-describedby="canvas-help"
       {...interaction?.handlers}
     >
-      <AxesLayer state={state} size={size} />
+      <AxesLayer state={state} size={size} mathRenderer={render} />
       <defs>
         <pattern
           id="contour-hatch"
@@ -78,6 +84,7 @@ export function CanvasScene({
       {showingPreview && (
         <g data-export-preview-source="" visibility="hidden" pointerEvents="none">
           <ScenePaths
+            mathRenderer={render}
             state={state}
             scene={appliedScene}
             geometry={buildSceneGeometry(appliedScene, state)}
@@ -91,6 +98,7 @@ export function CanvasScene({
         pointerEvents={showingPreview ? 'none' : undefined}
       >
         <ScenePaths
+          mathRenderer={render}
           state={drawingState}
           scene={scene}
           geometry={geometry}
@@ -134,6 +142,7 @@ export function CanvasScene({
               pointerEvents="none"
             />
             <DraggableLabel
+              mathRenderer={render}
               label={label}
               x={0}
               y={0}
@@ -170,6 +179,7 @@ export function CanvasScene({
                 pointerEvents="none"
               />
               <MathLabel
+                mathRenderer={render}
                 label={{ ...defaultLabel(`q_{${index + 1}}`), color: '#8b641f' }}
                 x={0}
                 y={0}
@@ -202,6 +212,7 @@ export function CanvasScene({
               pointerEvents="none"
             />
             <DraggableLabel
+              mathRenderer={render}
               label={object.label}
               x={0}
               y={0}
@@ -216,7 +227,7 @@ export function CanvasScene({
       })}
       {state.formulas.map((object) => {
         const point = toSvg(object, state.viewport),
-          dimensions = renderMath(object.label.tex)
+          dimensions = render(object.label.tex)
         const selected = isSelected(state.selection, { kind: 'formula', id: object.id })
         return (
           <g
@@ -237,7 +248,7 @@ export function CanvasScene({
               stroke={selected && state.handles ? '#238b8b' : 'none'}
               strokeDasharray="3 3"
             />
-            <MathLabel label={object.label} x={0} y={0} id={object.id} />
+            <MathLabel label={object.label} x={0} y={0} id={object.id} mathRenderer={render} />
           </g>
         )
       })}

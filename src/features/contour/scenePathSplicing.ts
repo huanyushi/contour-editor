@@ -220,7 +220,16 @@ export function spliceSourcePaths(
         }
       }
       partChains.set(id, parts)
-      addLabel(id, declaration.partLabels?.[part], parts)
+      addLabel(
+        id,
+        declaration.partLabels?.[part],
+        parts.filter((segment) => {
+          const origin = segment.origin
+          return (
+            origin.kind === 'avoidance' && origin.avoidanceId === parent.id && origin.part === part
+          )
+        }),
+      )
       replacement.push(...parts)
     }
     replacements.set(parent.id, replacement)

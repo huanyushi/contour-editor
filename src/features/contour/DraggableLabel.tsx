@@ -1,5 +1,6 @@
 import type { PointerEvent } from 'react'
 import { renderMath } from '../../lib/math'
+import type { MathRenderer } from '../../lib/mathRenderingScope'
 import type { LabelSettings } from './appearance'
 import { MathLabel } from './MathLabel'
 
@@ -10,6 +11,7 @@ export function DraggableLabel({
   id,
   selected,
   onPointerDown,
+  mathRenderer = renderMath,
 }: {
   label: LabelSettings
   x: number
@@ -17,9 +19,10 @@ export function DraggableLabel({
   id: string
   selected: boolean
   onPointerDown: (event: PointerEvent<SVGGElement>) => void
+  mathRenderer?: MathRenderer
 }) {
   if (!label.visible || !label.tex.trim()) return null
-  const math = renderMath(label.tex)
+  const math = mathRenderer(label.tex)
   if (math.error) return null
   return (
     <g className="draggable-label" onPointerDown={onPointerDown}>
@@ -36,7 +39,7 @@ export function DraggableLabel({
         strokeDasharray="3 3"
         rx="2"
       />
-      <MathLabel label={label} x={x} y={y} id={id} />
+      <MathLabel label={label} x={x} y={y} id={id} mathRenderer={mathRenderer} />
     </g>
   )
 }

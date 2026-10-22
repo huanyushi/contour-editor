@@ -23,6 +23,40 @@ function automatic(state: ContourState) {
   return state
 }
 
+test(
+  'accepts a second manual direction near a rectangle boundary through the inspector',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    await page.goto('/')
+    await openAvoidanceProject(page, createRectangleConnectedFixture())
+    const direction = async (angle: string) => {
+      await selectObject(page, '选择绕行 1 的绕行圆弧')
+      const field = page.getByLabel('开口朝向（度）', { exact: true })
+      await field.fill(angle)
+      await field.press('Enter')
+    }
+    await direction('270')
+    await selectObject(page, '选择标记点 1')
+    const im = page.getByLabel('虚部 Im', { exact: true })
+    await im.fill('0.3')
+    await im.press('Enter')
+    const before = await savedProject(page)
+    expect(before.document.markers[0].im).toBe(0.3)
+    await direction('315')
+    const after = await savedProject(page)
+    expect(after.document.avoidances![0]).toMatchObject({
+      radius: 0.4,
+      gap: 0.2,
+      alignment: { kind: 'direction', angle: 315 },
+      anchor: { segmentId: 'edge-a', t: expect.closeTo(0.575, 9) },
+    })
+    await page.getByRole('button', { name: '撤销', exact: true }).click()
+    expect((await savedProject(page)).document).toEqual(before.document)
+    await page.getByRole('button', { name: '重做', exact: true }).click()
+    expect((await savedProject(page)).document).toEqual(after.document)
+  },
+)
+
 for (const shape of ['rectangle', 'circle'] as const) {
   test(
     `${shape} follows a moved singularity to its boundary, reopens and returns with preserved settings`,

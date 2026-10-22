@@ -8,6 +8,38 @@ import {
   createConnectedFixture,
   createRectangleConnectedFixture,
 } from '../src/test/connectedAvoidanceFixtures'
+import { createInitialState } from '../src/features/contour/model'
+
+test(
+  'marquee selects a semantic vertex with hidden handles without changing template paints',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    const state = createInitialState()
+    state.vertices = state.vertices.map((v) => ({
+      ...v,
+      re: v.re / 2,
+      im: (v.im * 2) / 3,
+      label: { ...defaultLabel(), visible: false },
+    }))
+    state.vertices[0].mathematicalKind = 'isolated'
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/')
+    await openAvoidanceProject(page, state)
+    await openView(page)
+    await page.getByLabel('显示编辑手柄', { exact: true }).uncheck()
+    await openTemplates(page)
+    await expect(page.locator('.template-grid .scene-thumbnail')).toHaveCount(9)
+    await page.getByRole('button', { name: '框选工具', exact: true }).click()
+    await stableDrag(page, await screenPoint(page, -2.3, -0.3), await screenPoint(page, -1.7, 0.3))
+    await expect(page.getByTestId('selection-toolbar')).toContainText('1 个对象')
+    const before = await savedProject(page)
+    const from = await screenPoint(page, -2, 0)
+    await stableDrag(page, from, { x: from.x + 40, y: from.y - 40 })
+    expect((await savedProject(page)).document.vertices[0]).toMatchObject({ re: -1, im: 1 })
+    await page.getByRole('button', { name: '撤销', exact: true }).click()
+    expect((await savedProject(page)).document).toEqual(before.document)
+  },
+)
 
 test(
   'source positioning and independent spacing drags preserve template and global control paints',

@@ -1,6 +1,7 @@
 import { arcExtrema } from '../../lib/arc'
 import { fromSvg, toSvg, type SvgPoint } from '../../lib/geometry'
-import { renderMath } from '../../lib/math'
+import { createMathRenderingScope, type MathRenderer } from '../../lib/mathRenderingScope'
+import { sceneMathTexts } from '../contour/sceneMath'
 import {
   canvasBounds,
   exportSize,
@@ -50,8 +51,8 @@ function pointBounds(point: SvgPoint, radius: number): Bounds {
   }
 }
 
-function mathSize(tex: string, size: number): CanvasSize {
-  const math = renderMath(tex)
+function mathSize(tex: string, size: number, mathRenderer: MathRenderer): CanvasSize {
+  const math = mathRenderer(tex)
   if (math.error) throw new Error(math.error)
   const width = (math.width * size) / 16
   const height = (math.height * size) / 16
@@ -60,13 +61,17 @@ function mathSize(tex: string, size: number): CanvasSize {
 }
 
 /** Export-only bounds: no hit targets, selection rings, or through-point controls. */
-function contentBounds(state: ContourState, options: ExportOptions): Bounds | null {
+function contentBounds(
+  state: ContourState,
+  options: ExportOptions,
+  mathRenderer: MathRenderer,
+): Bounds | null {
   const bounds: Bounds[] = []
   const { points: scenePoints } = resolvedScene(state)
   const geometry = buildContourGeometry(state)
   const addLabel = (point: SvgPoint, label: LabelSettings) => {
     if (!label.visible || !label.tex.trim()) return
-    const { width, height } = mathSize(label.tex, label.size)
+    const { width, height } = mathSize(label.tex, label.size, mathRenderer)
     bounds.push({
       left: point.x + label.dx,
       top: point.y + label.dy,
@@ -102,9 +107,13 @@ function contentBounds(state: ContourState, options: ExportOptions): Bounds | nu
 
 /** Axes are viewport decorations, not infinite content. Keep their math names
  * inside the independent canvas, including unusually wide/tall custom names. */
-function axesSize(state: ContourState, initial: CanvasSize): CanvasSize {
-  const re = mathSize(state.axes.reLabel, 20)
-  const im = mathSize(state.axes.imLabel, 20)
+function axesSize(
+  state: ContourState,
+  initial: CanvasSize,
+  mathRenderer: MathRenderer,
+): CanvasSize {
+  const re = mathSize(state.axes.reLabel, 20, mathRenderer)
+  const im = mathSize(state.axes.imLabel, 20, mathRenderer)
   let size = { width: Math.max(initial.width, 112), height: Math.max(initial.height, 112) }
   const view = state.viewport
   const origin = toSvg({ re: 0, im: 0 }, view)
@@ -183,7 +192,11 @@ export interface ExportLayout {
 
 /** Preserve current scales and axis ratio in an export snapshot. Large geometry
  * is shrunk and remeasured without scaling fixed-pixel text or label offsets. */
-export function computeExportLayout(state: ContourState, options: ExportOptions): ExportLayout {
+export function computeExportLayout(
+  state: ContourState,
+  options: ExportOptions,
+  mathRenderer?: MathRenderer,
+): ExportLayout {
   let scene: ContourState = {
     ...state,
     viewport: { ...state.viewport },
@@ -193,17 +206,25 @@ export function computeExportLayout(state: ContourState, options: ExportOptions)
   }
   if (options.region === 'view') return { state: scene, size: { ...exportSize } }
   if (!validViewport(scene.viewport)) throw layoutError()
+  if (!mathRenderer) {
+    const scope = createMathRenderingScope()
+    scope.retain(sceneMathTexts(scene, [resolvedScene(scene)]))
+    mathRenderer = scope.render
+  }
   const padding = options.axes ? 56 : 24
   const dimensions = (bounds: Bounds): CanvasSize => ({
     // One extra pixel on either side absorbs fractional rounding of glyphs.
     width: Math.ceil(bounds.right - bounds.left + 2 * padding + 2),
     height: Math.ceil(bounds.bottom - bounds.top + 2 * padding + 2),
   })
-  let bounds = contentBounds(scene, options)
+  let bounds = contentBounds(scene, options, mathRenderer)
   if (!bounds)
-    return { state: scene, size: options.axes ? axesSize(scene, exportSize) : { ...exportSize } }
+    return {
+      state: scene,
+      size: options.axes ? axesSize(scene, exportSize, mathRenderer) : { ...exportSize },
+    }
   for (let iteration = 0; iteration < 64; iteration++) {
-    bounds = contentBounds(scene, options)!
+    bounds = contentBounds(scene, options, mathRenderer)!
     let size = dimensions(bounds)
     if (Math.max(size.width, size.height) <= MAX_BASE_SIDE) {
       const center = fromSvg(
@@ -215,7 +236,7 @@ export function computeExportLayout(state: ContourState, options: ExportOptions)
         viewport: { ...scene.viewport, centerRe: center.re, centerIm: center.im },
       }
       if (!validViewport(scene.viewport)) throw layoutError()
-      if (options.axes) size = axesSize(scene, size)
+      if (options.axes) size = axesSize(scene, size, mathRenderer)
       if (Math.max(size.width, size.height) > MAX_BASE_SIDE) throw layoutError()
       return { state: scene, size }
     }

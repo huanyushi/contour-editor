@@ -12,13 +12,22 @@ import { renderMath } from '../../lib/math'
 import { defaultLabel, type LabelSettings } from './appearance'
 import type { ContourState } from './model'
 import { sceneSegments } from './sceneObjects'
-import { resolveScene } from './resolvedScene'
+import { resolveScene, type ResolvedScene } from './resolvedScene'
 
 export function canProjectScene(state: ContourState, view: Viewport): boolean {
   if (!validViewport(view)) return false
   const resolution = resolveScene(state)
   if (!resolution.ok) return false
-  const { scene } = resolution
+  return canProjectResolvedScene(state, view, resolution.scene)
+}
+
+/** The caller must supply the scene constructed from this same candidate state. */
+export function canProjectResolvedScene(
+  state: ContourState,
+  view: Viewport,
+  scene: ResolvedScene,
+): boolean {
+  if (!validViewport(view)) return false
   const points: ComplexPoint[] = [...state.vertices, ...state.markers, ...state.formulas]
   points.push(...scene.points.values())
   for (const segment of [
@@ -97,7 +106,7 @@ export function fitScene(state: ContourState, size: CanvasSize = exportSize): Vi
   }
   if (
     scaleX < MIN_SCALE ||
-    !canProjectScene(state, view) ||
+    !canProjectResolvedScene(state, view, scene) ||
     labels.some((item) => item.width > availableWidth || item.height > availableHeight)
   )
     return null
@@ -127,7 +136,7 @@ export function fitScene(state: ContourState, size: CanvasSize = exportSize): Vi
       scaleX: view.scaleX * factor,
       scaleY: view.scaleY * factor,
     }
-    if (!canProjectScene(state, view)) return null
+    if (!canProjectResolvedScene(state, view, scene)) return null
     if (factor > 0.999) return view
   }
   return null

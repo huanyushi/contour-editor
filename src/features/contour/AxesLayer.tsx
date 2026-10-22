@@ -1,5 +1,6 @@
 import { toSvg } from '../../lib/geometry'
 import { renderMath } from '../../lib/math'
+import type { MathRenderer } from '../../lib/mathRenderingScope'
 import {
   canvasBounds,
   exportSize,
@@ -16,9 +17,11 @@ import { MathLabel } from './MathLabel'
 export function AxesLayer({
   state,
   size = exportSize,
+  mathRenderer = renderMath,
 }: {
   state: ContourState
   size?: CanvasSize
+  mathRenderer?: MathRenderer
 }) {
   const { left, top, right, bottom } = canvasBounds(size)
   const view = state.viewport,
@@ -44,8 +47,8 @@ export function AxesLayer({
         ? 'M 0 0 L -10 -4 L -10 4 Z'
         : 'M -10 -4 L 0 0 L -10 4'
   const marker = axes.arrow === 'none' ? undefined : 'url(#axis-arrow)'
-  const reWidth = renderMath(axes.reLabel).width * 1.25
-  const imWidth = renderMath(axes.imLabel).width * 1.25
+  const reWidth = mathRenderer(axes.reLabel).width * 1.25
+  const imWidth = mathRenderer(axes.imLabel).width * 1.25
   return (
     <>
       <defs>
@@ -182,6 +185,7 @@ export function AxesLayer({
         {showX && (
           <MathLabel
             id="axis-re"
+            mathRenderer={mathRenderer}
             label={{ ...defaultLabel(axes.reLabel), dx: 0, dy: 0, size: 20, color: axes.color }}
             x={Math.max(left + 20, right - reWidth - 20)}
             y={origin.y > top + 40 ? origin.y - 26 : origin.y + 12}
@@ -190,6 +194,7 @@ export function AxesLayer({
         {showY && (
           <MathLabel
             id="axis-im"
+            mathRenderer={mathRenderer}
             label={{ ...defaultLabel(axes.imLabel), dx: 0, dy: 0, size: 20, color: axes.color }}
             x={Math.max(
               left + 20,

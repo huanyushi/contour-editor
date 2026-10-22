@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 import { createRectangleConnectedFixture } from '../../test/connectedAvoidanceFixtures'
 import { createHistory, historyReducer } from './history'
 import { ObjectProperties } from './ObjectProperties'
-import { CanvasScene } from './CanvasScene'
+import { CanvasScene } from './scene/CanvasScene'
 import { sourcePieceId } from './sourcePieces'
 
 it('edits only the selected retained edge and keeps its inspector after a shape edit', () => {

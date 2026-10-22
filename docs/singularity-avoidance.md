@@ -127,16 +127,16 @@ Alt 临时解除路径及网格吸附；精确数值输入不投影。几乎奇�
 | `src/lib/avoidanceGeometry.ts`                                             | 直线在线／离线构造                 |
 | `src/lib/pathAvoidanceGeometry.ts`                                         | 源圆弧和角点裁剪                   |
 | `src/lib/geometryIntersections.ts`、`src/lib/edgeArcFrame.ts`              | 有限真线／圆弧的局部尺度求交       |
-| `avoidanceConstruction.ts`                                                 | 局部直线／圆弧／角点适配与冲突占用 |
-| `avoidanceConstructionTable.ts`、`scenePathSplicing.ts`                    | 父子构造、源裁剪与部件拼接         |
+| `avoidance/avoidanceConstruction.ts`                                       | 局部直线／圆弧／角点适配与冲突占用 |
+| `avoidance/avoidanceConstructionTable.ts`、`scene/scenePathSplicing.ts`    | 父子构造、源裁剪与部件拼接         |
 | `src/lib/connectedAvoidanceGeometry.ts`、`src/lib/approachingAvoidance.ts` | 平行接入与近边界过渡               |
-| `avoidanceFollowing.ts`、`avoidanceDefaults.ts`                            | 接入口跟随及统一默认尺寸           |
-| `resolvedScene.ts`、`avoidanceValidation.ts`                               | 来源解析、实际场景与冲突验证       |
-| `avoidanceModel.ts`、选择与历史模块                                        | 源更新、依赖维护和原子编辑         |
-| `ScenePaths.tsx`、`CanvasScene.tsx`                                        | 共用投影结果绘制已应用场景和预览   |
+| `avoidance/avoidanceFollowing.ts`、`avoidance/avoidanceDefaults.ts`        | 接入口跟随及统一默认尺寸           |
+| `scene/resolvedScene.ts`、`avoidance/avoidanceValidation.ts`               | 来源解析、实际场景与冲突验证       |
+| `avoidance/avoidanceModel.ts`、`selection/`、`history.ts`                  | 源更新、依赖维护和原子编辑         |
+| `scene/ScenePaths.tsx`、`scene/CanvasScene.tsx`                            | 共用投影结果绘制已应用场景和预览   |
 | `src/features/project/`                                                    | 严格读取、容量约束、持久化和导出   |
 
-以上省略路径的模块均位于 `src/features/contour/`。几何与状态规则用单元测试，表单用组件测试，真实拖动、布局和图片下载用相关 Playwright 场景；实际缺陷回归应保留，不用重复的模拟入口替代现有真实控件。
+以上省略 `src/` 前缀的模块路径相对 `src/features/contour/`。选择基础查询位于 `selection/selectionState.ts`，唯一画布手势协调器位于 `interaction/useCanvasInteraction.ts`；项目接受校验集中在 `src/features/project/validation.ts`，格式与序列化留在 `format.ts`。完整导航见 [文档入口](README.md#代码导航)。几何与状态规则用单元测试，表单用组件测试，真实拖动、布局和图片下载用相关 Playwright 场景；实际缺陷回归应保留，不用重复的模拟入口替代现有真实控件。
 
 ## 参考
 

@@ -8,7 +8,7 @@ import { openAvoidanceProject, startAvoidance } from './avoidance'
 import { savedProject, screenPoint } from './selection'
 import { selectObject, showCanvas } from './navigation'
 import { parseProject } from '../src/features/project/project'
-import { constructAvoidances } from '../src/features/contour/avoidanceConstructionTable'
+import { constructAvoidances } from '../src/features/contour/avoidance/avoidanceConstructionTable'
 import type { ContourState } from '../src/features/contour/model'
 import { contourTemplates } from '../src/features/contour/templates'
 

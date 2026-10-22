@@ -6,8 +6,8 @@ import { renderApp, savedCanvasState } from '../test/renderApp'
 import { ContourCanvas, type DrawingTool } from '../features/contour/ContourCanvas'
 import { createHistory, historyReducer, type EditorAction } from '../features/contour/history'
 import type { ContourState } from '../features/contour/model'
-import type { AvoidanceWorkflow } from '../features/contour/useAvoidanceDraft'
-import { useAvoidanceDraft } from '../features/contour/useAvoidanceDraft'
+import type { AvoidanceWorkflow } from '../features/contour/avoidance/useAvoidanceDraft'
+import { useAvoidanceDraft } from '../features/contour/avoidance/useAvoidanceDraft'
 import { serializeProject } from '../features/project/format'
 import { defaultExportOptions, serializeSvg } from '../features/project/export'
 import { downloadBlob } from '../features/project/download'
@@ -24,8 +24,9 @@ const observed = vi.hoisted(
       dispatch: React.Dispatch<EditorAction>
     },
 )
-vi.mock('../features/contour/useAvoidanceDraft', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../features/contour/useAvoidanceDraft')>()
+vi.mock('../features/contour/avoidance/useAvoidanceDraft', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('../features/contour/avoidance/useAvoidanceDraft')>()
   return {
     ...original,
     useAvoidanceDraft: (...args: Parameters<typeof original.useAvoidanceDraft>) => {

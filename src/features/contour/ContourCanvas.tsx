@@ -3,9 +3,9 @@ import type { ComplexPoint } from '../../lib/geometry'
 import type { CanvasSize } from '../../lib/viewport'
 import type { ContourState } from './model'
 import type { EditorAction, GestureOwner } from './history'
-import { CanvasScene } from './CanvasScene'
-import { useCanvasInteraction } from './useCanvasInteraction'
-import type { AvoidanceWorkflow } from './useAvoidanceDraft'
+import { CanvasScene } from './scene/CanvasScene'
+import { useCanvasInteraction } from './interaction/useCanvasInteraction'
+import type { AvoidanceWorkflow } from './avoidance/useAvoidanceDraft'
 
 export type DrawingTool =
   'select' | 'marquee' | 'add' | 'line' | 'arc' | 'marker' | 'formula' | 'pan'

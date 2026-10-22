@@ -204,7 +204,7 @@ npm run dev
 
 ## 开发与验证
 
-界面布局位于 `src/app/`，围道模型和交互位于 `src/features/contour/`，持久化及导出位于 `src/features/project/`。几何、视图投影和数学排版等基础代码放在 `src/lib/`。现行说明与历史记录的区别见[文档入口](docs/README.md)，实现约定见 [AGENTS.md](AGENTS.md)。
+界面布局位于 `src/app/`，围道模型和编辑位于 `src/features/contour/`：`selection/` 管理选区，`interaction/` 协调手势与快捷键，`avoidance/` 处理绕行，`scene/` 负责派生场景和绘制。`model.ts`、`history.ts`、`ContourCanvas.tsx` 等入口保留在 contour 根目录。持久化及导出位于 `src/features/project/`，其中 `format.ts` 负责格式与序列化，`validation.ts` 统一接受校验。数学基础代码仍放在 `src/lib/`。完整代码导航及现行说明与历史记录的区别见[文档入口](docs/README.md)，实现约定见 [AGENTS.md](AGENTS.md)。
 
 | 命令                                      | 用途                |
 | ----------------------------------------- | ------------------- |

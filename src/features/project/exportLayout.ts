@@ -1,7 +1,7 @@
 import { arcExtrema } from '../../lib/arc'
 import { fromSvg, toSvg, type SvgPoint } from '../../lib/geometry'
 import { createMathRenderingScope, type MathRenderer } from '../../lib/mathRenderingScope'
-import { sceneMathTexts } from '../contour/sceneMath'
+import { sceneMathTexts } from '../contour/scene/sceneMath'
 import {
   canvasBounds,
   exportSize,
@@ -15,8 +15,8 @@ import {
 } from '../../lib/viewport'
 import { defaultLabel, defaultPointStyle, type LabelSettings } from '../contour/appearance'
 import type { ContourState } from '../contour/model'
-import { buildContourGeometry } from '../contour/pathGeometry'
-import { resolvedScene } from '../contour/sceneObjects'
+import { buildContourGeometry } from '../contour/scene/pathGeometry'
+import { resolvedScene } from '../contour/scene/sceneObjects'
 import type { ExportOptions } from './export'
 
 const MAX_BASE_SIDE = 2400

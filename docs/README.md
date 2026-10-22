@@ -8,6 +8,18 @@
 
 维护代码时以上述现行说明与实际实现为准；功能行为变化时同步更新对应说明。
 
+## 代码导航
+
+| 位置（相对 `src/features/contour/`） | 职责与入口                                                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| 根目录                               | 模型与历史入口 `model.ts`、`workspace.ts`、`history.ts`，画布入口 `ContourCanvas.tsx`，以及通用表单、模板和共享源规则 |
+| `selection/`                         | `selectionState.ts` 提供不依赖 reducer 的查询和选择映射；同组模块负责选择编辑、范围、平移与多选属性                   |
+| `interaction/`                       | `useCanvasInteraction.ts` 统一协调手势；同组模块负责拖动纯计算、路径吸附、快捷键及滑条历史                            |
+| `avoidance/`                         | 绕行声明、父子构造、编辑、参数、属性面板及共同部件名称；保留 `avoidanceHandles.ts` 与 `AvoidanceHandles.tsx` 各自职责 |
+| `scene/`                             | 派生场景、对象查询、路径拼接、投影、公式集合、SVG 绘制及缩略图                                                        |
+
+`src/features/project/format.ts` 保留文件格式、容量常量、版本选择与序列化；`validation.ts` 集中接受校验，`project.ts` 和 schema 模块负责读取。纯数学模块仍在 `src/lib/`。测试通常随被测模块放置，应用与浏览器集成测试的位置不变。
+
 ## 本地历史记录
 
 `docs/superpowers/specs/` 保存本地设计说明，`docs/superpowers/plans/` 保存实施计划、审查依据及执行记录。整个 `docs/superpowers/` 目录被 Git 忽略，不会随干净克隆出现，因此这里不建立指向其中具体文件的链接。需要交接时，应单独提供相关文件副本，不擅自修改忽略规则或将其加入版本管理。

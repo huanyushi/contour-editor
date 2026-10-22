@@ -8,6 +8,8 @@
 
 `src/app/` 负责布局，`src/features/contour/` 负责围道模型和编辑，`src/features/project/` 负责持久化及导出。几何等纯函数放在 `src/lib/`，通用控件有实际复用时再提取到 `src/components/`。
 
+`contour/` 内按职责使用 `selection/`（选区查询、编辑与范围）、`interaction/`（手势协调、吸附与快捷键）、`avoidance/`（绕行构造、编辑与属性）、`scene/`（派生场景、绘制与投影）。根目录保留 `model.ts`、`workspace.ts`、`history.ts`、`ContourCanvas.tsx` 及通用表单、模板等入口。`selection/selectionState.ts` 的查询不得运行时依赖 reducer；项目接受校验统一位于 `project/validation.ts`，`format.ts` 只保留格式、常量与序列化。完整导航见 [docs/README.md](docs/README.md)。
+
 绘图使用原生 SVG，MathJax 使用本地 TeX 字形和 base／ams，输出完整 SVG。通用 UI 图标使用 lucide-react；数学工具需要自定义 SVG 时，也采用 20px 尺寸、1.75px 线宽、currentColor 和圆角线帽。调整界面时保持中文交互、可访问名称和焦点行为。
 
 拖动点、标签、框选或滑条时，临时锁定操作不得使无关控件变色、变灰或改变透明度，尤其包括模板面板的全部缩略图。按钮类操作统一使用 `transientLock` 阻止临时交互并设置可访问状态，容器或表单可用 `inert`；原生 `disabled` 仅表示真实不可用条件或实际文件任务，不用于手势期间的统一锁定。新增交互需验证全局控件在手势前、手势中和结束后的外观稳定性。工具提示保持简短、面向操作。
@@ -24,7 +26,7 @@ reducer 使用不可变更新，历史最多保留 100 步。拖动通过带 own
 
 标签外观即时生效，文字保留待提交的草稿。标签拖动修改像素偏移；独立点和公式不参与围道拓扑。
 
-独立连接存于 `connections`，复用 `line | arc` 及端点稳定 ID，可引用围道端点或独立点，但不参与围道填充及无分叉拓扑约束。线段工具只连接已有点，不隐式创建点；重复创建点、公式或同一无向线段须复用现有对象。删除点时清理依赖连接。跨集合查找统一使用 `sceneObjects.ts`；含独立连接的文件写为版本 2，继续读取旧版文件。
+独立连接存于 `connections`，复用 `line | arc` 及端点稳定 ID，可引用围道端点或独立点，但不参与围道填充及无分叉拓扑约束。线段工具只连接已有点，不隐式创建点；重复创建点、公式或同一无向线段须复用现有对象。删除点时清理依赖连接。跨集合查找统一使用 `scene/sceneObjects.ts`；含独立连接的文件写为版本 2，继续读取旧版文件。
 
 奇点绕行的源模型、几何公式、派生场景和版本 3 约束见 [docs/singularity-avoidance.md](docs/singularity-avoidance.md)。非普通数学类型共用几何绑定，不自动生成支割线。派生端点仅作为联动半径手柄，不作为自由点持久化；预览与应用共用完整场景绘制，但草稿和导出只使用已应用文档。
 

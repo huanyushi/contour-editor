@@ -27,10 +27,13 @@ import {
   type StrokeStyle,
 } from './appearance'
 import type { ContourState, PathSegment, Vertex } from './model'
-import type { Avoidance } from './avoidanceTypes'
-import { findSegment, scenePoints, sceneSegments, segmentOrigin } from './sceneObjects'
-import { selectionWorkspaceAction, type SelectionWorkspaceEdit } from './avoidanceSelection'
-import { avoidanceReducer } from './avoidanceModel'
+import type { Avoidance } from './avoidance/avoidanceTypes'
+import { findSegment, scenePoints, sceneSegments, segmentOrigin } from './scene/sceneObjects'
+import {
+  selectionWorkspaceAction,
+  type SelectionWorkspaceEdit,
+} from './avoidance/avoidanceSelection'
+import { avoidanceReducer } from './avoidance/avoidanceModel'
 import { sourcePieceReducer } from './sourcePieces'
 
 export interface SceneObject extends ComplexPoint {

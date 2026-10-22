@@ -3,10 +3,10 @@ import { useReducer } from 'react'
 import { expect, it } from 'vitest'
 import { createConnectedFixture } from '../test/connectedAvoidanceFixtures'
 import { createAvoidanceFixture } from '../test/avoidanceFixtures'
-import { AvoidanceProperties } from '../features/contour/AvoidanceProperties'
-import { CanvasScene } from '../features/contour/CanvasScene'
+import { AvoidanceProperties } from '../features/contour/avoidance/AvoidanceProperties'
+import { CanvasScene } from '../features/contour/scene/CanvasScene'
 import { createHistory, historyReducer } from '../features/contour/history'
-import { useAvoidanceDraft } from '../features/contour/useAvoidanceDraft'
+import { useAvoidanceDraft } from '../features/contour/avoidance/useAvoidanceDraft'
 
 function Properties({
   child = false,

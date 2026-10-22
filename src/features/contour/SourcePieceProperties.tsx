@@ -4,10 +4,10 @@ import type { ContourState } from './model'
 import type { EditorAction } from './history'
 import { LabelForm } from './LabelForm'
 import { StrokeFields } from './StyleFields'
-import { selectedSegmentLabel, selectedSegmentStyle } from './avoidanceSelection'
-import { findResolvedSegment, segmentOrigin } from './sceneObjects'
-import type { AvoidanceWorkflow } from './useAvoidanceDraft'
-import { AvoidanceProperties } from './AvoidanceProperties'
+import { selectedSegmentLabel, selectedSegmentStyle } from './avoidance/avoidanceSelection'
+import { findResolvedSegment, segmentOrigin } from './scene/sceneObjects'
+import type { AvoidanceWorkflow } from './avoidance/useAvoidanceDraft'
+import { AvoidanceProperties } from './avoidance/AvoidanceProperties'
 
 export function SourcePieceProperties({
   state,

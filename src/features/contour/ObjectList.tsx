@@ -3,9 +3,9 @@ import { Pentagon, Slash, Spline } from 'lucide-react'
 import { MathText } from '../../components/MathText'
 import type { ContourAction, ContourState, PathSegment } from './model'
 import type { SelectionItem } from './appearance'
-import { selectionItems } from './selectionModel'
+import { selectionItems } from './selection/selectionState'
 import { mathematicalCategory, mathematicalNames } from './mathematicalKind'
-import { pathObjectRows, type PathObjectRow } from './pathObjects'
+import { pathObjectRows, type PathObjectRow } from './scene/pathObjects'
 
 function SegmentIcon({ kind }: { kind: PathSegment['kind'] }) {
   const Icon = kind === 'arc' ? Spline : Slash

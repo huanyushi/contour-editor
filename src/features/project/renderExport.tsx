@@ -1,11 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { CanvasScene } from '../contour/CanvasScene'
+import { CanvasScene } from '../contour/scene/CanvasScene'
 import type { ContourState } from '../contour/model'
 import { serializeSvg, type ExportOptions } from './export'
 import { computeExportLayout } from './exportLayout'
 import { createMathRenderingScope } from '../../lib/mathRenderingScope'
-import { sceneMathTexts } from '../contour/sceneMath'
-import { resolvedScene } from '../contour/sceneObjects'
+import { sceneMathTexts } from '../contour/scene/sceneMath'
+import { resolvedScene } from '../contour/scene/sceneObjects'
 
 export function renderExport(state: ContourState, options: ExportOptions): string {
   const scope = createMathRenderingScope()

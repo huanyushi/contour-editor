@@ -1,6 +1,6 @@
 import type { ComplexPoint } from '../../lib/geometry'
 import type { ContourState, Vertex } from './model'
-import { scenePoints, sceneSegments } from './sceneObjects'
+import { scenePoints, sceneSegments } from './scene/sceneObjects'
 
 let nextVertexId = 0
 

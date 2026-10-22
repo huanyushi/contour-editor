@@ -11,7 +11,7 @@ import {
 } from './viewport'
 import { fromSvg, toSvg } from './geometry'
 import { snapToGrid } from './snap'
-import { fitScene } from '../features/contour/sceneView'
+import { fitScene } from '../features/contour/scene/sceneView'
 import { createArcFixture } from '../test/fixtures'
 import { contourTemplates } from '../features/contour/templates'
 import { canvasBounds } from './viewport'

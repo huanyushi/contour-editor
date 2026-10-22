@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 import { arcThrough } from '../src/lib/arc'
 import { parseProject, serializeProject, type ProjectFile } from '../src/features/project/project'
-import { resolveScene } from '../src/features/contour/resolvedScene'
+import { resolveScene } from '../src/features/contour/scene/resolvedScene'
 import type { ContourState } from '../src/features/contour/model'
 import { selectObject, showCanvas } from './navigation'
 import { clickPoint, screenPoint } from './selection'

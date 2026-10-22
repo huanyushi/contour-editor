@@ -1,7 +1,11 @@
-import type { Avoidance, AvoidancePart, MathematicalKind } from '../contour/avoidanceTypes'
-import { isLegacyAvoidance } from '../contour/avoidanceTypes'
+import type {
+  Avoidance,
+  AvoidancePart,
+  MathematicalKind,
+} from '../contour/avoidance/avoidanceTypes'
+import { isLegacyAvoidance } from '../contour/avoidance/avoidanceTypes'
 import { label, list, numeric, record, stableId, stroke } from './schema'
-import type { CorridorAvoidance } from '../contour/avoidanceTypes'
+import type { CorridorAvoidance } from '../contour/avoidance/avoidanceTypes'
 
 export function readAlignment(value: unknown, path: string): CorridorAvoidance['alignment'] {
   if (value === undefined) return undefined

@@ -3,7 +3,7 @@ import { Copy, Pencil, Plus, Trash2 } from 'lucide-react'
 import { LeftPanel } from '../../components/LeftPanel'
 import { contourTemplates, type ContourTemplate } from './templates'
 import { transientLock } from '../../components/transientLock'
-import { SceneThumbnail } from './SceneThumbnail'
+import { SceneThumbnail } from './scene/SceneThumbnail'
 import {
   CANVAS_LIMIT_MESSAGE,
   committedState,

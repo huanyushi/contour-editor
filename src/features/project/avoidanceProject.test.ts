@@ -3,9 +3,9 @@ import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
 import { toSvg } from '../../lib/geometry'
 import { contourReducer, createInitialState } from '../contour/model'
 import { defaultLabel } from '../contour/appearance'
-import { resolveScene } from '../contour/resolvedScene'
-import { canProjectScene } from '../contour/sceneView'
-import { validateProjectCapacity } from './format'
+import { resolveScene } from '../contour/scene/resolvedScene'
+import { canProjectScene } from '../contour/scene/sceneView'
+import { validateProjectCapacity } from './validation'
 import { MAX_PROJECT_BYTES, parseProject, serializeProject, type ProjectFile } from './project'
 
 interface RawFile {

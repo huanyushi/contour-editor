@@ -2,7 +2,7 @@ import type { Dispatch } from 'react'
 import { LocateFixed, Maximize, Minus, Plus, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { defaultViewport, type CanvasSize } from '../../lib/viewport'
 import type { ContourAction, ContourState } from './model'
-import { fitScene } from './sceneView'
+import { fitScene } from './scene/sceneView'
 import { transientLock } from '../../components/transientLock'
 
 export function ViewToolbar({

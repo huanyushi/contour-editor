@@ -1,4 +1,4 @@
-import type { MathematicalKind } from './avoidanceTypes'
+import type { MathematicalKind } from './avoidance/avoidanceTypes'
 
 export const mathematicalCategories = ['ordinary', 'isolated', 'branch'] as const
 type MathematicalCategory = (typeof mathematicalCategories)[number]

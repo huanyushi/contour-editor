@@ -1,6 +1,6 @@
 import { createInitialState, type ContourState } from '../features/contour/model'
 import { defaultLabel, defaultPointStyle } from '../features/contour/appearance'
-import type { LegacyAvoidance } from '../features/contour/avoidanceTypes'
+import type { LegacyAvoidance } from '../features/contour/avoidance/avoidanceTypes'
 
 export function createAvoidanceFixture(): ContourState & { avoidances: LegacyAvoidance[] } {
   return {

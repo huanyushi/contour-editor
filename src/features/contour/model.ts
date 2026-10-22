@@ -1,5 +1,5 @@
 import { isValidPoint, type ComplexPoint } from '../../lib/geometry'
-import type { MathematicalKind } from './avoidanceTypes'
+import type { MathematicalKind } from './avoidance/avoidanceTypes'
 import { arcThrough } from '../../lib/arc'
 import { projectSceneError } from '../project/validation'
 import type { LabelSettings, PointStyle, SelectionItem, StrokeStyle } from './appearance'
@@ -7,13 +7,9 @@ import { workspaceReducer, type WorkspaceAction, type WorkspaceState } from './w
 import { createRectangleState } from './templates'
 import { reconcileSourcePieces, type SourcePieceAppearance } from './sourcePieces'
 import { activeSegments, isSingleCycle, singleChainEnds } from './pathTopology'
-import {
-  deleteItems,
-  selectionReducer,
-  reverseSourcePieceSelection,
-  type SelectionAction,
-} from './selectionModel'
-import { translateSelection } from './selectionTransform'
+import { deleteItems, selectionReducer, type SelectionAction } from './selection/selectionModel'
+import { reverseSourcePieceSelection } from './selection/selectionState'
+import { translateSelection } from './selection/selectionTransform'
 import {
   findPoint,
   findSegment,
@@ -21,12 +17,12 @@ import {
   scenePoints,
   sceneSegments,
   segmentOrigin,
-} from './sceneObjects'
+} from './scene/sceneObjects'
 import {
   avoidanceReducer,
   reconcileAvoidanceDependencies,
   type AvoidanceAction,
-} from './avoidanceModel'
+} from './avoidance/avoidanceModel'
 
 export interface Vertex extends ComplexPoint {
   id: string

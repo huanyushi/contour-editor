@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { canClose, contourReducer, createInitialState, type ContourState } from './model'
 import { createHistory, historyReducer } from './history'
 import { defaultLabel } from './appearance'
-import { buildContourGeometry } from './pathGeometry'
-import { itemAnchor, itemsWithinRect, selectionBounds } from './selectionGeometry'
-import { translationAnchor } from './selectionTransform'
-import { fitScene, canProjectScene } from './sceneView'
+import { buildContourGeometry } from './scene/pathGeometry'
+import { itemAnchor, itemsWithinRect, selectionBounds } from './selection/selectionGeometry'
+import { translationAnchor } from './selection/selectionTransform'
+import { fitScene, canProjectScene } from './scene/sceneView'
 import { parseProject, serializeProject, type ProjectFile } from '../project/project'
 import {
   findPoint,
@@ -13,9 +13,9 @@ import {
   scenePoints,
   sceneSegments,
   visibleSceneSegments,
-} from './sceneObjects'
+} from './scene/sceneObjects'
 import { createVertex } from './createVertex'
-import { itemColor } from './selectionModel'
+import { itemColor } from './selection/selectionState'
 
 function withMarkers(): ContourState {
   let state = contourReducer(createInitialState(), {

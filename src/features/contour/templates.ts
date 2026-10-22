@@ -1,9 +1,9 @@
 import type { ComplexPoint } from '../../lib/geometry'
 import { defaultLabel, defaultPointStyle, type LabelSettings } from './appearance'
-import { makeAvoidanceTarget } from './avoidanceTarget'
-import type { AvoidancePart, MathematicalKind } from './avoidanceTypes'
+import { makeAvoidanceTarget } from './avoidance/avoidanceTarget'
+import type { AvoidancePart, MathematicalKind } from './avoidance/avoidanceTypes'
 import type { ContourState, Vertex } from './model'
-import { resolvedScene } from './sceneObjects'
+import { resolvedScene } from './scene/sceneObjects'
 import { createWorkspaceState, type SceneObject } from './workspace'
 
 export interface ContourTemplate {

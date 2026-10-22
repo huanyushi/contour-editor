@@ -5,7 +5,7 @@ import { parseProject, serializeProject } from '../project/project'
 import type { ContourState } from './model'
 import { contourReducer } from './model'
 import { contourTemplates } from './templates'
-import { resolveScene } from './resolvedScene'
+import { resolveScene } from './scene/resolvedScene'
 import { createLegacyTemplateFixture } from '../../test/legacyTemplates'
 import { defaultFill, defaultStroke } from './appearance'
 

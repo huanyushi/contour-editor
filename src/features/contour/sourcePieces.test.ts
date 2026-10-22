@@ -4,10 +4,10 @@ import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
 import { defaultLabel } from './appearance'
 import { contourReducer, type ContourState } from './model'
 import { createHistory, historyReducer } from './history'
-import { resolvedScene } from './sceneObjects'
+import { resolvedScene } from './scene/sceneObjects'
 import { sourcePieceId } from './sourcePieces'
-import { selectionBounds } from './selectionGeometry'
-import { selectedSegmentLabel, selectedSegmentStyle } from './avoidanceSelection'
+import { selectionBounds } from './selection/selectionGeometry'
+import { selectedSegmentLabel, selectedSegmentStyle } from './avoidance/avoidanceSelection'
 
 const before = { startAvoidanceId: null, endAvoidanceId: 'parent' }
 const after = { startAvoidanceId: 'parent', endAvoidanceId: null }

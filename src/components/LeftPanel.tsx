@@ -8,6 +8,8 @@ export function LeftPanel({
   onClose,
   className = '',
   children,
+  header,
+  footer,
 }: {
   id: string
   title: string
@@ -15,6 +17,8 @@ export function LeftPanel({
   onClose: () => void
   className?: string
   children: ReactNode
+  header?: ReactNode
+  footer?: ReactNode
 }) {
   return (
     <aside
@@ -29,9 +33,11 @@ export function LeftPanel({
           <PanelLeftClose className="ui-icon" aria-hidden="true" />
         </button>
       </div>
+      {header}
       <div className="panel-scroll" tabIndex={0} aria-label={`${title}内容`}>
         {children}
       </div>
+      {footer}
     </aside>
   )
 }

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { createInitialState } from './model'
 import { createArcFixture } from '../../test/fixtures'
 import { createHistory, historyReducer } from './history'
 import { defaultLabel } from './appearance'
@@ -180,7 +179,7 @@ describe('document history', () => {
     })
   })
 
-  it('restores removed objects, labels, styles, selection and a reset scene', () => {
+  it('restores removed objects, labels, styles and selection', () => {
     let history = historyReducer(createHistory(), {
       type: 'addFormula',
       id: 'f',
@@ -196,9 +195,6 @@ describe('document history', () => {
     history = historyReducer(history, { type: 'undo' })
     expect(history.present).toEqual(before)
     expect(history.present.selection).toEqual({ kind: 'formula', id: 'f' })
-    history = historyReducer(history, { type: 'loadProject', state: createInitialState() })
-    expect(history.present).toEqual(createInitialState())
-    expect(historyReducer(history, { type: 'undo' }).present).toEqual(before)
   })
 
   it('groups a style slider gesture and bounds history to the most recent 100 edits', () => {

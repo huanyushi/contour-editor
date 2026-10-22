@@ -353,7 +353,10 @@ describe('version 3 source documents', () => {
       ok: false,
       error: expect.stringMatching(/1000/),
     })
-    const rejected = contourReducer(restored, { type: 'loadProject', state: source })
+    const rejected = contourReducer(restored, {
+      type: 'addAvoidance',
+      avoidance: source.avoidances[source.avoidances.length - 1],
+    })
     expect(rejected.avoidances).toBe(restored.avoidances)
     expect(rejected.error).toMatch(/1000/)
   })
@@ -378,9 +381,9 @@ describe('version 3 source documents', () => {
     expect(canProjectScene(source, source.viewport)).toBe(false)
     expect(resolveScene(source).ok).toBe(true)
     expect(() => parseProject(serializeProject(source))).toThrow(/安全绘制/)
-    const original = createInitialState()
-    const rejected = contourReducer(original, { type: 'loadProject', state: source })
-    expect(rejected.vertices).toBe(original.vertices)
+    const original = { ...source, viewport: { ...source.viewport, scaleX: 40, scaleY: 40 } }
+    const rejected = contourReducer(original, { type: 'viewport', value: source.viewport })
+    expect(rejected.viewport).toBe(original.viewport)
     expect(rejected.error).toMatch(/安全绘制/)
   })
 

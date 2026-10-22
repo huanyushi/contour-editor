@@ -1,9 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import App from './App'
+import { renderApp } from '../test/renderApp'
 import { serializeProject } from '../features/project/format'
-import { DRAFT_KEY } from '../features/project/useLocalDraft'
+import { DRAFT_KEY } from '../features/project/legacyLocalDraft'
 import { createAvoidanceFixture } from '../test/avoidanceFixtures'
 import { openSection, selectObject } from '../test/navigation'
 import { sourcePieceId } from '../features/contour/sourcePieces'
@@ -22,12 +22,12 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-function mount({ bound = true, im = 0 } = {}) {
+async function mount({ bound = true, im = 0 } = {}) {
   const state = createAvoidanceFixture()
   state.markers[0].im = im
   if (!bound) state.avoidances = []
   localStorage.setItem(DRAFT_KEY, serializeProject(state))
-  return render(<App />)
+  return renderApp()
 }
 function pick(selector = '.segment-hit[data-source-segment-id="edge-a"]') {
   const node = document.querySelector(selector)!
@@ -48,7 +48,7 @@ async function edit(user: ReturnType<typeof userEvent.setup>, name: string, valu
 describe('user-facing avoidance Inspector', () => {
   it('creates through mathematical kind, target picking and preview without history until apply', async () => {
     const user = userEvent.setup()
-    mount({ bound: false })
+    await mount({ bound: false })
     await selectObject(user, '选择标记点 1')
     await user.selectOptions(screen.getByLabelText('数学类型'), 'ordinary')
     expect(screen.queryByRole('button', { name: '添加绕行' })).not.toBeInTheDocument()
@@ -79,7 +79,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('edits existing parameters in one undo step and routes gap/source separately from parts', async () => {
     const user = userEvent.setup()
-    mount({ im: 2 })
+    await mount({ im: 2 })
     part('entry')
     expect(screen.getByLabelText('绕行半径')).toHaveValue('0.5')
     expect(screen.queryByLabelText('实部 Re')).not.toBeInTheDocument()
@@ -108,7 +108,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('keeps part overrides and submitted labels distinct from inherited source appearance', async () => {
     const user = userEvent.setup()
-    mount({ im: 2 })
+    await mount({ im: 2 })
     part('entry')
     await user.selectOptions(screen.getByLabelText('线型'), 'dashed')
     await user.click(screen.getByRole('button', { name: '线条颜色：蓝色' }))
@@ -150,7 +150,7 @@ describe('user-facing avoidance Inspector', () => {
     async (width) => {
       const user = userEvent.setup()
       vi.stubGlobal('innerWidth', width)
-      mount({ bound: false })
+      await mount({ bound: false })
       await selectObject(user, '选择标记点 1')
       await waitFor(() => expect(screen.getByLabelText('属性面板内容')).toHaveFocus())
       const trigger = screen.getByRole('button', { name: '添加绕行' })
@@ -174,7 +174,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('refuses to apply a creation form with invalid uncommitted text', async () => {
     const user = userEvent.setup()
-    mount({ bound: false })
+    await mount({ bound: false })
     await selectObject(user, '选择标记点 1')
     await user.click(screen.getByRole('button', { name: '添加绕行' }))
     pick()
@@ -188,7 +188,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('leaves accepted geometry and history intact for text and geometric errors, then recovers', async () => {
     const user = userEvent.setup()
-    mount()
+    await mount()
     part()
     const before = screen.getByTestId('segment-avoid:avoid-1:arc').getAttribute('d')
     await edit(user, '绕行半径', '-')
@@ -227,7 +227,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('preserves and edits a dormant connector using its origin, then restores its label and style', async () => {
     const user = userEvent.setup()
-    mount()
+    await mount()
     part()
     await user.selectOptions(screen.getByLabelText('绕行部件'), 'entry')
     expect(screen.getByLabelText('绕行半径')).toHaveValue('0.5')
@@ -250,7 +250,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('converts a preferred width to a saved ratio and keeps that ratio when radius changes', async () => {
     const user = userEvent.setup()
-    mount({ im: 0.1 })
+    await mount({ im: 0.1 })
     part()
     expect(screen.getByLabelText('实际开口宽度')).toHaveTextContent('0.979796')
     await edit(user, '偏好开口宽度', '0.25')
@@ -268,7 +268,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('returns to the marker after explicit preview cancellation without adding history', async () => {
     const user = userEvent.setup()
-    mount({ bound: false })
+    await mount({ bound: false })
     await selectObject(user, '选择标记点 1')
     await user.click(screen.getByRole('button', { name: '添加绕行' }))
     pick()
@@ -281,7 +281,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('keeps retained-piece appearance and labels independent, and reuses an existing binding', async () => {
     const user = userEvent.setup()
-    mount()
+    await mount()
     pick('[data-testid="segment-gap:edge-a:before:avoid-1"]')
     await user.selectOptions(screen.getByLabelText('线型'), 'dashed')
     expect(screen.getByTestId('segment-gap:edge-a:before:avoid-1')).toHaveAttribute(
@@ -311,7 +311,7 @@ describe('user-facing avoidance Inspector', () => {
     state.markers.push({ ...state.markers[0], id: 'pole2', re: 2 })
     state.avoidances.push({ ...state.avoidances[0], id: 'avoid-2', markerId: 'pole2' })
     localStorage.setItem(DRAFT_KEY, serializeProject(state))
-    render(<App />)
+    await renderApp()
     part()
     expect(screen.getByLabelText('可用半径范围')).toHaveTextContent('0 < r < 1.5')
     await user.click(screen.getByRole('button', { name: '定位原路径' }))
@@ -329,7 +329,7 @@ describe('user-facing avoidance Inspector', () => {
     state.connections = [state.segments.shift()!]
     state.closed = false
     localStorage.setItem(DRAFT_KEY, serializeProject(state))
-    render(<App />)
+    await renderApp()
     await selectObject(user, '选择独立路径段 1 的保留段 1')
     expect(screen.getByRole('button', { name: '选择独立路径段 1 的保留段 1' })).toHaveTextContent(
       '保留段 1',
@@ -349,7 +349,7 @@ describe('user-facing avoidance Inspector', () => {
     state.markers[0].im = 1.5
     state.avoidances[0].targetSegmentId = 'edge-d'
     localStorage.setItem(DRAFT_KEY, serializeProject(state))
-    render(<App />)
+    await renderApp()
     await selectObject(user, '选择标记点 1')
     await user.click(screen.getByRole('button', { name: '编辑绕行 1' }))
     expect(screen.getByLabelText('绕行半径')).toHaveValue('0.5')
@@ -374,7 +374,7 @@ describe('user-facing avoidance Inspector', () => {
     state.markers[0] = { ...state.markers[0], re: -4, im: 1.5 }
     state.avoidances[0].targetSegmentId = 'edge-d'
     localStorage.setItem(DRAFT_KEY, serializeProject(state))
-    render(<App />)
+    await renderApp()
     part()
     expect(screen.getByLabelText('绕行半径')).toHaveValue('0.5')
     await user.click(screen.getByRole('checkbox', { name: '闭合围道' }))
@@ -393,7 +393,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('locks cancellation during a style gesture without native disabling, then unlocks it', async () => {
     const user = userEvent.setup()
-    mount({ im: 2 })
+    await mount({ im: 2 })
     part()
     const width = screen.getByLabelText('线条粗细')
     const cancel = screen.getByRole('button', { name: '取消绕行' })
@@ -412,7 +412,7 @@ describe('user-facing avoidance Inspector', () => {
 
   it('keeps preview errors visible when view settings temporarily cover the Inspector', async () => {
     const user = userEvent.setup()
-    mount({ bound: false })
+    await mount({ bound: false })
     await selectObject(user, '选择标记点 1')
     await user.click(screen.getByRole('button', { name: '添加绕行' }))
     pick()

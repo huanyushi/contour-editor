@@ -23,11 +23,17 @@ export async function loadArcFixture(page: Page) {
   const close = page.getByRole('button', { name: '收起对象列表', exact: true })
   if (await close.isVisible()) await close.click()
 }
-export async function loadTemplate(page: Page, name: string) {
-  const toggle = page.getByRole('button', { name: '示例模板', exact: true })
+export async function openTemplates(page: Page) {
+  const toggle = page.getByRole('button', { name: '画布与模板', exact: true })
   if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
-  await page.getByRole('button', { name: `载入${name}`, exact: true }).click()
-  const close = page.getByRole('button', { name: '收起示例模板', exact: true })
+  await page.getByRole('tab', { name: '示例模板', exact: true }).click()
+}
+export async function loadTemplate(page: Page, name: string) {
+  await openTemplates(page)
+  await page.getByRole('button', { name: `预览${name}`, exact: true }).click()
+  await page.getByRole('button', { name: '以此模板新建画布', exact: true }).click()
+  await expect(page.getByRole('button', { name: '重命名项目' })).toHaveText(name)
+  const close = page.getByRole('button', { name: '收起画布与模板', exact: true })
   if (await close.isVisible()) await close.click()
 }
 export async function selectObject(page: Page, name: string) {
@@ -45,11 +51,13 @@ export async function openSection(page: Page, title: string) {
 }
 
 export async function showInspector(page: Page) {
+  await expect(page.getByTestId('contour-canvas')).toBeVisible()
   const restore = page.getByRole('button', { name: '展开属性面板', exact: true })
   if (await restore.isVisible()) await restore.click()
 }
 
 export async function showCanvas(page: Page) {
+  await expect(page.getByTestId('contour-canvas')).toBeVisible()
   const closeView = page.getByRole('button', { name: '关闭视图设置' })
   if (await closeView.isVisible()) await closeView.click()
   if (page.viewportSize()!.width <= 700) {

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useReducer } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import App from './App'
+import { renderApp, savedCanvasState } from '../test/renderApp'
 import { ContourCanvas, type DrawingTool } from '../features/contour/ContourCanvas'
 import { createHistory, historyReducer, type EditorAction } from '../features/contour/history'
 import type { ContourState } from '../features/contour/model'
@@ -11,7 +11,7 @@ import { useAvoidanceDraft } from '../features/contour/useAvoidanceDraft'
 import { serializeProject } from '../features/project/format'
 import { defaultExportOptions, serializeSvg } from '../features/project/export'
 import { downloadBlob } from '../features/project/download'
-import { DRAFT_KEY } from '../features/project/useLocalDraft'
+import { DRAFT_KEY } from '../features/project/legacyLocalDraft'
 import { createAvoidanceFixture } from '../test/avoidanceFixtures'
 import { loadTemplate, selectObject } from '../test/navigation'
 
@@ -60,11 +60,11 @@ function sourceFixture() {
   return state
 }
 
-function mountApp(narrow = false) {
+async function mountApp(narrow = false) {
   vi.stubGlobal('innerWidth', narrow ? 390 : 1200)
   const saved = serializeProject(sourceFixture())
   localStorage.setItem(DRAFT_KEY, saved)
-  const view = render(<App />)
+  const view = await renderApp()
   return { ...view, saved }
 }
 
@@ -100,7 +100,7 @@ function readBlob(blob: Blob): Promise<string> {
 describe('App avoidance workflow integration', () => {
   it('isolates preview from history, local draft, project downloads and SVG downloads until apply', async () => {
     const user = userEvent.setup()
-    const { saved } = mountApp()
+    const { saved } = await mountApp()
     const sourcePath = screen.getByTestId('segment-edge-a').getAttribute('d')
     act(() => observed.workflow.start('pole'))
     expect(screen.getByRole('button', { name: '选择工具' })).toHaveAttribute('aria-pressed', 'true')
@@ -118,7 +118,7 @@ describe('App avoidance workflow integration', () => {
     expect(serializeProject(observed.state)).toBe(saved)
     expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
     fireEvent(window, new Event('pagehide'))
-    expect(localStorage.getItem(DRAFT_KEY)).toBe(saved)
+    expect(serializeProject(await savedCanvasState())).toBe(saved)
     await user.click(screen.getByRole('button', { name: '保存项目' }))
     const savedBlob = vi.mocked(downloadBlob).mock.calls[0][0]
     expect(await readBlob(savedBlob)).toBe(saved)
@@ -145,7 +145,7 @@ describe('App avoidance workflow integration', () => {
 
   it('narrow auto-hide preserves picking, then reopens and focuses configuration; Esc cancels before closing the panel', async () => {
     const user = userEvent.setup()
-    mountApp(true)
+    await mountApp(true)
     await user.click(screen.getByRole('button', { name: '线段工具' }))
     act(() => observed.workflow.start('pole'))
     expect(observed.workflow.draft.kind).toBe('pickTarget')
@@ -164,7 +164,7 @@ describe('App avoidance workflow integration', () => {
 
   it('moves focus from a narrow Inspector creation control to canvas so immediate Escape cancels without history', async () => {
     const user = userEvent.setup()
-    const { saved } = mountApp(true)
+    const { saved } = await mountApp(true)
     await selectObject(user, '选择标记点 1')
     await waitFor(() => expect(screen.getByLabelText('属性面板内容')).toHaveFocus())
     const trigger = screen.getByRole('button', { name: '添加绕行' })
@@ -185,7 +185,7 @@ describe('App avoidance workflow integration', () => {
     expect(canvas).toHaveFocus()
     expect(document.getElementById('properties-panel')).not.toBeVisible()
     expect(serializeProject(observed.state)).toBe(saved)
-    expect(localStorage.getItem(DRAFT_KEY)).toBe(saved)
+    expect(serializeProject(await savedCanvasState())).toBe(saved)
     expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '重做' })).toBeDisabled()
   })
@@ -194,7 +194,7 @@ describe('App avoidance workflow integration', () => {
     'cancels configured preview on explicit %s action',
     async (action) => {
       const user = userEvent.setup()
-      mountApp()
+      await mountApp()
       act(() => observed.workflow.start('pole'))
       fireEvent.pointerDown(hit(), { button: 0 })
       expect(screen.getByTestId('avoidance-preview')).toBeInTheDocument()
@@ -217,8 +217,8 @@ describe('App avoidance workflow integration', () => {
     },
   )
 
-  it('displays invalid preview errors without changing accepted geometry and cancels invalidated sources', () => {
-    const { saved } = mountApp()
+  it('displays invalid preview errors without changing accepted geometry and cancels invalidated sources', async () => {
+    const { saved } = await mountApp()
     act(() => observed.workflow.start('pole'))
     fireEvent.pointerDown(hit(), { button: 0 })
     act(() => observed.workflow.patch({ radius: 10 }))
@@ -233,7 +233,7 @@ describe('App avoidance workflow integration', () => {
 
   it('cancels creation before a nested export menu consumes Escape', async () => {
     const user = userEvent.setup()
-    mountApp()
+    await mountApp()
     act(() => observed.workflow.start('pole'))
     fireEvent.pointerDown(hit(), { button: 0 })
     await user.click(screen.getByText('导出', { exact: true }))
@@ -242,8 +242,8 @@ describe('App avoidance workflow integration', () => {
     expect(screen.queryByTestId('avoidance-preview')).toBeNull()
   })
 
-  it('Escape cancels both picking and an active pan without leaving a live drag', () => {
-    mountApp()
+  it('Escape cancels both picking and an active pan without leaving a live drag', async () => {
+    await mountApp()
     const svg = preparePointerGeometry()
     act(() => observed.workflow.start('pole'))
     const before = observed.state.viewport

@@ -12,6 +12,7 @@ export function ViewToolbar({
   size,
   onSettings,
   settingsOpen,
+  settingsDisabled = false,
 }: {
   state: ContourState
   dispatch: Dispatch<ContourAction>
@@ -19,6 +20,7 @@ export function ViewToolbar({
   size: CanvasSize
   onSettings: () => void
   settingsOpen: boolean
+  settingsDisabled?: boolean
 }) {
   return (
     <div className="view-toolbar" aria-label="画布视图操作">
@@ -80,7 +82,8 @@ export function ViewToolbar({
       </button>
       <button
         aria-label="视图设置"
-        title="视图设置"
+        title={settingsDisabled ? '新建画布后设置' : '视图设置'}
+        disabled={settingsDisabled}
         aria-expanded={settingsOpen}
         aria-controls="view-settings"
         {...transientLock(busy)}

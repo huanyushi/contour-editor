@@ -1,12 +1,12 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import App from './App'
+import { renderApp } from '../test/renderApp'
 
 describe('history controls and compact inspector', () => {
   it('undoes and redoes a coordinate edit with buttons and shortcuts', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
     const original = screen.getByTestId('contour-path').getAttribute('d')
     await user.clear(screen.getByLabelText('实部 Re'))
@@ -29,7 +29,7 @@ describe('history controls and compact inspector', () => {
   })
   it('leaves input text shortcuts alone and does not undo document edits while typing', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await user.clear(screen.getByLabelText('实部 Re'))
     await user.type(screen.getByLabelText('实部 Re'), '2{Enter}')
     const edited = screen.getByTestId('contour-path').getAttribute('d')
@@ -39,7 +39,7 @@ describe('history controls and compact inspector', () => {
   })
   it('selects from the object panel and displays the corresponding properties', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     expect(screen.queryByRole('button', { name: '选择路径段 2' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '对象列表' }))
     const list = screen.getByRole('complementary', { name: '对象列表' })
@@ -50,7 +50,7 @@ describe('history controls and compact inspector', () => {
   })
   it('retains an unsubmitted label draft when opening and closing the object list', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await user.click(screen.getByText('标签', { exact: true }))
     await user.clear(screen.getByLabelText('LaTeX 标签'))
     await user.type(screen.getByLabelText('LaTeX 标签'), 'a+b')

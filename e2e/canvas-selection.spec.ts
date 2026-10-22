@@ -17,6 +17,7 @@ async function clickPoint(page: Page, re: number, im: number) {
 }
 
 async function closeInspector(page: Page) {
+  await expect(page.getByTestId('contour-canvas')).toBeVisible()
   const close = page.getByRole('button', { name: '收起属性面板', exact: true })
   if (await close.isVisible()) await close.click()
 }
@@ -46,7 +47,7 @@ test('only actual objects open the inspector; blank space, holes and unfilled in
   await clickPoint(page, -0.5, -0.3)
   await expect(inspector).toBeHidden()
   await expect(path).toHaveAttribute('d', original!)
-  await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
   await clickPoint(page, 0, 0)
   await expect(page.getByRole('heading', { name: '标记点属性', exact: true })).toBeVisible()
   await closeInspector(page)

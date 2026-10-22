@@ -78,7 +78,7 @@ test('grouped tools scroll at low height while bottom actions stay reachable', a
   expect(await gap(6, 7)).toBeGreaterThan(await gap(3, 4))
   await buttons.last().scrollIntoViewIfNeeded()
   await buttons.last().click()
-  for (const name of ['示例模板', '对象列表', '收起绘图工具']) {
+  for (const name of ['画布与模板', '对象列表', '收起绘图工具']) {
     const button = page.getByRole('button', { name, exact: true })
     await expect(button).toBeInViewport()
   }
@@ -97,18 +97,17 @@ test(
   async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: '收起属性面板', exact: true }).click()
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
+    await page.getByRole('button', { name: '画布与模板', exact: true }).click()
+    await page.getByRole('tab', { name: '示例模板' }).click()
     const vertex = (await page.getByTestId('vertex-a').boundingBox())!
     await page.mouse.move(vertex.x + vertex.width / 2, vertex.y + vertex.height / 2)
     const appearance = () =>
-      page
-        .locator('.project-name button, .header-link, .template-thumbnail, .template-thumbnail *')
-        .evaluateAll((nodes) =>
-          nodes.map((node) => {
-            const style = getComputedStyle(node)
-            return [style.color, style.opacity, style.backgroundColor, style.fill, style.stroke]
-          }),
-        )
+      page.locator('.project-name button, .header-link, .scene-thumbnail').evaluateAll((nodes) =>
+        nodes.map((node) => {
+          const style = getComputedStyle(node)
+          return [style.color, style.opacity, style.backgroundColor, style.fill, style.stroke]
+        }),
+      )
     const before = await appearance()
     await page.mouse.down()
     await expect(page.getByRole('button', { name: '重命名项目' })).toHaveAttribute(
@@ -181,8 +180,7 @@ test('fills the viewport and resizing panels preserves center, geometry and CSS 
   expect(after.centerX).toBe(400)
   expect(after.centerY).toBe(300)
   await expect(path).toHaveAttribute('d', geometry!)
-  // Only loading the example is undoable; resizing, opening panels and panning are not.
-  await page.getByRole('button', { name: '撤销', exact: true }).click()
+  // Import creates an independent canvas; resizing, panels and panning are not edits.
   await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(700)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(

@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import { createAvoidanceFixture } from '../src/test/avoidanceFixtures'
-import { DRAFT_KEY } from '../src/features/project/useLocalDraft'
 import {
   configureAvoidance,
   dragPoint,
@@ -258,7 +257,7 @@ for (const action of ['Escape', 'tool', 'template', 'project', 'close'] as const
       state.markers[0].im = -2
       await page.goto('/')
       await openAvoidanceProject(page, state)
-      // Opening a file is undoable. A real reload starts a fresh history from its local draft.
+      // Import creates an independent canvas; refresh restores only its applied document.
       await page.reload()
       const before = await savedProject(page)
       await configureAvoidance(page)
@@ -268,7 +267,32 @@ for (const action of ['Escape', 'tool', 'template', 'project', 'close'] as const
       expect(await savedProject(page)).toEqual(before)
       await page.evaluate(() => window.dispatchEvent(new Event('pagehide')))
       expect(
-        await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), DRAFT_KEY),
+        await page.evaluate(async () => {
+          const db = await new Promise<IDBDatabase>((resolve, reject) => {
+            const request = indexedDB.open('complex-contour-editor', 1)
+            request.onsuccess = () => resolve(request.result)
+            request.onerror = () => reject(request.error)
+          })
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction(['workspace', 'canvases'], 'readonly')
+            let project: unknown
+            const meta = tx.objectStore('workspace').get('current')
+            meta.onsuccess = () => {
+              const entry = tx.objectStore('canvases').get(meta.result.activeId)
+              entry.onsuccess = () => {
+                project = JSON.parse(entry.result.project)
+              }
+            }
+            tx.oncomplete = () => {
+              db.close()
+              resolve(project)
+            }
+            tx.onabort = () => {
+              db.close()
+              reject(tx.error)
+            }
+          })
+        }),
       ).toEqual(before)
       await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
       await page.locator('summary[aria-label="导出图像"]').click()

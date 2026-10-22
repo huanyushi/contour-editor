@@ -239,7 +239,7 @@ test('independent axes, arrow choices and unequal scales survive recovery and im
   await page.getByRole('checkbox', { name: '显示坐标轴', exact: true }).check()
   await expect(page.getByTestId('real-axis')).toHaveAttribute('stroke', '#335577')
   await expect(page.locator('#axis-arrow')).toHaveAttribute('markerHeight', '14')
-  await expect(page.getByLabel('本地草稿状态')).toContainText('已保存')
+  await expect(page.getByLabel('画布保存状态')).toContainText('已保存')
   await page.reload()
   await expect(path).toHaveAttribute('d', 'M 240 300 L 560 300 A 160 40 0 0 0 240 300 Z')
   await expect(page.locator('#axis-arrow path')).toHaveAttribute('d', 'M 0 0 L -10 -4 L -10 4 Z')

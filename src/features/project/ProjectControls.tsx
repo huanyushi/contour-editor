@@ -10,14 +10,18 @@ import { transientLock } from '../../components/transientLock'
 import { useOutsideDismiss } from '../../components/useOutsideDismiss'
 import { computeExportLayout } from './exportLayout'
 import { DEFAULT_PROJECT_NAME, normalizeProjectName, projectDownloadName } from './projectName'
+import { CANVAS_LIMIT_MESSAGE } from './canvasWorkspace'
 
 interface Props {
   state: ContourState
   projectName: string
   disabled: boolean
-  onLoad: (state: ContourState, name: string) => void
+  onLoad: (state: ContourState, name: string) => Promise<boolean>
   onReadingChange: (reading: boolean) => void
-  draft: { status: string; error: string; clear: () => void }
+  draft: { status: string; error: string }
+  canImport?: boolean
+  onRetry?: () => void
+  onRecover?: () => void
 }
 
 export function ProjectControls({
@@ -27,6 +31,9 @@ export function ProjectControls({
   onLoad,
   onReadingChange,
   draft,
+  canImport = true,
+  onRetry,
+  onRecover,
 }: Props) {
   const input = useRef<HTMLInputElement>(null)
   const [working, setWorking] = useState<'reading' | 'exporting' | null>(null)
@@ -77,6 +84,10 @@ export function ProjectControls({
 
   async function openProject(file: File) {
     if (locked) return
+    if (!canImport) {
+      setError(CANVAS_LIMIT_MESSAGE)
+      return
+    }
     setError('')
     setMessage('正在读取项目…')
     setWorking('reading')
@@ -84,11 +95,11 @@ export function ProjectControls({
     try {
       if (file.size > MAX_PROJECT_BYTES) throw new Error('项目文件不能超过 2 MB。')
       const loaded = parseProject(await file.text())
-      onLoad(
+      const success = await onLoad(
         loaded,
         normalizeProjectName(file.name.replace(/\.json$/i, '')) ?? DEFAULT_PROJECT_NAME,
       )
-      setMessage(`已打开 ${file.name}`)
+      setMessage(success ? `已打开 ${file.name}` : '')
     } catch (problem) {
       fail(problem)
     } finally {
@@ -143,8 +154,8 @@ export function ProjectControls({
         </button>
         <button
           aria-label="打开项目"
-          title="打开项目"
-          disabled={unavailable}
+          title={canImport ? '导入为新画布' : CANVAS_LIMIT_MESSAGE}
+          disabled={unavailable || !canImport}
           {...transientLock(disabled)}
           onClick={() => input.current?.click()}
         >
@@ -302,7 +313,7 @@ export function ProjectControls({
         </details>
       </div>
       <div className="draft-line">
-        <span role="status" aria-label="本地草稿状态" title={`自动保存在此浏览器：${draft.status}`}>
+        <span role="status" aria-label="画布保存状态" title={`自动保存在此浏览器：${draft.status}`}>
           {draft.status}
         </span>
       </div>
@@ -319,6 +330,16 @@ export function ProjectControls({
       {draft.error && (
         <p className="error file-error" role="alert">
           {draft.error}
+          {onRetry && (
+            <button {...transientLock(disabled)} onClick={onRetry}>
+              重试保存
+            </button>
+          )}
+          {onRecover && (
+            <button {...transientLock(disabled)} onClick={onRecover}>
+              下载本地数据备份
+            </button>
+          )}
         </p>
       )}
     </section>

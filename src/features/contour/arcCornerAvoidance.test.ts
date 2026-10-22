@@ -479,12 +479,11 @@ describe('source arc and shared corner integration', () => {
 
   it('rejects invalid mathematical point types at the runtime boundary as strictly as the file reader', () => {
     const state = cornerFixture()
-    const bad = {
-      ...state,
-      avoidances: [],
-      vertices: state.vertices.map((p) => (p.id === 'b' ? { ...p, mathematicalKind: null } : p)),
-    } as unknown as ContourState
-    const next = contourReducer(state, { type: 'loadProject', state: bad })
+    const next = contourReducer(state, {
+      type: 'mathematicalKind',
+      id: 'b',
+      value: null,
+    } as unknown as Parameters<typeof contourReducer>[1])
     expect(next.error).toMatch(/数学类型/)
     expect(next.vertices).toBe(state.vertices)
   })

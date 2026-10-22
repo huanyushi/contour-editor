@@ -1,13 +1,13 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import App from './App'
+import { renderApp } from '../test/renderApp'
 import { loadTemplate, selectObject } from '../test/navigation'
 
 describe('contour editor', () => {
   it('preserves input focus when submitting coordinates with Enter', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     const input = screen.getByLabelText('实部 Re')
     await user.clear(input)
     await user.type(input, '12{Enter}')
@@ -16,7 +16,7 @@ describe('contour editor', () => {
   })
   it('allows keyboard users to append a vertex and edit it', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await user.click(screen.getByRole('button', { name: '视图设置' }))
     const add = screen.getByRole('button', { name: '在原点追加顶点' })
     add.focus()
@@ -28,7 +28,7 @@ describe('contour editor', () => {
   })
   it('applies precise coordinates and preserves selection when reversing', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await user.clear(screen.getByLabelText('实部 Re'))
     await user.type(screen.getByLabelText('实部 Re'), '1.25')
     await user.clear(screen.getByLabelText('虚部 Im'))
@@ -45,7 +45,7 @@ describe('contour editor', () => {
   })
   it('rejects empty input without changing geometry', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     const original = screen.getByTestId('contour-path').getAttribute('d')
     await user.clear(screen.getByLabelText('实部 Re'))
     await user.click(screen.getByRole('button', { name: '应用坐标' }))
@@ -54,7 +54,7 @@ describe('contour editor', () => {
   })
   it('can erase all endpoints and replace the empty canvas with a fresh rectangle', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     for (let i = 0; i < 4; i++) {
       await selectObject(user, '选择顶点 z1')
       await user.click(screen.getByRole('button', { name: '删除选中顶点' }))
@@ -62,6 +62,7 @@ describe('contour editor', () => {
     expect(screen.queryAllByTestId(/^vertex-/)).toHaveLength(0)
     expect(screen.getByTestId('contour-path')).toHaveAttribute('d', '')
     await loadTemplate(user, '矩形围道')
+    await user.click(screen.getByRole('button', { name: '围道属性' }))
     expect(screen.getByRole('checkbox', { name: '闭合围道' })).toBeChecked()
     expect(screen.getAllByTestId(/^vertex-/)).toHaveLength(4)
   })

@@ -21,24 +21,25 @@ test('templates share the left sidebar behavior, scroll independently and fit th
   const canvas = page.getByTestId('contour-canvas')
   const before = (await canvas.boundingBox())!
   const original = await page.getByTestId('contour-path').getAttribute('d')
-  const trigger = page.getByRole('button', { name: '示例模板', exact: true })
+  const trigger = page.getByRole('button', { name: '画布与模板', exact: true })
   await trigger.click()
-  const panel = page.getByRole('complementary', { name: '示例模板', exact: true })
+  await page.getByRole('tab', { name: '示例模板' }).click()
+  const panel = page.getByRole('complementary', { name: '画布与模板', exact: true })
   await expect(panel).toBeVisible()
   const panelBox = (await panel.boundingBox())!
   expect(panelBox.width).toBe(280)
   const first = (await panel
-    .getByRole('button', { name: '载入圆形围道', exact: true })
+    .getByRole('button', { name: '预览圆形围道', exact: true })
     .boundingBox())!
   const second = (await panel
-    .getByRole('button', { name: '载入上半圆围道', exact: true })
+    .getByRole('button', { name: '预览上半圆围道', exact: true })
     .boundingBox())!
   expect(first.y).toBe(second.y)
   expect(second.x).toBeGreaterThan(first.x + first.width)
   if (info.project.name === 'desktop')
     await expect.poll(async () => (await canvas.boundingBox())!.width).toBe(before.width - 280)
   else expect((await canvas.boundingBox())!.width).toBe(before.width)
-  const scroll = page.getByLabel('示例模板内容', { exact: true })
+  const scroll = page.getByLabel('画布与模板内容', { exact: true })
   await scroll.hover()
   await page.mouse.wheel(0, 400)
   await expect.poll(() => scroll.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
@@ -64,7 +65,8 @@ test('templates share the left sidebar behavior, scroll independently and fit th
   await expect(objectPanel).toBeHidden()
   expect(await panel.boundingBox()).toEqual(templatePanelBox)
   expect(await canvas.boundingBox()).toEqual(templateCanvasBox)
-  await panel.getByRole('button', { name: '载入钥匙孔围道', exact: true }).click()
+  await panel.getByRole('button', { name: '预览钥匙孔围道', exact: true }).click()
+  await panel.getByRole('button', { name: '以此模板新建画布', exact: true }).click()
   if (info.project.name === 'narrow') {
     await expect(panel).toBeHidden()
     await expect(canvas).toBeFocused()
@@ -110,13 +112,11 @@ test('templates share the left sidebar behavior, scroll independently and fit th
 })
 
 test(
-  'one click switches templates and the loaded geometry stays undoable, editable and exportable',
+  'template creation preserves the original canvas and the new geometry stays editable and exportable',
   { tag: '@desktop-only' },
   async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
-    const card = page.getByRole('button', { name: '载入钥匙孔围道', exact: true })
-    await card.click()
+    await loadTemplate(page, '钥匙孔围道')
     await expect(page.getByTestId('contour-path')).toHaveAttribute('d', / A /)
     const saved = await download(page, '保存项目')
     const project = JSON.parse(saved.toString()) as ProjectFile
@@ -128,10 +128,14 @@ test(
     expect(project.document.markers).toContainEqual(
       expect.objectContaining({ re: 0, im: 0, mathematicalKind: 'branch' }),
     )
-    await page.getByRole('button', { name: '撤销', exact: true }).click()
+    await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: '画布与模板', exact: true }).click()
+    await page.getByRole('tab', { name: '我的画布' }).click()
+    await page.getByRole('button', { name: '切换到画布 Untitled', exact: true }).click()
     const undone = JSON.parse((await download(page, '保存项目')).toString()) as ProjectFile
     expect(undone.document.segments.every((segment) => segment.kind === 'line')).toBe(true)
-    await page.getByRole('button', { name: '重做', exact: true }).click()
+    await page.getByRole('button', { name: '切换到画布 钥匙孔围道', exact: true }).click()
+    await page.getByRole('button', { name: '收起画布与模板', exact: true }).click()
     const beforeDrag = await page.getByTestId('contour-path').getAttribute('d')
     const vertex = (await page.getByTestId('vertex-v1').boundingBox())!
     await page.mouse.move(vertex.x + vertex.width / 2, vertex.y + vertex.height / 2)
@@ -183,8 +187,7 @@ test(
   { tag: '@desktop-only' },
   async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
-    await page.getByRole('button', { name: '载入钥匙孔避让奇点', exact: true }).click()
+    await loadTemplate(page, '钥匙孔避让奇点')
     const saved = JSON.parse((await download(page, '保存项目')).toString()) as ProjectFile
     expect(saved.document.avoidances!.map((a) => a.radius)).toEqual([0.5, 0.5])
     const viewport = saved.document.view.viewport!
@@ -293,7 +296,7 @@ test('template detour labels remain separate from singularity labels at fitted s
 })
 
 test(
-  'switching templates preserves global view preferences and the unlocked axis ratio',
+  'template canvases have independent views and returning to the original restores its preferences',
   { tag: '@desktop-only' },
   async ({ page }) => {
     await page.goto('/')
@@ -321,21 +324,22 @@ test(
     await page.getByRole('button', { name: '应用视图比例', exact: true }).click()
     const before = (JSON.parse((await download(page, '保存项目')).toString()) as ProjectFile)
       .document.view
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
     for (const name of ['圆形围道', '钥匙孔围道', 'Bromwich 围道']) {
-      await page.getByRole('button', { name: `载入${name}`, exact: true }).click()
+      await loadTemplate(page, name)
       const after = (JSON.parse((await download(page, '保存项目')).toString()) as ProjectFile)
         .document.view
-      expect({ ...after, viewport: undefined }).toEqual({ ...before, viewport: undefined })
-      expect(after.viewport!.locked).toBe(false)
-      expect(after.viewport!.scaleY / after.viewport!.scaleX).toBeCloseTo(0.5)
+      expect(after.grid).toBe(true)
+      expect(after.axes).toBeUndefined()
+      expect(after.viewport!.locked).toBe(true)
+      expect(after.viewport!.scaleY / after.viewport!.scaleX).toBeCloseTo(1)
     }
-    await page.getByRole('button', { name: '撤销', exact: true }).click()
-    await page.getByRole('button', { name: '重做', exact: true }).click()
+    await page.getByRole('button', { name: '画布与模板', exact: true }).click()
+    await page.getByRole('tab', { name: '我的画布' }).click()
+    await page.getByRole('button', { name: '切换到画布 Untitled', exact: true }).click()
     await page.reload()
     const restored = (JSON.parse((await download(page, '保存项目')).toString()) as ProjectFile)
       .document.view
-    expect({ ...restored, viewport: undefined }).toEqual({ ...before, viewport: undefined })
+    expect(restored).toEqual(before)
     expect(restored.viewport!.locked).toBe(false)
     expect(restored.viewport!.scaleY / restored.viewport!.scaleX).toBeCloseTo(0.5)
   },

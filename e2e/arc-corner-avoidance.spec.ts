@@ -72,11 +72,12 @@ for (const mode of ['arc', 'corner'] as const) {
       await openAvoidanceProject(page, state)
       const original = (await savedProject(page)).document
       // Include every template thumbnail in the before/during/after paint oracle.
-      await page.getByRole('button', { name: '示例模板', exact: true }).click()
+      await page.getByRole('button', { name: '画布与模板', exact: true }).click()
+      await page.getByRole('tab', { name: '示例模板' }).click()
       const paint = () =>
         page
           .locator(
-            '.template-thumbnail, .template-thumbnail *, .tool-palette button, .global-actions button:not([aria-label="撤销"]):not([aria-label="重做"])',
+            '.scene-thumbnail, .tool-palette button, .global-actions button:not([aria-label="撤销"]):not([aria-label="重做"])',
           )
           .evaluateAll((nodes) =>
             nodes.map((node) => {
@@ -130,7 +131,7 @@ test('narrow open-endpoint error opens and focuses Inspector; retry exposes canv
   state.closed = false
   state.vertices[0].mathematicalKind = 'pole'
   await openAvoidanceProject(page, state)
-  await expect(page.getByLabel('本地草稿状态')).toContainText('已保存')
+  await expect(page.getByLabel('画布保存状态')).toContainText('已保存')
   await page.reload() // Restore the fixture as initial state, without the undoable file-open step.
   await showCanvas(page)
   const before = await savedProject(page)
@@ -362,7 +363,7 @@ test(
         { id: 'd', re: -1, im: 100 },
       ]
       await openAvoidanceProject(page, state)
-      await expect(page.getByLabel('本地草稿状态')).toContainText('已保存')
+      await expect(page.getByLabel('画布保存状态')).toContainText('已保存')
       await page.reload() // Match a fresh document's empty history, rather than undoable import.
       await showCanvas(page)
       const before = (await savedProject(page)).document

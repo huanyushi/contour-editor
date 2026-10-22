@@ -64,8 +64,9 @@ test('resolved parts and poles box-drag once from the start snapshot, keep contr
 }) => {
   await loadAvoidance(page)
   if (page.viewportSize()!.width > 700) {
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
-    expect(await page.locator('.template-thumbnail').count()).toBeGreaterThan(0)
+    await page.getByRole('button', { name: '画布与模板', exact: true }).click()
+    await page.getByRole('tab', { name: '示例模板' }).click()
+    expect(await page.locator('.scene-thumbnail').count()).toBeGreaterThan(0)
   }
   await page.getByRole('button', { name: '框选工具', exact: true }).click()
   const start = await screenPoint(page, -1, -0.5)
@@ -79,12 +80,18 @@ test('resolved parts and poles box-drag once from the start snapshot, keep contr
   const controls = () =>
     page
       .locator(
-        '.template-card, .template-thumbnail, [aria-label="示例模板"], [aria-label="保存项目"], [aria-label="撤销"], [aria-label="重做"]',
+        '.template-card, .scene-thumbnail, [aria-label="画布与模板"], [aria-label="保存项目"], [aria-label="撤销"], [aria-label="重做"]',
       )
       .evaluateAll((nodes) =>
         nodes.map((node) => {
           const style = getComputedStyle(node)
-          return [style.opacity, style.color, style.backgroundColor, style.borderColor]
+          return [
+            node.getAttribute('aria-label'),
+            style.opacity,
+            style.color,
+            style.backgroundColor,
+            style.borderColor,
+          ]
         }),
       )
   const styles = await controls()
@@ -95,7 +102,9 @@ test('resolved parts and poles box-drag once from the start snapshot, keep contr
   await page.mouse.move(dragStart.x + 40, dragStart.y - 20, { steps: 3 })
   expect(await controls()).toEqual(styles)
   await page.mouse.up()
-  expect(await controls()).toEqual(styles)
+  const unrelated = (values: Awaited<ReturnType<typeof controls>>) =>
+    values.filter(([name]) => name !== '撤销' && name !== '重做')
+  expect(unrelated(await controls())).toEqual(unrelated(styles))
   const moved = await savedProject(page)
   expect(moved.document.vertices.slice(0, 2).map(({ re, im }) => ({ re, im }))).toEqual([
     { re: -3, im: 0.5 },

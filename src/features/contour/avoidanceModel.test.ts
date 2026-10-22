@@ -455,7 +455,7 @@ describe('avoidance dependency lifecycle', () => {
     expect(after.connections).toBe(before.connections)
   })
 
-  it('only reconciles real source deletions, never invalid references or document replacements', () => {
+  it('only reconciles real source deletions, never invalid references or unrelated actions', () => {
     const before = freeze(createAvoidanceFixture())
     const dangling = { ...before.avoidances[0], id: 'dangling', markerId: 'missing' }
     const candidate = freeze({
@@ -480,7 +480,6 @@ describe('avoidance dependency lifecycle', () => {
         .avoidances,
     ).toEqual([{ ...dangling, targetSegmentId: 'edge-b' }])
     for (const action of [
-      { type: 'loadProject', state: candidate },
       { type: 'mathematicalKind', id: 'pole', value: 'ordinary' },
       { type: 'addAvoidance', avoidance: dangling },
     ] as ContourAction[]) {

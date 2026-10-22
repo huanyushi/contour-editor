@@ -38,7 +38,7 @@ button {
   background: white;
   transition: background 0.15s;
 }
-button:hover:not(:disabled):not([aria-disabled='true']) {
+button:hover:not(:disabled):not([aria-disabled='true']):not(.primary) {
   background: #edf5f3;
   border-color: #a9ccc2;
 }
@@ -487,10 +487,158 @@ summary::-webkit-details-marker {
   display: grid;
   place-items: center;
 }
-.template-thumbnail {
+.scene-thumbnail {
   display: block;
   width: 100%;
   aspect-ratio: 10 / 7;
+  object-fit: contain;
+  pointer-events: none;
+}
+.canvas-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 14px 14px 0;
+}
+.canvas-tabs button {
+  flex: 1;
+  font-size: 12px;
+}
+.canvas-tabs [aria-selected='true'],
+.template-card[aria-pressed='true'] {
+  border-color: #208a85;
+  background: #edf7f3;
+}
+.canvas-card {
+  min-width: 0;
+  border: 1px solid #dce7e1;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.canvas-card.current {
+  border-color: #208a85;
+  box-shadow: 0 0 0 1px #208a85;
+}
+.canvas-card > .template-card {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  position: relative;
+}
+.canvas-card .template-card > span {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.current-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #edf7f3;
+  color: #216855;
+  font-size: 10px;
+}
+.canvas-card-actions {
+  display: flex;
+  justify-content: space-evenly;
+  padding: 2px 4px 5px;
+}
+.canvas-card-actions button {
+  padding: 4px;
+  border: 0;
+  background: transparent;
+}
+.canvas-card-actions .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+.add-canvas {
+  justify-content: center;
+  min-height: 136px;
+  border-style: dashed;
+}
+.template-footer {
+  flex-shrink: 0;
+  padding: 12px 14px;
+  border-top: 1px solid #e5ecee;
+  background: #fcfdfd;
+}
+.template-footer .primary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.template-create-content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+}
+.template-create-content .ui-icon {
+  position: absolute;
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.template-panel .canvas-tabs {
+  flex-shrink: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5ecee;
+}
+.template-panel .panel-scroll {
+  scrollbar-gutter: stable;
+}
+.canvas-limit {
+  margin: 12px 14px 0;
+  font-size: 12px;
+  color: #8b641f;
+}
+.canvas-rename {
+  padding: 5px;
+}
+.canvas-rename input,
+.canvas-rename button {
+  width: 100%;
+  min-width: 0;
+}
+.canvas-confirm {
+  width: min(360px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid #dce7e1;
+  border-radius: 8px;
+  color: #304c43;
+}
+.canvas-confirm::backdrop {
+  background: #142b2666;
+}
+.canvas-confirm h2 {
+  margin: 0 0 16px;
+  font-size: 16px;
+}
+.canvas-confirm p {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.canvas-confirm .export-actions button {
+  min-width: 0;
+  min-height: 36px;
+  margin-top: 0;
+}
+.startup-status {
+  display: grid;
+  place-items: center;
+  height: 100dvh;
+}
+.thumbnail-error {
+  display: grid;
+  place-items: center;
+  font-size: 11px;
 }
 .panel-heading {
   display: flex;
@@ -800,9 +948,10 @@ select {
   color: white;
   border-color: #176b5c;
 }
-.primary:hover:not(:disabled) {
-  background: #125348;
-  color: white;
+.primary:hover:not(:disabled):not([aria-disabled='true']) {
+  background: #edf5f3;
+  color: #176b5c;
+  border-color: #a9ccc2;
 }
 .secondary {
   margin-top: 9px;

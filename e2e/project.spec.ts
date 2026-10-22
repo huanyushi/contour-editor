@@ -83,11 +83,15 @@ test(
     await expect(page.getByTestId('contour-path')).toHaveAttribute('d', original!)
     await expect(page.getByTestId('label-a')).toHaveAttribute('aria-label', '-R')
     await expect(page.getByTestId('contour-path')).toHaveAttribute('fill', 'url(#contour-hatch)')
-    await page.getByRole('button', { name: '撤销', exact: true }).click()
+    await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: '画布与模板', exact: true }).click()
+    await page.getByRole('tab', { name: '我的画布' }).click()
+    await page.getByRole('button', { name: '切换到画布 矩形围道', exact: true }).click()
     const undone = JSON.parse((await download(page, '保存项目')).bytes.toString()) as ProjectFile
     expect(undone.document.vertices).toEqual(reset.document.vertices)
     expect(undone.document.segments).toEqual(reset.document.segments)
-    await page.getByRole('button', { name: '重做', exact: true }).click()
+    await page.getByRole('button', { name: '切换到画布 restored', exact: true }).click()
+    await page.getByRole('button', { name: '收起画布与模板', exact: true }).click()
     await expect(page.getByTestId('contour-path')).toHaveAttribute('d', original!)
     await page.getByLabel('打开项目文件').setInputFiles({
       name: 'bad.json',
@@ -183,10 +187,10 @@ test(
     await page.getByRole('button', { name: '独立点工具' }).click()
     await openApplicationMenu(page)
     await page.getByRole('button', { name: '在原点添加独立点' }).click()
-    await expect(page.getByLabel('本地草稿状态')).toContainText('已保存')
+    await expect(page.getByLabel('画布保存状态')).toContainText('已保存')
     const firstId = await page.locator('[data-testid^="marker-"]').getAttribute('data-testid')
     await page.reload()
-    await expect(page.getByLabel('本地草稿状态')).toContainText('已恢复')
+    await expect(page.getByLabel('画布保存状态')).toContainText('已恢复')
     await expect(page.locator('[data-testid^="marker-"]')).toHaveCount(1)
     await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
     await page.getByRole('button', { name: '独立点工具' }).click()
@@ -197,9 +201,10 @@ test(
       .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-testid')))
     expect(new Set(ids).size).toBe(2)
     expect(ids).toContain(firstId)
-    await page.getByRole('button', { name: '应用设置', exact: true }).click()
-    await page.getByRole('button', { name: '清除本地草稿' }).click()
-    await expect(page.getByLabel('本地草稿状态')).toContainText('已清除')
+    await page.getByRole('button', { name: '画布与模板', exact: true }).click()
+    await page.getByRole('button', { name: '删除画布 Untitled', exact: true }).click()
+    await page.getByRole('button', { name: '确认删除' }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     await page.reload()
     await expect(page.locator('[data-testid^="marker-"]')).toHaveCount(0)
     await expect(page.getByTestId('contour-path')).not.toHaveAttribute('d', / A /)
@@ -207,7 +212,7 @@ test(
 )
 
 test(
-  'keeps a damaged local draft intact until explicitly cleared',
+  'keeps a damaged legacy draft intact and offers raw data backup',
   { tag: '@desktop-only' },
   async ({ page }) => {
     await page.addInitScript((key) => localStorage.setItem(key, '{broken'), draftKey)
@@ -220,12 +225,11 @@ test(
     await page
       .getByLabel('打开项目文件')
       .setInputFiles({ name: 'fallback.json', mimeType: 'application/json', buffer: saved.bytes })
-    await expect(page.getByLabel('本地草稿状态')).toContainText('已保存')
-    await expect(page.getByRole('alert')).toHaveCount(0)
-    await page.getByRole('button', { name: '应用设置', exact: true }).click()
-    await page.getByRole('button', { name: '清除本地草稿' }).click()
-    expect(await page.evaluate((key) => localStorage.getItem(key), draftKey)).toBeNull()
-    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(page.getByLabel('画布保存状态')).toContainText('已保存')
+    await expect(page.getByRole('alert')).toContainText('本地草稿无法恢复')
+    const recovery = await download(page, '下载本地数据备份')
+    expect(JSON.parse(recovery.bytes.toString()).legacy.project).toBe('{broken')
+    expect(await page.evaluate((key) => localStorage.getItem(key), draftKey)).toBe('{broken')
   },
 )
 

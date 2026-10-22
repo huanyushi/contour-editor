@@ -1,13 +1,13 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import App from './App'
+import { renderApp } from '../test/renderApp'
 import { loadTemplate, selectObject } from '../test/navigation'
 
 describe('mixed contour editing', () => {
   it('rejects collinear arc input then allows recovery through the same form', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await loadTemplate(user, '上半圆围道')
     await selectObject(user, '选择路径段 1')
     const original = screen.getByTestId('contour-path').getAttribute('d')
@@ -25,7 +25,7 @@ describe('mixed contour editing', () => {
 
   it('converts an arc into a line and prevents closing the resulting two-line contour', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await loadTemplate(user, '上半圆围道')
     await selectObject(user, '选择路径段 1')
     await user.click(screen.getByRole('button', { name: '改为线段' }))

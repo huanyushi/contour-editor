@@ -5,6 +5,7 @@ import { contourReducer } from '../contour/model'
 import { sourcePieceId } from '../contour/sourcePieces'
 import { serializeProject } from './format'
 import { parseProject } from './project'
+import { canvasWorkspaceReducer, createCanvasEntry } from './canvasWorkspace'
 
 const boundary = { startAvoidanceId: null, endAvoidanceId: 'parent' }
 
@@ -59,8 +60,13 @@ it('reopens saved piece styles and labels unchanged after reversing the current 
   const file = parseProject(text)
   const reversed = contourReducer(state, { type: 'reverse' })
   expect(reversed.error).toBe('')
-  const loaded = contourReducer(reversed, { type: 'loadProject', state: file })
-  expect(loaded.error).toBe('')
-  expect(loaded.segments).toEqual(file.segments)
-  expect(JSON.parse(serializeProject(loaded))).toEqual(JSON.parse(text))
+  const workspace = canvasWorkspaceReducer(
+    { canvases: [createCanvasEntry('original', '原稿', reversed)], activeId: 'original' },
+    { type: 'add', entry: createCanvasEntry('imported', '导入', file) },
+  )
+  expect(workspace.canvases[0].history.present.segments).toBe(reversed.segments)
+  expect(workspace.canvases[1].history.past).toEqual([])
+  expect(JSON.parse(serializeProject(workspace.canvases[1].history.present))).toEqual(
+    JSON.parse(text),
+  )
 })

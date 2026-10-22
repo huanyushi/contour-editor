@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { openSection, openView, selectObject } from './navigation'
+import { openSection, openView, selectObject, openTemplates } from './navigation'
 import { loadBoxFixture, screenPoint, savedProject } from './selection'
 import { createAvoidanceFixture } from '../src/test/avoidanceFixtures'
 import { defaultLabel } from '../src/features/contour/appearance'
@@ -16,7 +16,7 @@ test(
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/')
     await openAvoidanceProject(page, createRectangleConnectedFixture())
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
+    await openTemplates(page)
     for (const [id, dx, dy] of [
       ['avoidance-port-parent-entry', 4, 0],
       ['avoidance-gap-parent', 4, 0],
@@ -39,8 +39,8 @@ test(
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/')
     await openAvoidanceProject(page, state)
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
-    await expect(page.locator('.template-thumbnail')).toHaveCount(9)
+    await openTemplates(page)
+    await expect(page.locator('.template-grid .scene-thumbnail')).toHaveCount(9)
     for (const [handleId, centerX] of [
       ['avoidance-radius-parent-entry', 400],
       ['avoidance-radius-clearance-bank-exit-entry', 500],
@@ -64,7 +64,7 @@ test(
 async function paint(page: Page) {
   return page
     .locator(
-      '.template-card, .template-thumbnail, .template-thumbnail *, .tool-palette button, .template-panel button, .rail-bottom button, .view-toolbar button, .global-actions button, .export-menu > summary, .export-options input, .export-options select',
+      '.template-card, .scene-thumbnail, .tool-palette button, .template-panel button, .rail-bottom button, .view-toolbar button, .global-actions button, .export-menu > summary, .export-options input, .export-options select',
     )
     .evaluateAll((nodes) =>
       nodes.map((node) => {
@@ -100,7 +100,12 @@ async function stableDrag(
     'true',
   )
   await page.mouse.up()
-  expect(await paint(page)).toEqual(before)
+  expect(unrelated(await paint(page))).toEqual(unrelated(before))
+}
+
+// Real undo/redo availability may change after a committed edit, never mid-gesture.
+function unrelated(values: Awaited<ReturnType<typeof paint>>) {
+  return values.filter(({ name }) => name !== '撤销' && name !== '重做')
 }
 
 test(
@@ -113,9 +118,9 @@ test(
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/')
     await openAvoidanceProject(page, state)
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
+    await openTemplates(page)
     await expect(page.locator('.template-card')).toHaveCount(9)
-    await expect(page.locator('.template-thumbnail')).toHaveCount(9)
+    await expect(page.locator('.template-grid .scene-thumbnail')).toHaveCount(9)
     for (const id of ['marker-pole', 'label-handle-avoid:avoid-1:arc']) {
       const box = (await page.getByTestId(id).boundingBox())!
       const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
@@ -158,7 +163,7 @@ async function dragSlider(page: Page, slider: Locator) {
   await page.mouse.move(box.x + box.width * 0.75, box.y + box.height / 2, { steps: 5 })
   expect(await paint(page)).toEqual(before)
   await page.mouse.up()
-  expect(await paint(page)).toEqual(before)
+  expect(unrelated(await paint(page))).toEqual(unrelated(before))
 }
 
 test(
@@ -168,7 +173,7 @@ test(
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/')
     await loadBoxFixture(page)
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
+    await openTemplates(page)
     await expect(page.locator('.template-card')).toHaveCount(9)
     for (const id of ['vertex-a', 'label-handle-a']) {
       const box = (await page.getByTestId(id).boundingBox())!
@@ -180,7 +185,7 @@ test(
       await page.mouse.move(x + 40, y + 20, { steps: 5 })
       expect(await paint(page)).toEqual(before)
       await page.mouse.up()
-      expect(await paint(page)).toEqual(before)
+      expect(unrelated(await paint(page))).toEqual(unrelated(before))
     }
   },
 )
@@ -195,7 +200,7 @@ test(
     await selectObject(page, '选择顶点 z1')
     await page.getByRole('button', { name: '收起对象列表', exact: true }).click()
     await openSection(page, '标签')
-    await page.getByRole('button', { name: '示例模板', exact: true }).click()
+    await openTemplates(page)
     await expect(page.locator('.template-card')).toHaveCount(9)
     for (const name of ['标签水平偏移', '标签垂直偏移'])
       await dragSlider(page, page.getByRole('slider', { name, exact: true }))

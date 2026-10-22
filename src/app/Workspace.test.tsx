@@ -1,17 +1,17 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import App from './App'
+import { renderApp } from '../test/renderApp'
 import { loadTemplate, openApplicationMenu, openSection, selectObject } from '../test/navigation'
 import { createArcFixture } from '../test/fixtures'
 import { serializeProject } from '../features/project/format'
-import { DRAFT_KEY } from '../features/project/useLocalDraft'
+import { DRAFT_KEY } from '../features/project/legacyLocalDraft'
 
 describe('workspace properties', () => {
   it('does not record resetting an untouched automatic label position', async () => {
     const user = userEvent.setup()
     localStorage.setItem(DRAFT_KEY, serializeProject(createArcFixture()))
-    render(<App />)
+    await renderApp()
     await user.click(screen.getByRole('button', { name: '反转方向' }))
     await user.click(screen.getByRole('button', { name: '撤销' }))
     await selectObject(user, '选择顶点 z1')
@@ -22,7 +22,7 @@ describe('workspace properties', () => {
   })
   it('retains unsubmitted TeX when label appearance is edited', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await openSection(user, '标签')
     await user.clear(screen.getByLabelText('LaTeX 标签'))
     await user.type(screen.getByLabelText('LaTeX 标签'), 'a+b')
@@ -35,7 +35,7 @@ describe('workspace properties', () => {
   })
   it('switches to contextual arc properties and displays derived radius and angles', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await loadTemplate(user, '上半圆围道')
     await selectObject(user, '选择路径段 1')
     expect(screen.getByRole('heading', { name: '圆弧属性' })).toBeVisible()
@@ -48,7 +48,7 @@ describe('workspace properties', () => {
   })
   it('applies an editable mathematical label to a vertex and rejects invalid source', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await openSection(user, '标签')
     await user.clear(screen.getByLabelText('LaTeX 标签'))
     await user.paste('\\psi')
@@ -62,7 +62,7 @@ describe('workspace properties', () => {
   })
   it('changes fill independently from closure', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     await user.click(screen.getByRole('button', { name: '围道属性' }))
     expect(document.querySelectorAll('.drawing-tools .active')).toHaveLength(1)
     expect(screen.getByRole('button', { name: '选择工具' })).toHaveAttribute('aria-pressed', 'true')
@@ -76,7 +76,7 @@ describe('workspace properties', () => {
   })
   it('creates and removes an independent point without changing contour geometry', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    await renderApp()
     const original = screen.getByTestId('contour-path').getAttribute('d')
     await user.click(screen.getByRole('button', { name: '独立点工具' }))
     await openApplicationMenu(user)

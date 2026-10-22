@@ -57,7 +57,6 @@ export interface ContourState extends WorkspaceState {
 }
 
 export type ContourAction =
-  | { type: 'loadProject'; state: ContourState }
   | WorkspaceAction
   | SelectionAction
   | AvoidanceAction
@@ -193,8 +192,6 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
     case 'avoidanceStyle':
     case 'avoidanceLabel':
       return avoidanceReducer(state, action)
-    case 'loadProject':
-      return action.state
     case 'translateSelection': {
       const moved = translateSelection(action.from, action.delta, state)
       if (moved.error) return { ...state, error: moved.error }

@@ -55,7 +55,7 @@ test('tool and sidebar switches clear the box, while Ctrl selection only highlig
   await expect(page.getByTestId('selection-rectangle')).toHaveCount(0)
   await expect(page.getByTestId('selection-toolbar')).toHaveCount(0)
   await selectBottomRow(page)
-  await page.getByRole('button', { name: '示例模板', exact: true }).click()
+  await page.getByRole('button', { name: '画布与模板', exact: true }).click()
   await expect(page.getByTestId('selection-rectangle')).toHaveCount(0)
 })
 
@@ -65,7 +65,7 @@ test('pan and box drags keep unrelated buttons visually unchanged while locked',
   await page.goto('/')
   await loadBoxFixture(page)
   const selectors = [
-    '[aria-label="示例模板"]',
+    '[aria-label="画布与模板"]',
     '.view-toolbar [aria-label="视图设置"]',
     '[aria-label="应用设置"]',
     '[aria-label="保存项目"]',

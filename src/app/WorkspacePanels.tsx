@@ -51,7 +51,12 @@ export function ViewSettingsPanel({
   onClose,
   gestureOwner,
   onAddVertex,
-}: PanelProps & { gestureOwner: GestureOwner | null; onAddVertex: () => void }) {
+  readOnly = false,
+}: PanelProps & {
+  gestureOwner: GestureOwner | null
+  onAddVertex: () => void
+  readOnly?: boolean
+}) {
   const sliders = useSliderHistory(dispatch, gestureOwner)
   return (
     <aside
@@ -68,7 +73,7 @@ export function ViewSettingsPanel({
           <X className="ui-icon" aria-hidden="true" />
         </button>
       </div>
-      <div className="panel-scroll" tabIndex={0} aria-label="视图设置内容">
+      <div className="panel-scroll" tabIndex={0} aria-label="视图设置内容" inert={readOnly}>
         <ViewPanel state={state} dispatch={dispatch} onAddVertex={onAddVertex} />
       </div>
     </aside>
@@ -83,7 +88,6 @@ export function ApplicationMenu({
   onViewSettings,
   onInspect,
   triggerRef,
-  onClearDraft,
 }: {
   state: ContourState
   dispatch: Dispatch<EditorAction>
@@ -92,7 +96,6 @@ export function ApplicationMenu({
   onViewSettings: () => void
   onInspect: () => void
   triggerRef: RefObject<HTMLButtonElement | null>
-  onClearDraft: () => void
 }) {
   const [open, setOpen] = useState(false)
   const menuRef = useOutsideDismiss<HTMLDivElement>(open, setOpen)
@@ -132,15 +135,6 @@ export function ApplicationMenu({
           }}
         >
           视图设置
-        </button>
-        <button
-          onClick={() => {
-            onClearDraft()
-            setOpen(false)
-            triggerRef.current?.focus()
-          }}
-        >
-          清除本地草稿
         </button>
         {tool === 'marker' && (
           <button

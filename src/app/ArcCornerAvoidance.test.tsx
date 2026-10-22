@@ -1,12 +1,11 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import App from './App'
+import { renderApp, savedCanvasState } from '../test/renderApp'
 import { createInitialState, type ContourState } from '../features/contour/model'
 import { defaultLabel, defaultPointStyle } from '../features/contour/appearance'
 import { serializeProject } from '../features/project/format'
-import { parseProject } from '../features/project/project'
-import { DRAFT_KEY } from '../features/project/useLocalDraft'
+import { DRAFT_KEY } from '../features/project/legacyLocalDraft'
 import { selectObject } from '../test/navigation'
 
 function corner(): ContourState {
@@ -59,9 +58,9 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function mount(state: ContourState) {
+async function mount(state: ContourState) {
   localStorage.setItem(DRAFT_KEY, serializeProject(state))
-  return render(<App />)
+  return renderApp()
 }
 function pick(id: string) {
   fireEvent.pointerDown(document.querySelector(`.segment-hit[data-source-segment-id="${id}"]`)!, {
@@ -73,10 +72,6 @@ async function edit(user: ReturnType<typeof userEvent.setup>, value: string) {
   await user.clear(radius)
   await user.type(radius, `${value}{Enter}`)
   fireEvent.blur(radius)
-}
-function saved() {
-  fireEvent(window, new Event('pagehide'))
-  return parseProject(localStorage.getItem(DRAFT_KEY)!)
 }
 async function startCorner(user: ReturnType<typeof userEvent.setup>, edge = 'edge-b') {
   await selectObject(user, '选择顶点 z2')
@@ -99,7 +94,7 @@ describe('source arc and semantic corner Inspector', () => {
         { id: 'c', re: -1, im: 0 },
         { id: 'd', re: -1, im: 100 },
       ]
-      mount(state)
+      await mount(state)
       await startCorner(user)
       expect(screen.getByLabelText('绕行半径')).toHaveValue('0.625')
       expect(screen.getByLabelText('绕行侧')).toHaveValue('right')
@@ -119,16 +114,16 @@ describe('source arc and semantic corner Inspector', () => {
       expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
       await user.click(screen.getByRole('button', { name: '应用绕行' }))
       expect(screen.getByTestId('segment-avoid:avoidance-0:arc')).toHaveAttribute('d', preview)
-      expect(saved().avoidances[0].side).toBe(explicit ? 'left' : 'right')
+      expect((await savedCanvasState()).avoidances[0].side).toBe(explicit ? 'left' : 'right')
       await user.click(screen.getByRole('button', { name: '撤销' }))
-      expect(saved().avoidances).toHaveLength(0)
+      expect((await savedCanvasState()).avoidances).toHaveLength(0)
       expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
     },
   )
 
   it('previews true source-circle intersections, keeps both remaining arcs, and repairs an invalid radius', async () => {
     const user = userEvent.setup()
-    mount(arc())
+    await mount(arc())
     await selectObject(user, '选择标记点 1')
     await user.click(screen.getByRole('button', { name: '添加绕行' }))
     pick('upper')
@@ -177,7 +172,7 @@ describe('source arc and semantic corner Inspector', () => {
     'normalizes %s to both corner dependencies, defaults short, preserves explicit major side and one-step commits',
     async (edge) => {
       const user = userEvent.setup()
-      mount(corner())
+      await mount(corner())
       await startCorner(user, edge)
       expect(screen.getByText(/进入路径 edge-a.*离开路径 edge-b/)).toBeInTheDocument()
       expect(screen.getByLabelText('可用半径范围')).toHaveTextContent('0 < r < 2')
@@ -187,13 +182,13 @@ describe('source arc and semantic corner Inspector', () => {
       const path = () =>
         screen.getByTestId('segment-avoid:avoidance-0:arc').getAttribute('d')!.split(/\s+/)
       expect(path().slice(7, 9)).toEqual(['0', '1'])
-      expect(saved().avoidances[0]).toMatchObject({
+      expect((await savedCanvasState()).avoidances[0]).toMatchObject({
         markerId: 'b',
         targetSegmentId: 'edge-a',
         exitSegmentId: 'edge-b',
         side: 'left',
       })
-      expect(saved().markers).toHaveLength(0)
+      expect((await savedCanvasState()).markers).toHaveLength(0)
       await user.selectOptions(screen.getByLabelText('绕行侧'), 'right')
       expect(path().slice(7, 9)).toEqual(['1', '0'])
       await edit(user, '0.75')
@@ -215,8 +210,8 @@ describe('source arc and semantic corner Inspector', () => {
       )
       await selectObject(user, '选择绕行 1 的绕行圆弧')
       await user.click(screen.getByRole('button', { name: '取消绕行' }))
-      expect(saved().vertices).toHaveLength(4)
-      expect(saved().markers).toHaveLength(0)
+      expect((await savedCanvasState()).vertices).toHaveLength(4)
+      expect((await savedCanvasState()).markers).toHaveLength(0)
       expect(screen.getByTestId('segment-edge-a')).toBeInTheDocument()
     },
   )
@@ -225,7 +220,7 @@ describe('source arc and semantic corner Inspector', () => {
     const user = userEvent.setup()
     const state = corner()
     state.closed = false
-    mount(state)
+    await mount(state)
     await selectObject(user, '选择顶点 z1')
     await user.selectOptions(screen.getByLabelText('数学类型'), 'isolated')
     await user.click(screen.getByRole('button', { name: '添加绕行' }))
@@ -234,7 +229,7 @@ describe('source arc and semantic corner Inspector', () => {
     await user.click(screen.getByRole('button', { name: '取消选择目标' }))
     expect(screen.getByRole('button', { name: '删除选中顶点' })).toBeInTheDocument()
     expect(screen.getByLabelText('数学类型')).toHaveValue('isolated')
-    expect(saved().avoidances).toHaveLength(0)
+    expect((await savedCanvasState()).avoidances).toHaveLength(0)
   })
 
   it.each([390, 1200])(
@@ -245,7 +240,7 @@ describe('source arc and semantic corner Inspector', () => {
       const state = corner()
       state.closed = false
       state.vertices[0].mathematicalKind = 'pole'
-      mount(state)
+      await mount(state)
       await selectObject(user, '选择顶点 z1')
       await user.click(screen.getByRole('button', { name: '添加绕行' }))
       const canvas = screen.getByTestId('contour-canvas')
@@ -275,8 +270,8 @@ describe('source arc and semantic corner Inspector', () => {
       expect(canvas).toHaveFocus()
       pick('edge-a')
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-      expect(saved().avoidances).toHaveLength(0)
-      expect(saved().vertices).toEqual(state.vertices)
+      expect((await savedCanvasState()).avoidances).toHaveLength(0)
+      expect((await savedCanvasState()).vertices).toEqual(state.vertices)
       expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
       expect(screen.getByRole('button', { name: '重做' })).toBeDisabled()
     },
@@ -290,7 +285,7 @@ describe('source arc and semantic corner Inspector', () => {
       const state = corner()
       state.closed = false
       state.vertices[0].mathematicalKind = 'pole'
-      mount(state)
+      await mount(state)
       await selectObject(user, '选择顶点 z1')
       await user.click(screen.getByRole('button', { name: '添加绕行' }))
       const frames = new Map<number, FrameRequestCallback>()
@@ -328,13 +323,13 @@ describe('source arc and semantic corner Inspector', () => {
   it('cancels a configured corner without changing source arrays or creating markers', async () => {
     const user = userEvent.setup()
     const state = corner()
-    mount(state)
+    await mount(state)
     await startCorner(user)
     await user.click(screen.getByRole('button', { name: '取消预览' }))
     expect(screen.getByRole('button', { name: '删除选中顶点' })).toBeInTheDocument()
-    expect(saved().segments).toEqual(state.segments)
-    expect(saved().markers).toHaveLength(0)
-    expect(saved().avoidances).toHaveLength(0)
+    expect((await savedCanvasState()).segments).toEqual(state.segments)
+    expect((await savedCanvasState()).markers).toHaveLength(0)
+    expect((await savedCanvasState()).avoidances).toHaveLength(0)
   })
 
   it('creates a mixed line/arc corner from the outgoing arc and retains its circle after reopening', async () => {
@@ -342,7 +337,7 @@ describe('source arc and semantic corner Inspector', () => {
     const state = corner()
     state.vertices[2].re = 2
     state.segments[1] = { ...state.segments[1], kind: 'arc', through: { re: 1, im: -1 } }
-    const view = mount(state)
+    const view = await mount(state)
     await startCorner(user)
     await edit(user, '0.5')
     expect(screen.queryByRole('alert')?.textContent).toBeUndefined()
@@ -357,11 +352,11 @@ describe('source arc and semantic corner Inspector', () => {
       .split(/\s+/)
     expect(retained[3]).toBe('A')
     expect(Number(retained[4])).toBeCloseTo(40, 10)
-    const accepted = saved()
+    const accepted = await savedCanvasState()
     view.unmount()
-    mount(accepted)
+    await mount(accepted)
     expect(screen.getByTestId('segment-avoid:avoidance-0:arc')).toHaveAttribute('d', path)
-    expect(saved().markers).toHaveLength(0)
+    expect((await savedCanvasState()).markers).toHaveLength(0)
   })
 
   it('drags the real semantic vertex as the bound center even with helper handles hidden, with one undo', async () => {
@@ -380,7 +375,7 @@ describe('source arc and semantic corner Inspector', () => {
         openingRatio: 0.5,
       },
     ]
-    mount(state)
+    await mount(state)
     const svg = screen.getByTestId('contour-canvas')
     Object.assign(svg, {
       getScreenCTM: () => ({ inverse: () => ({}) }),
@@ -397,8 +392,13 @@ describe('source arc and semantic corner Inspector', () => {
     fireEvent.pointerDown(screen.getByTestId('vertex-b'), { button: 0, clientX: 400, clientY: 300 })
     fireEvent.pointerMove(svg, { clientX: 440, clientY: 340 })
     fireEvent.pointerUp(svg)
-    expect(saved().vertices[1]).toMatchObject({ id: 'b', re: 1, im: -1, mathematicalKind: 'pole' })
-    expect(saved().markers).toHaveLength(0)
+    expect((await savedCanvasState()).vertices[1]).toMatchObject({
+      id: 'b',
+      re: 1,
+      im: -1,
+      mathematicalKind: 'pole',
+    })
+    expect((await savedCanvasState()).markers).toHaveLength(0)
     const command = screen.getByTestId('segment-avoid:cut:arc').getAttribute('d')!.split(/\s+/)
     for (const [x, y] of [
       [Number(command[1]), Number(command[2])],
@@ -407,7 +407,7 @@ describe('source arc and semantic corner Inspector', () => {
       expect(Math.hypot((x - 400) / 40 - 1, (300 - y) / 40 + 1)).toBeCloseTo(0.5, 10)
     }
     await user.click(screen.getByRole('button', { name: '撤销' }))
-    expect(saved().vertices).toEqual(state.vertices)
+    expect((await savedCanvasState()).vertices).toEqual(state.vertices)
     expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
   })
 })

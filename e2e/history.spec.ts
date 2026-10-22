@@ -112,7 +112,9 @@ test(
     await expect(path).toHaveAttribute('d', grown!)
     await expect(page.getByRole('alert')).toHaveCount(0)
     await page.getByRole('button', { name: '撤销', exact: true }).click()
-    await page.getByRole('button', { name: '撤销', exact: true }).click()
+    await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: '画布与模板', exact: true }).click()
+    await page.getByRole('button', { name: '切换到画布 Untitled', exact: true }).click()
     await expect(path).toHaveAttribute('d', rectangle!)
   },
 )

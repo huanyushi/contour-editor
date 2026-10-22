@@ -16,6 +16,7 @@ export function PropertiesPanel({
   open,
   onClose,
   avoidanceWorkflow,
+  readOnly = false,
 }: {
   state: ContourState
   dispatch: Dispatch<EditorAction>
@@ -23,6 +24,7 @@ export function PropertiesPanel({
   open: boolean
   onClose: () => void
   avoidanceWorkflow?: AvoidanceWorkflow
+  readOnly?: boolean
 }) {
   const scrollArea = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -82,7 +84,11 @@ export function PropertiesPanel({
         </button>
       </div>
       <div ref={scrollArea} className="panel-scroll" tabIndex={0} aria-label="属性面板内容">
-        <fieldset className="inspector-fields" {...transientLock(gestureOwner !== null)}>
+        <fieldset
+          className="inspector-fields"
+          inert={readOnly}
+          {...transientLock(gestureOwner !== null)}
+        >
           {configuring ? (
             <AvoidanceProperties state={state} dispatch={dispatch} workflow={avoidanceWorkflow} />
           ) : (

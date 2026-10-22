@@ -1,12 +1,12 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it } from 'vitest'
-import App from './App'
+import { renderApp } from '../test/renderApp'
 import { AxesLabelForm } from '../features/contour/AxesLabelForm'
 
 it('applies axis label drafts atomically and keeps the rendered labels when TeX is invalid', async () => {
   const user = userEvent.setup()
-  render(<App />)
+  await renderApp()
   expect(screen.getByTestId('label-axis-re')).toHaveAttribute('aria-label', '\\mathrm{Re}')
   expect(screen.getByTestId('label-axis-im')).toHaveAttribute('aria-label', '\\mathrm{Im}')
   await user.click(screen.getByRole('button', { name: '视图设置' }))
@@ -44,7 +44,7 @@ it('clears a previous TeX error when a project supplies different valid axis lab
 
 it('groups axis tick visibility with display settings and offers independent export ticks', async () => {
   const user = userEvent.setup()
-  render(<App />)
+  await renderApp()
   await user.click(screen.getByRole('button', { name: '视图设置' }))
   const ticks = screen.getByRole('checkbox', { name: '显示坐标轴刻度标签' })
   expect(ticks.closest('fieldset')).toHaveAccessibleName('显示与吸附')

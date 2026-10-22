@@ -131,7 +131,9 @@ test(
     expect((await savedProject(page)).document).toEqual(redoDocument)
     await page.getByRole('button', { name: '撤销', exact: true }).click()
     expect((await savedProject(page)).document).toEqual(before.document)
-    await page.getByRole('button', { name: '撤销', exact: true }).click()
+    await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: '画布与模板', exact: true }).click()
+    await page.getByRole('button', { name: '切换到画布 Untitled', exact: true }).click()
     expect((await savedProject(page)).document.avoidances).toBeUndefined()
   },
 )

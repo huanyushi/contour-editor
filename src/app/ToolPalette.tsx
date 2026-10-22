@@ -22,6 +22,7 @@ interface Props {
   tool: DrawingTool
   setTool: (tool: DrawingTool) => void
   busy: boolean
+  readOnly?: boolean
   collapsed: boolean
   onCollapse: () => void
   objectsOpen: boolean
@@ -96,6 +97,7 @@ export function ToolPalette({
   tool,
   setTool,
   busy,
+  readOnly = false,
   collapsed,
   onCollapse,
   objectsOpen,
@@ -110,7 +112,7 @@ export function ToolPalette({
       aria-label="绘图工具"
       inert={busy}
     >
-      <fieldset className="tool-controls" inert={busy} hidden={collapsed}>
+      <fieldset className="tool-controls" inert={busy || readOnly} hidden={collapsed}>
         <div
           className="drawing-tools"
           role="toolbar"
@@ -157,8 +159,8 @@ export function ToolPalette({
       <div className="rail-bottom">
         <button
           className={`tool-button ${templatesOpen ? 'active' : ''}`}
-          aria-label="示例模板"
-          title="展开或收起示例模板"
+          aria-label="画布与模板"
+          title="画布与模板"
           aria-expanded={templatesOpen}
           aria-controls="template-panel"
           {...transientLock(busy)}
@@ -169,7 +171,7 @@ export function ToolPalette({
         <button
           className="tool-button"
           aria-label="对象列表"
-          title="展开或收起对象列表"
+          title="对象列表"
           aria-expanded={objectsOpen}
           aria-controls="object-panel"
           onClick={onObjects}

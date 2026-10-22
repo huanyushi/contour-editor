@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { contourReducer, createInitialState } from '../contour/model'
 import { createArcFixture } from '../../test/fixtures'
 import { defaultLabel } from '../contour/appearance'
-import { createHistory, historyReducer } from '../contour/history'
+import { canvasWorkspaceReducer, createCanvasEntry } from './canvasWorkspace'
 import { MAX_PROJECT_BYTES, parseProject, serializeProject, type ProjectFile } from './project'
 
 const fixture = (): ProjectFile => JSON.parse(serializeProject(createArcFixture())) as ProjectFile
@@ -161,14 +161,18 @@ describe('versioned project files', () => {
     expect(() => parseProject(JSON.stringify(badId))).toThrow(/ID/)
   })
 
-  it('loading a valid file is one undoable document replacement', () => {
-    const original = createInitialState()
+  it('imports a valid file into a new canvas without replacing the original history', () => {
+    const original = createCanvasEntry('original', '原稿', createInitialState())
     const loaded = parseProject(serializeProject(createArcFixture()))
-    let history = historyReducer(createHistory(original), { type: 'loadProject', state: loaded })
-    expect(history.present.segments[1].kind).toBe('arc')
-    expect(history.past).toHaveLength(1)
-    history = historyReducer(history, { type: 'undo' })
-    expect(history.present.vertices).toEqual(original.vertices)
-    expect(historyReducer(history, { type: 'redo' }).present.segments).toEqual(loaded.segments)
+    const workspace = canvasWorkspaceReducer(
+      { canvases: [original], activeId: original.id },
+      { type: 'add', entry: createCanvasEntry('imported', '导入', loaded) },
+    )
+    expect(workspace.activeId).toBe('imported')
+    expect(workspace.canvases[0].history.past).toBe(original.history.past)
+    expect(workspace.canvases[0].history.present.vertices).toBe(original.history.present.vertices)
+    expect(workspace.canvases[1].history.present.segments).toEqual(loaded.segments)
+    expect(workspace.canvases[1].history.past).toEqual([])
+    expect(workspace.canvases[1].history.future).toEqual([])
   })
 })

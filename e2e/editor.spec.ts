@@ -120,6 +120,7 @@ test('adds, precisely edits, opens, reverses and resets a contour', async ({ pag
   await expect(page.getByRole('button', { name: /^选择顶点/ })).toHaveCount(4)
   await loadTemplate(page, '矩形围道')
   await showInspector(page)
+  await page.getByRole('button', { name: '围道属性', exact: true }).click()
   await expect(page.getByRole('checkbox', { name: '闭合围道' })).toBeChecked()
   await expect(page.getByRole('button', { name: '添加顶点', exact: true })).toHaveAttribute(
     'aria-pressed',

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
-import { validateProjectCapacity } from '../project/format'
-import { parseProject, serializeProject } from '../project/project'
+import { MAX_PROJECT_BYTES } from '../project/format'
+import { serializeProject } from '../project/project'
 import { projectSceneError } from '../project/validation'
 import { defaultLabel } from './appearance'
 import { createHistory, historyReducer } from './history'
-import { contourReducer, createInitialState, type ContourState } from './model'
+import { contourReducer } from './model'
 import { resolveScene } from './resolvedScene'
 import type { AvoidanceAction } from './avoidanceModel'
 
@@ -133,13 +133,16 @@ describe('avoidance history and candidate acceptance', () => {
     },
   )
 
-  it('undoes and redoes a source document replacement while preserving the current camera', () => {
-    const original = freeze(createInitialState())
+  it('undoes and redoes an applied avoidance while preserving the current camera', () => {
     const source = createAvoidanceFixture()
     source.avoidances[0].partStyles = { arc: { color: '#123456' } }
     source.avoidances[0].partLabels = { arc: defaultLabel('C') }
     freeze(source)
-    let history = historyReducer(createHistory(original), { type: 'loadProject', state: source })
+    const original = freeze({ ...source, avoidances: [] })
+    let history = historyReducer(createHistory(original), {
+      type: 'addAvoidance',
+      avoidance: source.avoidances[0],
+    })
     expect(history.past).toHaveLength(1)
     history = historyReducer(history, {
       type: 'viewport',
@@ -160,109 +163,17 @@ describe('avoidance history and candidate acceptance', () => {
 
   it('records radius-only declaration changes and restores immutable snapshots', () => {
     const source = freeze(createAvoidanceFixture())
-    const changed = freeze({ ...source, avoidances: [{ ...source.avoidances[0], radius: 0.75 }] })
-    let history = historyReducer(createHistory(source), { type: 'loadProject', state: changed })
+    let history = historyReducer(createHistory(source), {
+      type: 'updateAvoidance',
+      id: 'avoid-1',
+      patch: { radius: 0.75 },
+    })
     expect(history.past).toHaveLength(1)
     history = historyReducer(history, { type: 'undo' })
     expect(history.present.avoidances[0].radius).toBe(0.5)
     history = historyReducer(history, { type: 'redo' })
     expect(history.present.avoidances[0].radius).toBe(0.75)
     expect(source.avoidances[0].radius).toBe(0.5)
-  })
-
-  it.each<[string, (state: ContourState) => void, RegExp]>([
-    [
-      'out-of-range part width',
-      (state) => {
-        state.avoidances[0].partStyles = { arc: { width: 999 } }
-      },
-      /样式/,
-    ],
-    [
-      'non-finite part label offset',
-      (state) => {
-        state.avoidances[0].partLabels = { arc: { ...defaultLabel('C'), dx: Infinity } }
-      },
-      /有限数值/,
-    ],
-    [
-      'invalid part label TeX',
-      (state) => {
-        state.avoidances[0].partLabels = { arc: defaultLabel('\\unknownCommand') }
-      },
-      /公式/,
-    ],
-  ])(
-    'rejects %s without replacing the document or either history stack',
-    (_name, mutate, error) => {
-      const source = freeze(createAvoidanceFixture())
-      let history = historyReducer(createHistory(), { type: 'loadProject', state: source })
-      history = historyReducer(history, {
-        type: 'loadProject',
-        state: { ...source, avoidances: [{ ...source.avoidances[0], radius: 0.75 }] },
-      })
-      const before = freeze(historyReducer(history, { type: 'undo' }))
-      expect(before.past).toHaveLength(1)
-      expect(before.future).toHaveLength(1)
-      const saved = serializeProject(before.present)
-      const candidate = {
-        ...before.present,
-        avoidances: [{ ...before.present.avoidances[0] }],
-      }
-      mutate(candidate)
-      freeze(candidate)
-      // These are valid TypeScript action values, but the real reader rejects them.
-      expect(() => parseProject(serializeProject(candidate))).toThrow(error)
-      const rejected = historyReducer(before, { type: 'loadProject', state: candidate })
-      expect(rejected.present.error).toMatch(error)
-      expect({ ...rejected.present, error: '' }).toEqual(before.present)
-      expect(rejected.present.vertices).toBe(before.present.vertices)
-      expect(rejected.present.markers).toBe(before.present.markers)
-      expect(rejected.present.avoidances).toBe(before.present.avoidances)
-      expect(rejected.past).toBe(before.past)
-      expect(rejected.future).toBe(before.future)
-      expect(serializeProject(before.present)).toBe(saved)
-      expect(parseProject(saved).avoidances).toEqual(source.avoidances)
-      expect(projectSceneError(candidate)).toMatch(error)
-      expect(validateProjectCapacity(candidate)).toMatchObject({
-        ok: false,
-        error: expect.stringMatching(error),
-      })
-    },
-  )
-
-  it.each([
-    [
-      'dangling reference',
-      (s: ContourState) => {
-        s.avoidances[0].targetSegmentId = 'missing'
-      },
-      /missing/,
-    ],
-    [
-      'ordinary marker',
-      (s: ContourState) => {
-        s.markers[0].mathematicalKind = 'ordinary'
-      },
-      /非普通/,
-    ],
-    [
-      'invalid radius',
-      (s: ContourState) => {
-        s.avoidances[0].radius = 0
-      },
-      /半径/,
-    ],
-  ])('rejects a %s atomically without changing history', (_name, mutate, error) => {
-    const source = freeze(createAvoidanceFixture())
-    const invalid = structuredClone(source)
-    mutate(invalid)
-    const history = historyReducer(createHistory(source), { type: 'loadProject', state: invalid })
-    expect(history.present.error).toMatch(error)
-    expect({ ...history.present, error: '' }).toEqual(source)
-    expect(history.present.vertices).toBe(source.vertices)
-    expect(history.present.avoidances).toBe(source.avoidances)
-    expect(history.past).toEqual([])
   })
 
   it('rejects an ordinary geometry edit invalidating a binding at the final boundary', () => {
@@ -293,26 +204,36 @@ describe('avoidance history and candidate acceptance', () => {
 
   it('rejects a declaration-only invalid change before any capacity or projected scene use', () => {
     const source = freeze(createAvoidanceFixture())
-    const invalid = {
-      ...source,
-      avoidances: [{ ...source.avoidances[0], targetSegmentId: 'missing' }],
-    }
-    const next = contourReducer(source, { type: 'loadProject', state: invalid })
+    const next = contourReducer(source, {
+      type: 'addAvoidance',
+      avoidance: { ...source.avoidances[0], id: 'invalid', targetSegmentId: 'missing' },
+    })
     expect(next.avoidances).toBe(source.avoidances)
-    expect(next.error).toMatch(/avoid-1.*missing/)
+    expect(next.error).toMatch(/invalid.*missing/)
   })
 
   it('keeps oversized semantic candidates out of immutable history', () => {
-    const source = freeze(createAvoidanceFixture())
-    const oversized = {
-      ...source,
-      markers: Array.from({ length: 1000 }, (_, i) => ({
-        ...source.markers[0],
-        id: i === 0 ? 'pole' : `point-${i}`,
-        label: defaultLabel(' '.repeat(1999) + 'z'),
-      })),
+    const fixture = createAvoidanceFixture()
+    const source = { ...fixture, avoidances: [] }
+    source.markers = Array.from({ length: 1000 }, (_, i) => ({
+      ...fixture.markers[0],
+      id: i === 0 ? 'pole' : `point-${i}`,
+      label: defaultLabel('z'),
+    }))
+    let remaining =
+      MAX_PROJECT_BYTES - 100 - new TextEncoder().encode(serializeProject(source)).length
+    for (const marker of source.markers) {
+      const padding = Math.min(1999, remaining)
+      marker.label.tex = ' '.repeat(padding) + 'z'
+      remaining -= padding
     }
-    const history = historyReducer(createHistory(source), { type: 'loadProject', state: oversized })
+    expect(remaining).toBe(0)
+    expect(projectSceneError(source)).toBe('')
+    freeze(source)
+    const history = historyReducer(createHistory(source), {
+      type: 'addAvoidance',
+      avoidance: fixture.avoidances[0],
+    })
     expect(history.present.markers).toBe(source.markers)
     expect(history.present.avoidances).toBe(source.avoidances)
     expect(history.present.error).toMatch(/2 MB/)
@@ -320,11 +241,12 @@ describe('avoidance history and candidate acceptance', () => {
     expect(history.future).toEqual([])
   })
 
-  it('does not record reloaded equivalent declarations as a document edit', () => {
+  it('does not record an unchanged radius as a document edit', () => {
     const source = freeze(createAvoidanceFixture())
     const history = historyReducer(createHistory(source), {
-      type: 'loadProject',
-      state: structuredClone(source),
+      type: 'updateAvoidance',
+      id: 'avoid-1',
+      patch: { radius: source.avoidances[0].radius },
     })
     expect(history.past).toEqual([])
   })

@@ -235,7 +235,6 @@ function geometry(
   exit: ComplexPoint,
   input: CircleInput,
   footprint: readonly [number, number],
-  projectedCenter = footprint[0] / 2 + footprint[1] / 2,
 ) {
   // Geometry points remain pole-relative until inWorld adds the original pole.
   const { radius, side } = input
@@ -269,7 +268,6 @@ function geometry(
       im: center.im + radius * Math.sin(middle),
     },
     arc: { center: { ...center }, radius, startAngle, sweep },
-    projectedCenter,
     signedDistance: 0,
     preferredOpeningWidth: width,
     actualOpeningWidth: width,
@@ -366,13 +364,7 @@ export function buildCornerAvoidance(input: {
     return inWorld(
       {
         mode: 'corner',
-        ...geometry(
-          entry.offset,
-          exit.offset,
-          local,
-          [entry.t * before.length, before.length],
-          before.length,
-        ),
+        ...geometry(entry.offset, exit.offset, local, [entry.t * before.length, before.length]),
         entryT: entry.t,
         exitT: exit.t,
       },

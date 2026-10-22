@@ -1,5 +1,6 @@
 import type { ContourState, PathSegment, Vertex } from './model'
 import { activeSegments } from './pathTopology'
+import { sourcePieceId } from './sourcePieces'
 import {
   resolveScene,
   type ResolvedScene,
@@ -47,19 +48,26 @@ export function resolvedScene(state: ContourState): ResolvedScene {
   return result.scene
 }
 
-export function findResolvedPoint(state: ContourState, id: string): Vertex | undefined {
-  return resolvedScene(state).points.get(id)
-}
-
 export function findResolvedSegment(state: ContourState, id: string): ResolvedSegment | undefined {
   const scene = resolvedScene(state)
   return (
     scene.contourSegments.find((segment) => segment.id === id) ??
-    scene.connectionSegments.find((segment) => segment.id === id)
+    scene.connectionSegments.find((segment) => segment.id === id) ??
+    (scene.origins.get(id)?.kind === 'gap' ? scene.chains.get(id)?.[0] : undefined)
   )
 }
 
 /** Includes retained source IDs and ownership of omitted zero-length connectors. */
 export function segmentOrigin(state: ContourState, id: string): SegmentOrigin | undefined {
   return resolvedScene(state).origins.get(id)
+}
+
+/** Child cuts may replace a bank's fragments, but not its editable logical part. */
+export function logicalSegmentId(state: ContourState, id: string): string {
+  const origin = segmentOrigin(state, id)
+  return origin?.kind === 'avoidance'
+    ? `avoid:${origin.avoidanceId}:${origin.part}`
+    : origin?.kind === 'gap'
+      ? sourcePieceId(origin.sourceSegmentId, origin.piece)
+      : id
 }

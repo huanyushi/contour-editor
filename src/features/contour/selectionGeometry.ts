@@ -9,7 +9,7 @@ import {
 } from './appearance'
 import type { ContourState, PathSegment } from './model'
 import { activeSegments } from './pathTopology'
-import { findSegment, resolvedScene } from './sceneObjects'
+import { findSegment, findResolvedSegment, resolvedScene, logicalSegmentId } from './sceneObjects'
 import type { ResolvedScene } from './resolvedScene'
 
 export interface SelectionRect {
@@ -80,9 +80,7 @@ export function itemAnchor(
   if (item.kind === 'segment') {
     const label = scene.labels.find((l) => l.target.id === item.id)
     if (label) return toSvg(label.anchor, state.viewport)
-    const segment =
-      [...scene.contourSegments, ...scene.connectionSegments].find((s) => s.id === item.id) ??
-      findSegment(state, item.id)
+    const segment = findResolvedSegment(state, item.id) ?? findSegment(state, item.id)
     return segment ? segmentBounds(state, segment, scene).anchor : null
   }
   const object = (
@@ -123,7 +121,9 @@ function itemBounds(
     const labels = scene.labels.filter(
       (l) =>
         l.target.id === item.id ||
-        (item.part !== 'label' && includeLabels && chain.some((s) => s.id === l.target.id)),
+        (item.part !== 'label' &&
+          includeLabels &&
+          chain.some((s) => logicalSegmentId(state, s.id) === l.target.id)),
     )
     const text = union(
       labels

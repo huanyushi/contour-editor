@@ -6,6 +6,7 @@ import { itemColor, itemLabel, selectionItems } from './selectionModel'
 import { selectedSegmentStyle } from './avoidanceSelection'
 import { segmentOrigin, visibleSceneSegments } from './sceneObjects'
 import { focusInspector } from './inspectorFocus'
+import { avoidanceSelectionId, avoidanceSourceIds } from './avoidanceDependencies'
 
 function common<T>(values: T[]): T | undefined {
   return values.length && values.every((value) => value === values[0]) ? values[0] : undefined
@@ -23,10 +24,14 @@ export function MultipleProperties({
   const hiddenSources = new Set(
     items.flatMap((item) => {
       const origin = item.kind === 'segment' ? segmentOrigin(state, item.id) : undefined
-      return origin && !visible.has(origin.sourceSegmentId) ? [origin.sourceSegmentId] : []
+      return origin
+        ? (origin.sourceSegmentIds ?? [origin.sourceSegmentId]).filter((id) => !visible.has(id))
+        : []
     }),
   )
-  const hiddenBindings = state.avoidances.filter((a) => hiddenSources.has(a.targetSegmentId))
+  const hiddenBindings = state.avoidances.filter((a) =>
+    avoidanceSourceIds(state, a.id).some((id) => hiddenSources.has(id)),
+  )
   const widths = items.flatMap((item) =>
     item.kind === 'contour'
       ? state.segments.map((s) => s.style?.width ?? state.appearance.stroke.width)
@@ -66,11 +71,11 @@ export function MultipleProperties({
           className="full-width"
           aria-label={`编辑暂存绕行 ${index + 1}`}
           onClick={() => {
-            dispatch({ type: 'selectSegment', id: `avoid:${a.id}:arc` })
+            dispatch({ type: 'selectSegment', id: avoidanceSelectionId(a) })
             focusInspector()
           }}
         >
-          编辑暂存绕行 {index + 1} · 原路径 {a.targetSegmentId}
+          编辑暂存绕行 {index + 1} · 原路径 {avoidanceSourceIds(state, a.id).join('、')}
         </button>
       ))}
       <fieldset className="property-group">

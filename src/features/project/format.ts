@@ -4,7 +4,8 @@ import type { Avoidance } from '../contour/avoidanceTypes'
 import type { ResolvedScene, SceneResolution } from '../contour/resolvedScene'
 import { validateAvoidances } from '../contour/avoidanceValidation'
 import { defaultAxes, defaultViewport, type Viewport, type AxesSettings } from '../../lib/viewport'
-import { readAvoidanceAppearance } from './avoidanceSchema'
+import { readAvoidanceAppearance, readAlignment, writeAvoidance } from './avoidanceSchema'
+import { validateSourcePieces } from './sourcePieceSchema'
 
 // Shared by the editor and reader so every accepted edit remains saveable.
 export const MAX_PROJECT_BYTES = 2_000_000
@@ -18,7 +19,7 @@ export const MAX_RESOLVED_SEGMENTS = 10000
 
 export interface ProjectFile {
   format: 'complex-contour-editor'
-  version: 1 | 2 | 3
+  version: 1 | 2 | 3 | 4 | 5 | 6
   document: {
     vertices: Vertex[]
     segments: PathSegment[]
@@ -43,24 +44,24 @@ export function serializeProject(state: ContourState): string {
     )
   const project: ProjectFile = {
     format: 'complex-contour-editor',
-    version: hasSemanticData ? 3 : state.connections.length ? 2 : 1,
+    version: state.avoidances.some((a) => a.kind === 'corridor' && a.alignment)
+      ? 6
+      : [...state.segments, ...state.connections].some((s) => s.pieces?.length)
+        ? 5
+        : state.avoidances.some((a) => a.kind === 'corridor' || a.kind === 'bank-clearance')
+          ? 4
+          : hasSemanticData
+            ? 3
+            : state.connections.length
+              ? 2
+              : 1,
     document: {
       vertices: state.vertices,
       segments: state.segments,
       ...(state.connections.length ? { connections: state.connections } : {}),
       ...(state.avoidances.length
         ? {
-            avoidances: state.avoidances.map((a) => ({
-              id: a.id,
-              markerId: a.markerId,
-              targetSegmentId: a.targetSegmentId,
-              ...(a.exitSegmentId === undefined ? {} : { exitSegmentId: a.exitSegmentId }),
-              radius: a.radius,
-              side: a.side,
-              openingRatio: a.openingRatio,
-              ...(a.partStyles === undefined ? {} : { partStyles: a.partStyles }),
-              ...(a.partLabels === undefined ? {} : { partLabels: a.partLabels }),
-            })),
+            avoidances: state.avoidances.map(writeAvoidance),
           }
         : {}),
       markers: state.markers.map(({ mathematicalKind, ...marker }) => ({
@@ -95,8 +96,10 @@ export function projectCapacityError(state: ContourState): string {
 /** Validate before consuming a derived scene; share the result with projection checks. */
 export function validateProjectCapacity(state: ContourState): SceneResolution {
   try {
+    validateSourcePieces(state)
     state.avoidances.forEach((avoidance, index) => {
       readAvoidanceAppearance(avoidance, `绕行 ${index + 1}（${avoidance.id}）`)
+      if (avoidance.kind === 'corridor') readAlignment(avoidance.alignment, `绕行 ${index + 1}`)
     })
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : '绕行样式或标签无效。' }

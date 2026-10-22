@@ -10,6 +10,7 @@ import { MultipleProperties } from './MultipleProperties'
 import { findPoint, findSegment, segmentOrigin } from './sceneObjects'
 import { AvoidanceProperties } from './AvoidanceProperties'
 import type { AvoidanceWorkflow } from './useAvoidanceDraft'
+import { SourcePieceProperties } from './SourcePieceProperties'
 
 const number = (n: number) => Number(n.toFixed(6)).toString()
 
@@ -380,13 +381,7 @@ export function ObjectProperties(props: {
         />
       )
     if (origin?.kind === 'gap')
-      return (
-        <SingleObjectProperties
-          {...props}
-          onInspectHidden={inspectHidden}
-          selection={{ ...selection, id: origin.sourceSegmentId }}
-        />
-      )
+      return <SourcePieceProperties {...props} id={selection.id} onInspectHidden={inspectHidden} />
   }
   return <SingleObjectProperties {...props} onInspectHidden={inspectHidden} selection={selection} />
 }

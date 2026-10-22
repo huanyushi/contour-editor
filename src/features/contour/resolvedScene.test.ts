@@ -4,9 +4,9 @@ import { defaultLabel } from './appearance'
 import type { ContourState } from './model'
 import { resolveScene } from './resolvedScene'
 import { contourTemplates } from './templates'
+import { sourcePieceId } from './sourcePieces'
 import {
   findPoint,
-  findResolvedPoint,
   findResolvedSegment,
   findSegment,
   resolvedScene,
@@ -172,30 +172,30 @@ describe('resolved origins, styles and labels', () => {
     })
   })
 
-  it('anchors one source label at the mathematical arc-length midpoint of its full chain', () => {
+  it('keeps one inherited source label on the first retained object, separate from the detour label', () => {
     const state = createAvoidanceFixture()
     state.segments[0].label = defaultLabel('C')
     state.avoidances[0].partLabels = { arc: defaultLabel('C_r') }
     const scene = resolve(state)
     expect(scene.labels).toHaveLength(2)
-    const source = scene.labels.find((label) => label.target.id === 'edge-a')!
-    expect(source.target).toEqual({ kind: 'segment', id: 'edge-a', part: 'label' })
+    const id = sourcePieceId('edge-a', { startAvoidanceId: null, endAvoidanceId: 'avoid-1' })
+    const source = scene.labels.find((label) => label.target.id === id)!
+    expect(source.target).toEqual({ kind: 'segment', id, part: 'label' })
     expect(source.value).toEqual(defaultLabel('C'))
-    expect(source.anchor.re).toBeCloseTo(0)
-    expect(source.anchor.im).toBeCloseTo(0.5)
-    expect(scene.labels.find((label) => label.target.id === 'avoid:avoid-1:arc')?.anchor).toEqual(
-      source.anchor,
-    )
+    expect(source.anchor.re).toBeCloseTo(-2.25)
+    expect(source.anchor.im).toBeCloseTo(0)
+    const arcAnchor = scene.labels.find((label) => label.target.id === 'avoid:avoid-1:arc')!.anchor
+    expect(arcAnchor.re).toBeCloseTo(0, 12)
+    expect(arcAnchor.im).toBeCloseTo(0.5, 12)
     expect(scene.chains.get('edge-a')!.filter((s) => s.label?.tex === 'C')).toHaveLength(0)
   })
 
-  it('uses curved length rather than endpoint or segment-count averages for asymmetric labels', () => {
+  it('does not move an inherited retained-piece label onto the expanded detour', () => {
     const state = createAvoidanceFixture()
     state.markers[0].re = -2
     state.segments[0].label = defaultLabel('C')
     const anchor = resolve(state).labels[0].anchor
-    // Retained lines total 7, semicircle length π/2: half of that chain lies on the last line.
-    expect(anchor.re).toBeCloseTo(0.5 - Math.PI / 4)
+    expect(anchor.re).toBeCloseTo(-3.25)
     expect(anchor.im).toBe(0)
   })
 
@@ -374,12 +374,12 @@ describe('accepted-state queries', () => {
     const scene = resolvedScene(state)
     const arc = findResolvedSegment(state, 'avoid:avoid-1:arc')!
     expect(arc.kind).toBe('arc')
-    expect(findResolvedPoint(state, arc.startId)).toMatchObject({ re: -0.5, im: 0 })
-    expect(findResolvedPoint(state, 'pole')).toBe(state.markers[0])
+    expect(scene.points.get(arc.startId)).toMatchObject({ re: -0.5, im: 0 })
+    expect(scene.points.get('pole')).toBe(state.markers[0])
     expect(findResolvedSegment(state, 'edge-a')).toBeUndefined()
     expect(findResolvedSegment(state, 'edge-d')).toBeUndefined()
     expect(findResolvedSegment(state, 'missing')).toBeUndefined()
-    expect(findResolvedPoint(state, 'missing')).toBeUndefined()
+    expect(scene.points.get('missing')).toBeUndefined()
     expect(segmentOrigin(state, arc.id)).toEqual(arc.origin)
     expect(segmentOrigin(state, 'avoid:avoid-1:entry')).toMatchObject({
       avoidanceId: 'avoid-1',

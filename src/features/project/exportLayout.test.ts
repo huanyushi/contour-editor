@@ -28,7 +28,7 @@ describe('content export layout', () => {
     expect(JSON.stringify(state)).toBe(original)
   })
 
-  it('measures a bound source label at the actual chain midpoint without gap duplicates', () => {
+  it('measures the inherited label on the first retained piece without duplicates', () => {
     const state = createAvoidanceFixture()
     state.closed = false
     state.vertices = state.vertices.slice(0, 2).map((vertex) => ({
@@ -40,11 +40,11 @@ describe('content export layout', () => {
     state.appearance.stroke.arrows = false
     const layout = computeExportLayout(state, options)
     // Endpoints ±4 at 40px/unit with 1px stroke: x=239..561.
-    // The chain midpoint is (0,0.5), so the label begins at y=80;
+    // The retained-piece midpoint is (-2.25,0), so the label begins at y=100;
     // the pole marker ends at y=304. Content gets 25px per side.
-    expect(layout.size).toEqual({ width: 372, height: 274 })
+    expect(layout.size).toEqual({ width: 372, height: 254 })
     expect(layout.state.viewport.centerRe).toBeCloseTo(0)
-    expect(layout.state.viewport.centerIm).toBeCloseTo(2.7)
+    expect(layout.state.viewport.centerIm).toBeCloseTo(2.45)
   })
 
   it('keeps current unequal scales and contains wide geometry, strokes and offset text', () => {

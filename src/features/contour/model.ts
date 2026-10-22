@@ -2,13 +2,26 @@ import { isValidPoint, type ComplexPoint } from '../../lib/geometry'
 import type { MathematicalKind } from './avoidanceTypes'
 import { arcThrough } from '../../lib/arc'
 import { projectSceneError } from '../project/validation'
-import type { LabelSettings, PointStyle, StrokeStyle } from './appearance'
+import type { LabelSettings, PointStyle, SelectionItem, StrokeStyle } from './appearance'
 import { workspaceReducer, type WorkspaceAction, type WorkspaceState } from './workspace'
 import { createRectangleState } from './templates'
+import { reconcileSourcePieces, type SourcePieceAppearance } from './sourcePieces'
 import { activeSegments, isSingleCycle, singleChainEnds } from './pathTopology'
-import { deleteItems, selectionReducer, type SelectionAction } from './selectionModel'
+import {
+  deleteItems,
+  selectionReducer,
+  reverseSourcePieceSelection,
+  type SelectionAction,
+} from './selectionModel'
 import { translateSelection } from './selectionTransform'
-import { findPoint, findSegment, scenePoints, sceneSegments, segmentOrigin } from './sceneObjects'
+import {
+  findPoint,
+  findSegment,
+  logicalSegmentId,
+  scenePoints,
+  sceneSegments,
+  segmentOrigin,
+} from './sceneObjects'
 import {
   avoidanceReducer,
   reconcileAvoidanceDependencies,
@@ -27,9 +40,10 @@ interface SegmentEndpoints {
   endId: string
   label?: LabelSettings
   style?: Partial<StrokeStyle>
+  pieces?: SourcePieceAppearance[]
 }
-export type LineSegment = SegmentEndpoints & { kind: 'line' }
-export type CircularArcSegment = SegmentEndpoints & { kind: 'arc'; through: ComplexPoint }
+type LineSegment = SegmentEndpoints & { kind: 'line' }
+type CircularArcSegment = SegmentEndpoints & { kind: 'arc'; through: ComplexPoint }
 export type PathSegment = LineSegment | CircularArcSegment
 
 export interface ContourState extends WorkspaceState {
@@ -124,7 +138,31 @@ function acceptGeometry(previous: ContourState, candidate: ContourState): Contou
 }
 
 export function contourReducer(state: ContourState, action: ContourAction): ContourState {
-  const next = reconcileAvoidanceDependencies(state, reduceContour(state, action), action)
+  // Normalize before toggle/deduplication, not after: two hit fragments of one
+  // logical bank must toggle the same selection and survive later re-splicing.
+  const logicalItem = (item: SelectionItem): SelectionItem =>
+    item.kind === 'segment' ? { ...item, id: logicalSegmentId(state, item.id) } : item
+  switch (action.type) {
+    case 'selectSegment':
+      action = { ...action, id: logicalSegmentId(state, action.id) }
+      break
+    case 'selectObject':
+      action = { ...action, selection: logicalItem(action.selection) }
+      break
+    case 'selectMany':
+      action = { ...action, items: action.items.map(logicalItem) }
+      break
+    case 'toggleSelection':
+      action = { ...action, item: logicalItem(action.item) }
+      break
+  }
+  const reversing = action.type === 'reverse' || action.type === 'toggleClosed'
+  const maintained = reconcileSourcePieces(
+    state,
+    reconcileAvoidanceDependencies(state, reduceContour(state, action), action),
+    reversing,
+  )
+  const next = reversing ? reverseSourcePieceSelection(state, maintained) : maintained
   if (
     next.vertices === state.vertices &&
     next.segments === state.segments &&
@@ -149,6 +187,7 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
   switch (action.type) {
     case 'mathematicalKind':
     case 'addAvoidance':
+    case 'applyAvoidanceCandidate':
     case 'updateAvoidance':
     case 'removeAvoidance':
     case 'avoidanceStyle':
@@ -233,6 +272,7 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
           endId: s.endId,
           ...(s.style ? { style: s.style } : {}),
           ...(s.label ? { label: s.label } : {}),
+          ...(s.pieces ? { pieces: s.pieces } : {}),
         })),
       )
     case 'connectPoints': {

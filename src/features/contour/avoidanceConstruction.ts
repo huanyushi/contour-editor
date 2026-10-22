@@ -1,24 +1,18 @@
-import { pointOnArc } from '../../lib/arc'
 import { buildAvoidance, type AvoidanceGeometry } from '../../lib/avoidanceGeometry'
-import { edgeArcFrame } from '../../lib/edgeArcFrame'
+import type { SourceInterval } from '../../lib/connectedAvoidanceGeometry'
 import type { GeometricEdge } from '../../lib/geometryIntersections'
 import { buildArcAvoidance, buildCornerAvoidance } from '../../lib/pathAvoidanceGeometry'
-import type { Avoidance, AvoidanceSide } from './avoidanceTypes'
+import type { LegacyAvoidance, AvoidanceSide } from './avoidanceTypes'
 import type { PathSegment } from './model'
 import type { SceneDocument } from './resolvedScene'
 
-export interface AvoidanceInterval {
-  sourceSegmentId: string
-  startT: number
-  endT: number
-}
 export interface AvoidanceConstruction {
   mode: 'line' | 'arc' | 'corner'
   geometry: AvoidanceGeometry
   /** Actual removed source intervals, in directed normalized source parameters. */
-  trims: readonly AvoidanceInterval[]
+  trims: readonly SourceInterval[]
   /** Conflict intervals; legacy lines deliberately reserve their full radius. */
-  occupancy: readonly AvoidanceInterval[]
+  occupancy: readonly SourceInterval[]
   defaultSide: AvoidanceSide
 }
 export type AvoidanceConstructionResult =
@@ -34,24 +28,10 @@ export function sourceEdge(document: SceneDocument, source: PathSegment): Geomet
     : { kind: 'line', start, end }
 }
 
-/** Evaluate retained true source geometry, never an endpoint chord. */
-export function sourcePointAt(edge: GeometricEdge, t: number) {
-  if (t === 0) return edge.start
-  if (t === 1) return edge.end
-  if (edge.kind === 'line')
-    return {
-      re: edge.start.re + (edge.end.re - edge.start.re) * t,
-      im: edge.start.im + (edge.end.im - edge.start.im) * t,
-    }
-  const { origin, scale, arc } = edgeArcFrame(edge)
-  const p = pointOnArc(arc, origin === edge.start ? t : 1 - t)
-  return { re: origin.re + p.re * scale, im: origin.im + p.im * scale }
-}
-
 /** Single construction boundary shared by scene expansion, conflicts and UI preview. */
 export function constructAvoidance(
   document: SceneDocument,
-  avoidance: Avoidance,
+  avoidance: LegacyAvoidance,
 ): AvoidanceConstructionResult {
   const context = `绕行 ${avoidance.id}（源路径 ${avoidance.targetSegmentId}${avoidance.exitSegmentId === undefined ? '' : `、${avoidance.exitSegmentId}`}）`
   const invalid = (error: string): AvoidanceConstructionResult => ({
@@ -76,11 +56,11 @@ export function constructAvoidance(
     )
     if (!source) return invalid('目标必须是现有源路径。')
     const edge = sourceEdge(document, source)
-    const interval = (
-      sourceSegmentId: string,
-      startT: number,
-      endT: number,
-    ): AvoidanceInterval => ({ sourceSegmentId, startT, endT })
+    const interval = (sourceSegmentId: string, startT: number, endT: number): SourceInterval => ({
+      sourceSegmentId,
+      startT,
+      endT,
+    })
     if (avoidance.exitSegmentId !== undefined) {
       const incoming = document.segments.filter((s) => s.endId === point.id)
       const outgoing = document.segments.filter((s) => s.startId === point.id)

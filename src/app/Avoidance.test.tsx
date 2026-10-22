@@ -6,6 +6,9 @@ import { serializeProject } from '../features/project/format'
 import { DRAFT_KEY } from '../features/project/useLocalDraft'
 import { createAvoidanceFixture } from '../test/avoidanceFixtures'
 import { openSection, selectObject } from '../test/navigation'
+import { sourcePieceId } from '../features/contour/sourcePieces'
+
+const firstPiece = sourcePieceId('edge-a', { startAvoidanceId: null, endAvoidanceId: 'avoid-1' })
 
 beforeEach(() => {
   vi.stubGlobal('innerWidth', 1200)
@@ -91,7 +94,8 @@ describe('user-facing avoidance Inspector', () => {
     expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
     pick('[data-testid="segment-gap:edge-a:before:avoid-1"]')
     expect(screen.queryByLabelText('绕行半径')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('经过点实部 Re')).toBeInTheDocument()
+    expect(screen.queryByLabelText('经过点实部 Re')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('线条粗细')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '编辑绕行 1' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '编辑绕行 1' }))
     await user.click(screen.getByRole('button', { name: '定位奇点' }))
@@ -132,7 +136,12 @@ describe('user-facing avoidance Inspector', () => {
     await selectObject(user, '选择标记点 1')
     const list = screen.getByRole('complementary', { name: '对象列表' })
     expect(within(list).getByRole('button', { name: '选择标记点 1' })).toHaveTextContent('孤立奇点')
-    expect(within(list).getByRole('button', { name: '选择路径段 1' })).toHaveTextContent('1 处绕行')
+    expect(within(list).getByRole('button', { name: '选择路径段 1 的保留段 1' })).toHaveTextContent(
+      '保留段 1',
+    )
+    expect(
+      within(list).getByRole('button', { name: '选择绕行 1 的进入连接段' }),
+    ).toBeInTheDocument()
     expect(within(list).queryByText(/entry-base|entry-point/)).not.toBeInTheDocument()
   })
 
@@ -270,20 +279,19 @@ describe('user-facing avoidance Inspector', () => {
     expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
   })
 
-  it('routes retained gap appearance and submitted text to the source, and reuses an existing binding', async () => {
+  it('keeps retained-piece appearance and labels independent, and reuses an existing binding', async () => {
     const user = userEvent.setup()
     mount()
     pick('[data-testid="segment-gap:edge-a:before:avoid-1"]')
-    await openSection(user, '外观')
     await user.selectOptions(screen.getByLabelText('线型'), 'dashed')
-    expect(screen.getByTestId('segment-avoid:avoid-1:arc')).toHaveAttribute(
+    expect(screen.getByTestId('segment-gap:edge-a:before:avoid-1')).toHaveAttribute(
       'stroke-dasharray',
       '8 6',
     )
-    await openSection(user, '标签')
+    expect(screen.getByTestId('segment-avoid:avoid-1:arc')).not.toHaveAttribute('stroke-dasharray')
     await user.type(screen.getByLabelText('LaTeX 标签'), 'C')
     await user.click(screen.getByRole('button', { name: '应用标签' }))
-    expect(screen.getByTestId('label-edge-a')).toHaveAttribute('aria-label', 'C')
+    expect(screen.getByTestId(`label-${firstPiece}`)).toHaveAttribute('aria-label', 'C')
     expect(screen.queryByTestId('label-gap:edge-a:before:avoid-1')).not.toBeInTheDocument()
     await selectObject(user, '选择标记点 1')
     await user.click(screen.getByRole('button', { name: '添加绕行' }))
@@ -291,7 +299,7 @@ describe('user-facing avoidance Inspector', () => {
     expect(screen.getByLabelText('绕行半径')).toHaveValue('0.5')
     expect(screen.queryByTestId('avoidance-preview')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '撤销' }))
-    expect(screen.queryByTestId('label-edge-a')).not.toBeInTheDocument()
+    expect(screen.queryByTestId(`label-${firstPiece}`)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '撤销' }))
     expect(screen.getByTestId('segment-avoid:avoid-1:arc')).not.toHaveAttribute('stroke-dasharray')
     expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled()
@@ -322,8 +330,10 @@ describe('user-facing avoidance Inspector', () => {
     state.closed = false
     localStorage.setItem(DRAFT_KEY, serializeProject(state))
     render(<App />)
-    await selectObject(user, '选择独立路径段 1')
-    expect(screen.getByRole('button', { name: '选择独立路径段 1' })).toHaveTextContent('1 处绕行')
+    await selectObject(user, '选择独立路径段 1 的保留段 1')
+    expect(screen.getByRole('button', { name: '选择独立路径段 1 的保留段 1' })).toHaveTextContent(
+      '保留段 1',
+    )
     await user.click(screen.getByRole('button', { name: '编辑绕行 1' }))
     await edit(user, '绕行半径', '0.75')
     expect(screen.getByLabelText('实际开口宽度')).toHaveTextContent('1.5')

@@ -4,6 +4,7 @@ import type { LabelSettings } from './appearance'
 import type { ContourState, PathSegment } from './model'
 import type { ResolvedScene } from './resolvedScene'
 import { resolvedScene } from './sceneObjects'
+import { sourcePieceId } from './sourcePieces'
 
 export interface SegmentGeometry {
   segment: PathSegment
@@ -90,24 +91,32 @@ export function buildSceneGeometry(
     return { segment, command, path: `${move} ${command}` }
   })
   const byId = new Map(segments.map((geometry) => [geometry.segment.id, geometry]))
-  for (const chain of scene.chains.values()) {
-    let remaining = chain.reduce((sum, part) => sum + measures.get(part.id)!.length, 0) / 2
-    const visibleLength = chain.reduce((sum, part) => sum + measures.get(part.id)!.visibleLength, 0)
-    // Compute the default on the full logical chain, without moving it when
-    // another part overrides its arrows. An overridden recipient opts out.
+  const objects = new Map<string, typeof all>()
+  for (const segment of all) {
+    const origin = segment.origin
+    const key =
+      origin.kind === 'avoidance'
+        ? `avoid:${origin.avoidanceId}:${origin.part}`
+        : origin.kind === 'gap'
+          ? sourcePieceId(origin.sourceSegmentId, origin.piece)
+          : segment.id
+    const chain = objects.get(key) ?? []
+    chain.push(segment)
+    objects.set(key, chain)
+  }
+  for (const chain of objects.values()) {
+    const first = chain[0]
+    if (!(first.style?.arrows ?? view.appearance.stroke.arrows)) continue
+    let remaining = chain.reduce((sum, s) => sum + measures.get(s.id)!.length, 0) / 2
+    if (chain.reduce((sum, s) => sum + measures.get(s.id)!.visibleLength, 0) < 20) continue
     for (const part of chain) {
       const measure = measures.get(part.id)!
       if (remaining <= measure.length) {
-        if (visibleLength >= 20 && measure.length > 0 && part.arrowOverride === undefined)
+        if (measure.length > 0)
           byId.get(part.id)!.arrow = measure.arrowAt(remaining / measure.length)
         break
       }
       remaining -= measure.length
-    }
-    for (const part of chain) {
-      const measure = measures.get(part.id)!
-      if (part.arrowOverride === true && measure.visibleLength >= 20 && measure.length > 0)
-        byId.get(part.id)!.arrow = measure.arrowAt(0.5)
     }
   }
   const contourIds = new Set(scene.contourSegments.map((segment) => segment.id))

@@ -221,8 +221,8 @@ describe('App avoidance workflow integration', () => {
     const { saved } = mountApp()
     act(() => observed.workflow.start('pole'))
     fireEvent.pointerDown(hit(), { button: 0 })
-    act(() => observed.workflow.patch({ radius: 4 }))
-    expect(screen.getByRole('alert')).toHaveTextContent(/半径|端点/)
+    act(() => observed.workflow.patch({ radius: 10 }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/半径|端点|接入区间|交点/)
     expect(screen.queryByTestId('avoidance-preview')).toBeNull()
     act(() => observed.workflow.apply())
     expect(serializeProject(observed.state)).toBe(saved)
@@ -284,16 +284,21 @@ describe('canvas target-pick event priority', () => {
       render(<Harness />)
       const svg = preparePointerGeometry()
       const before = serializeProject(observed.state)
-      act(() => observed.workflow.start('pole'))
       for (const node of [
         screen.getByTestId('vertex-a'),
         screen.getByTestId('marker-pole'),
         screen.getByTestId('label-handle-a'),
         svg,
       ]) {
+        act(() => observed.workflow.start('pole'))
         fireEvent.pointerDown(node, { button: 0, clientX: 400, clientY: 300 })
         fireEvent.pointerMove(svg, { clientX: 440, clientY: 340 })
         fireEvent.pointerUp(svg)
+        expect(observed.workflow.draft.kind).toBe(
+          node === screen.getByTestId('vertex-a') ? 'configure' : 'pickTarget',
+        )
+        expect(actions).toEqual([])
+        expect(serializeProject(observed.state)).toBe(before)
       }
       expect(observed.workflow.draft.kind).toBe('pickTarget')
       expect(actions).toEqual([])

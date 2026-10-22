@@ -31,6 +31,7 @@ import type { Avoidance } from './avoidanceTypes'
 import { findSegment, scenePoints, sceneSegments, segmentOrigin } from './sceneObjects'
 import { selectionWorkspaceAction, type SelectionWorkspaceEdit } from './avoidanceSelection'
 import { avoidanceReducer } from './avoidanceModel'
+import { sourcePieceReducer } from './sourcePieces'
 
 export interface SceneObject extends ComplexPoint {
   id: string
@@ -90,12 +91,16 @@ export function workspaceReducer(
   action: SelectionWorkspaceEdit,
   accepted: ContourState = state,
 ): ContourState {
+  if (action.type === 'sourcePieceStyle' || action.type === 'sourcePieceLabel')
+    return sourcePieceReducer(state, action)
   const mapped =
     action.type === 'avoidanceLabel' || action.type === 'avoidanceStyle'
       ? action
       : selectionWorkspaceAction(accepted, action)
   if (mapped.type === 'avoidanceLabel' || mapped.type === 'avoidanceStyle')
     return avoidanceReducer(state, mapped)
+  if (mapped.type === 'sourcePieceStyle' || mapped.type === 'sourcePieceLabel')
+    return sourcePieceReducer(state, mapped)
   action = mapped
   switch (action.type) {
     case 'clearVertexLabel':

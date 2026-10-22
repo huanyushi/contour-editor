@@ -347,12 +347,14 @@ test(
 )
 
 test(
-  'repairing an invalid suggested corner radius initializes the short right branch unless explicitly overridden',
+  'a fitted corner keeps its short branch through invalid radius repair unless explicitly overridden',
   { tag: '@desktop-only' },
   async ({ page }) => {
     await page.goto('/')
     for (const explicit of [false, true]) {
       const state = rectangle()
+      // Zoom does not change defaults; the short edge requires a smaller initial radius.
+      state.viewport = { ...state.viewport, scaleX: 4.8, scaleY: 4.8 }
       state.vertices = [
         { id: 'a', re: 0, im: 100 },
         { id: 'b', re: 0, im: 0, mathematicalKind: 'pole' },
@@ -366,8 +368,12 @@ test(
       const before = (await savedProject(page)).document
       await selectObject(page, '选择顶点 z2')
       await page.getByRole('button', { name: '添加绕行', exact: true }).click()
-      await clickPoint(page, 0, 1)
-      await expect(page.getByLabel('绕行半径', { exact: true })).toHaveValue('5')
+      // The two vertical source hit regions overlap at overview scale; use the
+      // right edge of the incoming path's hit stroke, clear of the opposite edge.
+      await clickPoint(page, 0.125, 1)
+      await expect(page.getByLabel('绕行半径', { exact: true })).toHaveValue('0.625')
+      await expect(page.getByLabel('绕行侧', { exact: true })).toHaveValue('right')
+      await radius(page, '5')
       await expect(page.getByRole('alert')).toBeVisible()
       await expect(page.getByRole('button', { name: '应用绕行', exact: true })).toBeDisabled()
       if (explicit) {
@@ -386,20 +392,20 @@ test(
       expect(parts.slice(7, 9)).toEqual(explicit ? ['1', '1'] : ['0', '0'])
       const [entry, exit] = endpoints(parts)
       expect(entry.re).toBeCloseTo(0, 10)
-      expect(entry.im).toBeCloseTo(0.5, 10)
-      expect(exit.re).toBeCloseTo(-0.5, 10)
+      expect((entry.im * 40) / 4.8).toBeCloseTo(0.5, 10)
+      expect((exit.re * 40) / 4.8).toBeCloseTo(-0.5, 10)
       expect(exit.im).toBeCloseTo(0, 10)
       const actual = await preview.evaluate((node) => {
         const path = node as SVGPathElement
         const length = path.getTotalLength()
         const p = path.getPointAtLength(length / 2)
-        return { re: (p.x - 400) / 40, im: (300 - p.y) / 40, length: length / 40 }
+        return { re: (p.x - 400) / 4.8, im: (300 - p.y) / 4.8, length: length / 4.8 }
       })
       // Analytic +π/2 versus -3π/2 traversal around C=(0,0); no app geometry oracle.
       const sign = explicit ? 1 : -1
-      expect(Math.abs(actual.re - (sign * Math.SQRT1_2) / 2)).toBeLessThan(0.05 / 40)
-      expect(Math.abs(actual.im + (sign * Math.SQRT1_2) / 2)).toBeLessThan(0.05 / 40)
-      expect(Math.abs(actual.length - ((explicit ? 3 : 1) * Math.PI) / 4)).toBeLessThan(0.05 / 40)
+      expect(Math.abs(actual.re - (sign * Math.SQRT1_2) / 2)).toBeLessThan(0.05 / 4.8)
+      expect(Math.abs(actual.im + (sign * Math.SQRT1_2) / 2)).toBeLessThan(0.05 / 4.8)
+      expect(Math.abs(actual.length - ((explicit ? 3 : 1) * Math.PI) / 4)).toBeLessThan(0.05 / 4.8)
       await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
       await page.getByRole('button', { name: '应用绕行', exact: true }).click()
       const binding = (await savedProject(page)).document.avoidances![0]

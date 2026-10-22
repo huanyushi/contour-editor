@@ -1,11 +1,11 @@
 import { useId, useState } from 'react'
 import type { AvoidanceGeometry } from '../../lib/avoidanceGeometry'
 import type { AvoidancePatch } from './avoidanceModel'
-import type { Avoidance } from './avoidanceTypes'
+import type { LegacyAvoidance } from './avoidanceTypes'
 import type { AvoidanceConstruction } from './avoidanceConstruction'
 
-export interface AvoidanceFieldsProps {
-  value: Avoidance
+interface AvoidanceFieldsProps {
+  value: LegacyAvoidance
   geometry: AvoidanceGeometry | null
   mode?: AvoidanceConstruction['mode']
   error: string

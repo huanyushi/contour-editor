@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { expect, it } from 'vitest'
 import { contourReducer, createInitialState, type ContourState } from './model'
 import { ObjectList } from './ObjectList'
+import { createRectangleConnectedFixture } from '../../test/connectedAvoidanceFixtures'
+import { sourcePieceId } from './sourcePieces'
 
 function fixture(): ContourState {
   const state = createInitialState()
@@ -63,4 +65,34 @@ it('keeps row keyboard activation and modifier multi-selection working with icon
   await user.click(screen.getByRole('button', { name: '整体围道 闭合' }))
   expect(line).not.toHaveClass('selected')
   expect(arc).not.toHaveClass('selected')
+})
+
+it('lists the five separately selectable objects instead of one bound source row', async () => {
+  const user = userEvent.setup()
+  let current: ContourState
+  function Editor() {
+    const [state, dispatch] = useReducer(contourReducer, createRectangleConnectedFixture())
+    current = state
+    return <ObjectList state={state} dispatch={dispatch} />
+  }
+  render(<Editor />)
+  const names = [
+    '选择路径段 1 的保留段 1',
+    '选择绕行 1 的进入连接段',
+    '选择绕行 1 的绕行圆弧',
+    '选择绕行 1 的离开连接段',
+    '选择路径段 1 的保留段 2',
+  ]
+  const rows = screen
+    .getAllByRole('button')
+    .filter((node) => names.includes(node.getAttribute('aria-label') ?? ''))
+  expect(rows.map((node) => node.getAttribute('aria-label'))).toEqual(names)
+  expect(screen.queryByRole('button', { name: '选择路径段 1' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: names[4] }))
+  expect(current!.selection).toEqual({
+    kind: 'segment',
+    id: sourcePieceId('edge-a', { startAvoidanceId: 'parent', endAvoidanceId: null }),
+  })
+  expect(screen.getByRole('button', { name: names[4] })).toHaveClass('selected')
+  expect(screen.getByRole('button', { name: names[0] })).not.toHaveClass('selected')
 })

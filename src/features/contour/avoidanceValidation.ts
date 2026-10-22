@@ -1,5 +1,5 @@
 import { arcExtrema } from '../../lib/arc'
-import { constructAvoidance } from './avoidanceConstruction'
+import { constructAvoidances } from './avoidanceConstructionTable'
 import { edgeArcFrame } from '../../lib/edgeArcFrame'
 import type { ComplexPoint } from '../../lib/geometry'
 import { intersectEdges, type GeometricEdge } from '../../lib/geometryIntersections'
@@ -27,13 +27,21 @@ export function validateAvoidances(document: SceneDocument): SceneResolution {
   const { scene } = resolution
   const footprints = new Map<string, { id: string; start: number; end: number }[]>()
   // These are source constraints, including on retained hidden closing edges.
-  for (const avoidance of document.avoidances) {
-    const result = constructAvoidance(document, avoidance)
-    if (!result.ok) return result
-    for (const interval of result.value.occupancy) {
+  const table = constructAvoidances(document)
+  if (!table.ok) return table
+  for (const parent of table.value.parents.values()) {
+    for (const interval of parent.occupancy) {
       const group = footprints.get(interval.sourceSegmentId) ?? []
-      group.push({ id: avoidance.id, start: interval.startT, end: interval.endT })
+      group.push({ id: parent.id, start: interval.startT, end: interval.endT })
       footprints.set(interval.sourceSegmentId, group)
+    }
+  }
+  for (const child of table.value.clearances.values()) {
+    for (const cut of child.cuts) {
+      const key = `两岸 ${child.parentAvoidanceId}:${cut.bank}`
+      const group = footprints.get(key) ?? []
+      group.push({ id: child.id, start: cut.startT, end: cut.endT })
+      footprints.set(key, group)
     }
   }
   for (const [sourceId, group] of footprints) {

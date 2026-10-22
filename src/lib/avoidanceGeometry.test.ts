@@ -34,7 +34,6 @@ it('keeps an off-line detour centered on the pole and uses the outer major arc',
   expectPoint(g.exitBase, { re: 0.5, im: 0 })
   expectPoint(g.through, { re: 0, im: 3 })
   expectPoint(pointOnArc(g.arc, 0.5), { re: 0, im: 3 })
-  expect(g.projectedCenter).toBeCloseTo(4)
   expect(g.signedDistance).toBeCloseTo(2)
   expect(g.preferredOpeningWidth).toBeCloseTo(1)
   expect(g.actualOpeningWidth).toBeCloseTo(1)
@@ -223,7 +222,6 @@ it('rotates all derived points and preserves local lengths under a quarter turn'
     expectPoint(rotated[key], rotate(original[key]))
   expectPoint(rotated.arc.center, rotate(input.center))
   expect(rotated.arc.sweep).toBeCloseTo(original.arc.sweep)
-  expect(rotated.projectedCenter).toBeCloseTo(4)
   expect(rotated.signedDistance).toBeCloseTo(2)
 })
 
@@ -243,7 +241,6 @@ it.each([0, -0.1, 2])(
     expectPoint(reverse.exitBase, forward.entryBase)
     expectPoint(reverse.through, forward.through)
     expect(reverse.arc.sweep).toBeCloseTo(-forward.arc.sweep)
-    expect(reverse.projectedCenter).toBeCloseTo(3)
     expect(reverse.signedDistance).toBeCloseTo(-im)
     expect(reverse.footprint).toEqual([2, 4])
   },
@@ -268,7 +265,6 @@ it.each([1e-6, 1e6])('preserves normalized geometry and validity at scale %s', (
     expect(scaled.arc.radius / scale).toBeCloseTo(1, 10)
     expect(scaled.arc.sweep).toBeCloseTo(original.arc.sweep, 10)
     expect(scaled.actualOpeningWidth / scale).toBeCloseTo(original.actualOpeningWidth, 10)
-    expect(scaled.projectedCenter / scale).toBeCloseTo(4, 10)
     expect(scaled.signedDistance / scale).toBeCloseTo(height, 10)
     expect(scaled.footprint.map((value) => value / scale)).toEqual([3, 5])
     expect(scaled.onLine).toBe(original.onLine)

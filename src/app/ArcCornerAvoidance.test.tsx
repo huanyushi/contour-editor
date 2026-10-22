@@ -88,10 +88,11 @@ async function startCorner(user: ReturnType<typeof userEvent.setup>, edge = 'edg
 
 describe('source arc and semantic corner Inspector', () => {
   it.each([false, true])(
-    'repairs an invalid initial radius to the short preview/apply unless a side was explicitly chosen (%s)',
+    'fits the short corner initially and preserves its side through an invalid radius repair (%s)',
     async (explicit) => {
       const user = userEvent.setup()
       const state = corner()
+      state.viewport = { ...state.viewport, scaleX: 4.8, scaleY: 4.8 }
       state.vertices = [
         { id: 'a', re: 0, im: 100 },
         { id: 'b', re: 0, im: 0, mathematicalKind: 'pole' },
@@ -100,7 +101,9 @@ describe('source arc and semantic corner Inspector', () => {
       ]
       mount(state)
       await startCorner(user)
-      expect(screen.getByLabelText('绕行半径')).toHaveValue('5')
+      expect(screen.getByLabelText('绕行半径')).toHaveValue('0.625')
+      expect(screen.getByLabelText('绕行侧')).toHaveValue('right')
+      await edit(user, '5')
       expect(screen.getByRole('button', { name: '应用绕行' })).toBeDisabled()
       if (explicit) {
         await user.selectOptions(screen.getByLabelText('绕行侧'), 'right')
@@ -131,7 +134,7 @@ describe('source arc and semantic corner Inspector', () => {
     pick('upper')
     await waitFor(() => expect(screen.getByLabelText('属性面板内容')).toHaveFocus())
     expect(Number((screen.getByLabelText('绕行半径') as HTMLInputElement).value)).toBeCloseTo(
-      (3 * Math.PI) / 20,
+      0.3,
       6,
     )
     expect(screen.getByLabelText('可用半径范围')).toHaveTextContent('4.242641')
@@ -207,11 +210,10 @@ describe('source arc and semantic corner Inspector', () => {
       expect(within(list).getByRole('button', { name: '选择顶点 z2' })).toHaveTextContent(
         '孤立奇点',
       )
-      expect(within(list).getByRole('button', { name: '选择路径段 2' })).toHaveTextContent(
-        '1 处绕行',
+      expect(within(list).getByRole('button', { name: '选择绕行 1 的绕行圆弧' })).toHaveTextContent(
+        '绕行圆弧',
       )
-      await selectObject(user, '选择路径段 2')
-      await user.click(screen.getByRole('button', { name: '编辑绕行 1' }))
+      await selectObject(user, '选择绕行 1 的绕行圆弧')
       await user.click(screen.getByRole('button', { name: '取消绕行' }))
       expect(saved().vertices).toHaveLength(4)
       expect(saved().markers).toHaveLength(0)

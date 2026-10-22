@@ -11,6 +11,7 @@ import {
   type SelectionWorkspaceEdit,
 } from './avoidanceSelection'
 import { resolveScene } from './resolvedScene'
+import { isLegacyAvoidance } from './avoidanceTypes'
 
 export function translationAnchor(state: ContourState): ComplexPoint | undefined {
   for (const item of selectionItems(state.selection)) {
@@ -42,7 +43,9 @@ export function translateSelection(
   if (!isValidPoint(delta)) return { ...from, error: '平移距离超出有效范围。' }
   const items = selectionItems(from.selection)
   const { pointIds, segmentIds: segments, formulaIds: formulas } = translationSources(from, items)
-  const acceptedSides = new Map(accepted.avoidances.map((a) => [a.id, a.side]))
+  const acceptedSides = new Map(
+    accepted.avoidances.filter(isLegacyAvoidance).map((a) => [a.id, a.side]),
+  )
   const move = <T extends ComplexPoint>(point: T): T => ({
     ...point,
     re: point.re + delta.re,
@@ -65,6 +68,7 @@ export function translateSelection(
     formulas: from.formulas.map((p) => (formulas.has(p.id) ? move(p) : p)),
     // Seed before resolving anchors, so label compensation uses the geometry acceptance keeps.
     avoidances: from.avoidances.map((a) => {
+      if (!isLegacyAvoidance(a)) return a
       const side = acceptedSides.get(a.id) ?? a.side
       return side === a.side ? a : { ...a, side }
     }),

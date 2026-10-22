@@ -4,8 +4,8 @@ import { MathText } from '../../components/MathText'
 import type { ContourAction, ContourState, PathSegment } from './model'
 import type { SelectionItem } from './appearance'
 import { selectionItems } from './selectionModel'
-import { isSingleCycle } from './pathTopology'
 import { mathematicalCategory, mathematicalNames } from './mathematicalKind'
+import { pathObjectRows, type PathObjectRow } from './pathObjects'
 
 function SegmentIcon({ kind }: { kind: PathSegment['kind'] }) {
   const Icon = kind === 'arc' ? Spline : Slash
@@ -31,12 +31,20 @@ export function ObjectList({
         ? { type: 'toggleSelection', item }
         : { type: 'selectObject', selection: item },
     )
-  const bindingInfo = (id: string) => {
-    const count = state.avoidances.filter(
-      (a) => a.targetSegmentId === id || a.exitSegmentId === id,
-    ).length
-    return count ? ` · ${count} 处绕行` : ''
-  }
+  const pathRow = (row: PathObjectRow) => (
+    <button
+      key={row.id}
+      className={isSelected({ kind: 'segment', id: row.id }) ? 'object-row selected' : 'object-row'}
+      aria-label={row.accessibleName}
+      onClick={(event) => choose(event, { kind: 'segment', id: row.id })}
+    >
+      <span className="object-row-name">
+        <SegmentIcon kind={row.kind} />
+        {row.name}
+      </span>
+      <span>{row.description}</span>
+    </button>
+  )
   return (
     <section className="object-list" aria-label="对象列表">
       <h3>
@@ -69,46 +77,9 @@ export function ObjectList({
           </span>
         </button>
       ))}
-      {state.segments.map((segment, index) => (
-        <button
-          key={segment.id}
-          className={
-            isSelected({ kind: 'segment', id: segment.id }) ? 'object-row selected' : 'object-row'
-          }
-          aria-label={`选择路径段 ${index + 1}`}
-          onClick={(event) => choose(event, { kind: 'segment', id: segment.id })}
-        >
-          <span className="object-row-name">
-            <SegmentIcon kind={segment.kind} />
-            路径段 {index + 1}
-          </span>
-          <span>
-            {!state.closed && isSingleCycle(state) && index === state.segments.length - 1
-              ? '暂存闭合边'
-              : segment.kind === 'arc'
-                ? '圆弧'
-                : '线段'}
-            {bindingInfo(segment.id)}
-          </span>
-        </button>
-      ))}
+      {pathObjectRows(state, 'contour').map(pathRow)}
       {!!state.connections.length && <h3>独立线段／圆弧</h3>}
-      {state.connections.map((segment, index) => (
-        <button
-          key={segment.id}
-          className={
-            isSelected({ kind: 'segment', id: segment.id }) ? 'object-row selected' : 'object-row'
-          }
-          aria-label={`选择独立路径段 ${index + 1}`}
-          onClick={(event) => choose(event, { kind: 'segment', id: segment.id })}
-        >
-          <span className="object-row-name">
-            <SegmentIcon kind={segment.kind} />
-            {segment.kind === 'arc' ? '圆弧' : '线段'} {index + 1}
-          </span>
-          <span>已有端点连接{bindingInfo(segment.id)}</span>
-        </button>
-      ))}
+      {pathObjectRows(state, 'connection').map(pathRow)}
       {state.markers.map((point, index) => (
         <button
           key={point.id}

@@ -12,12 +12,17 @@ import {
   selectedSegmentStyle,
   translationSources,
 } from './avoidanceSelection'
+import { sourcePieceId } from './sourcePieces'
 
 const arc: SelectionItem = { kind: 'segment', id: 'avoid:avoid-1:arc' }
 const entry: SelectionItem = { kind: 'segment', id: 'avoid:avoid-1:entry' }
-const gap: SelectionItem = { kind: 'segment', id: 'gap:edge-a:before:avoid-1' }
+const gap: SelectionItem = {
+  kind: 'segment',
+  id: sourcePieceId('edge-a', { startAvoidanceId: null, endAvoidanceId: 'avoid-1' }),
+}
 const source: SelectionItem = { kind: 'segment', id: 'edge-a' }
-const label = (item: SelectionItem): SelectionItem => ({ ...item, part: 'label' }) as SelectionItem
+const label = (item: SelectionItem): SelectionItem =>
+  ({ ...item, ...(item === source ? { id: gap.id } : {}), part: 'label' }) as SelectionItem
 
 function select(state: ContourState, items: SelectionItem[]): ContourState {
   return { ...state, selection: { kind: 'multiple', items }, selectionSource: 'marquee' }
@@ -46,7 +51,10 @@ describe('avoidance selection mapping', () => {
     state.avoidances[0].targetSegmentId = 'edge-d'
     state.avoidances[0].partLabels = { arc: defaultLabel('A') }
     state.segments[3] = { ...state.segments[3], label: defaultLabel('S') }
-    const closingGap: SelectionItem = { kind: 'segment', id: 'gap:edge-d:before:avoid-1' }
+    const closingGap: SelectionItem = {
+      kind: 'segment',
+      id: sourcePieceId('edge-d', { startAvoidanceId: null, endAvoidanceId: 'avoid-1' }),
+    }
     const items = [
       arc,
       entry,
@@ -70,8 +78,8 @@ describe('avoidance selection mapping', () => {
     expect(styled.avoidances[0].partStyles?.arc?.color).toBe('#112233')
     expect(styled.avoidances[0].partStyles?.entry?.color).toBe('#112233')
     expect(styled.avoidances[0].partLabels?.arc?.color).toBe('#112233')
-    expect(styled.segments[3].style?.color).toBe('#112233')
-    expect(styled.segments[3].label?.color).toBe('#112233')
+    expect(styled.segments[3].pieces?.[0].style?.color).toBe('#112233')
+    expect(styled.segments[3].pieces?.[0].label?.color).toBe('#112233')
     expect(
       resolvedScene(styled).labels.some(
         (l) => l.target.id.includes('avoid-1') || l.target.id === 'edge-d',
@@ -140,7 +148,9 @@ describe('avoidance selection mapping', () => {
     const scene = resolvedScene(state)
     for (const item of [source, arc]) {
       if (item.kind !== 'segment') continue
-      const anchor = scene.labels.find((l) => l.target.id === item.id)!.anchor
+      const target = label(item)
+      if (target.kind === 'contour') throw new Error('expected label target')
+      const anchor = scene.labels.find((l) => l.target.id === target.id)!.anchor
       const expected = { x: 400 + anchor.re * 40, y: 300 - anchor.im * 40 }
       expect(itemAnchor(state, label(item))).toEqual(expected)
       expect(itemLabel(state, label(item))?.tex).toBe(item.id === 'edge-a' ? 'S' : 'A')
@@ -193,7 +203,7 @@ describe('avoidance selection mapping', () => {
     expect(next.segments).toBe(state.segments)
   })
 
-  it('routes generic stroke and label actions to part overrides while keeping source and gap routes on source', () => {
+  it('routes generic retained-piece edits to their own overrides, separate from root source edits', () => {
     const state = freeze(labelled())
     let next = contourReducer(state, {
       type: 'stroke',
@@ -210,7 +220,11 @@ describe('avoidance selection mapping', () => {
       patch: { width: 3 },
     })
     next = contourReducer(next, { type: 'label', target: source, label: defaultLabel('T') })
-    expect(next.segments[0]).toMatchObject({ style: { width: 3 }, label: { tex: 'T' } })
+    expect(next.segments[0]).toMatchObject({
+      pieces: [{ style: { width: 3 } }],
+      label: { tex: 'T' },
+    })
+    expect(next.segments[0].style).toBeUndefined()
     expect(next.avoidances[0].partStyles?.arc?.width).toBe(5)
   })
 
@@ -226,7 +240,7 @@ describe('avoidance selection mapping', () => {
     expect(next.error).toBe('')
     expect(next.segments[0]).toMatchObject({
       style: { color: '#abcdef', width: 4 },
-      label: { color: '#abcdef', size: 22 },
+      pieces: [{ label: { color: '#abcdef', size: 22 } }],
     })
     expect(next.avoidances[0].partStyles).toMatchObject({
       arc: { color: '#abcdef', width: 4 },
@@ -294,7 +308,7 @@ describe('avoidance selection mapping', () => {
     expect(next.error).toBe('')
     expect(next.vertices).toEqual(from.vertices)
     expect(next.markers).toEqual(from.markers)
-    expect(next.segments[0].label).toMatchObject({ dx: 28, dy: -34 })
+    expect(next.segments[0].pieces?.[0].label).toMatchObject({ dx: 28, dy: -34 })
     expect(next.avoidances[0].partLabels?.arc).toMatchObject({ dx: 28, dy: -34 })
   })
 
@@ -404,10 +418,10 @@ describe('avoidance selection mapping', () => {
       expect(returned.error).toBe('')
       expect(returned.avoidances[0].side).toBe(learnedSide)
       expect(returned.vertices).toEqual(from.vertices)
-      for (const item of [label(source), label(arc)]) {
-        expect(itemAnchor(returned, item)).toEqual({ x: 400, y: anchorY })
-        expect(itemLabel(returned, item)).toMatchObject({ dx: 12, dy: labelDy })
-      }
+      expect(itemAnchor(returned, label(source))).toEqual({ x: 310, y: 300 })
+      expect(itemLabel(returned, label(source))).toMatchObject({ dx: 12, dy: -24 })
+      expect(itemAnchor(returned, label(arc))).toEqual({ x: 400, y: anchorY })
+      expect(itemLabel(returned, label(arc))).toMatchObject({ dx: 12, dy: labelDy })
       // A repeated zero-distance event must keep drag-start-based offsets, not accumulate them.
       const repeated = contourReducer(returned, {
         type: 'translateSelection',

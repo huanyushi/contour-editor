@@ -1,13 +1,18 @@
 import type { LabelSettings, SelectionItem, StrokeStyle } from './appearance'
 import type { AvoidanceAction } from './avoidanceModel'
 import type { ContourState } from './model'
-import { findSegment, segmentOrigin } from './sceneObjects'
+import { findSegment, segmentOrigin, resolvedScene, logicalSegmentId } from './sceneObjects'
 import type { WorkspaceAction } from './workspace'
+import { avoidanceDependencies, sourceBindingsIndex } from './avoidanceDependencies'
+import { constructAvoidances } from './avoidanceConstructionTable'
+import { pieceAppearance, type SourcePieceAction } from './sourcePieces'
 
 export type SelectionWorkspaceEdit =
-  WorkspaceAction | Extract<AvoidanceAction, { type: 'avoidanceLabel' | 'avoidanceStyle' }>
+  | WorkspaceAction
+  | SourcePieceAction
+  | Extract<AvoidanceAction, { type: 'avoidanceLabel' | 'avoidanceStyle' }>
 
-export interface TranslationSources {
+interface TranslationSources {
   pointIds: ReadonlySet<string>
   segmentIds: ReadonlySet<string>
   formulaIds: ReadonlySet<string>
@@ -21,6 +26,8 @@ export function translationSources(
   const pointIds = new Set<string>(),
     segmentIds = new Set<string>(),
     formulaIds = new Set<string>()
+  const table = constructAvoidances(state)
+  const index = sourceBindingsIndex(state)
   const addSegment = (id: string) => {
     const source = findSegment(state, id)
     if (!source) return
@@ -29,15 +36,15 @@ export function translationSources(
     pointIds.add(source.endId)
   }
   const binding = (a: ContourState['avoidances'][number]) => {
-    addSegment(a.targetSegmentId)
-    if (a.exitSegmentId !== undefined) addSegment(a.exitSegmentId)
-    pointIds.add(a.markerId)
+    const result = avoidanceDependencies(state, a.id, table.ok ? table.value : undefined)
+    if (!result.ok) return
+    result.value.sourceIds.forEach(addSegment)
+    result.value.pointIds.forEach((id) => pointIds.add(id))
   }
   const segment = (id: string) => {
     addSegment(id)
-    state.avoidances
-      .filter((a) => a.targetSegmentId === id || a.exitSegmentId === id)
-      .forEach(binding)
+    const related = new Set(index.get(id) ?? [])
+    state.avoidances.filter((a) => related.has(a.id)).forEach(binding)
   }
   for (const item of items) {
     if (item.kind === 'contour') {
@@ -58,6 +65,15 @@ export function translationSources(
 
 export function selectedSegmentLabel(state: ContourState, id: string): LabelSettings | undefined {
   const origin = segmentOrigin(state, id)
+  if (origin?.kind === 'gap') {
+    const source = findSegment(state, origin.sourceSegmentId)!
+    const own = pieceAppearance(source, origin.piece)?.label
+    return (
+      own ??
+      resolvedScene(state).labels.find((l) => l.target.id === logicalSegmentId(state, id))?.value ??
+      (origin.piece.startAvoidanceId === null ? source.label : undefined)
+    )
+  }
   return origin?.kind === 'avoidance'
     ? state.avoidances.find((a) => a.id === origin.avoidanceId)?.partLabels?.[origin.part]
     : findSegment(state, origin?.sourceSegmentId ?? id)?.label
@@ -68,9 +84,21 @@ export function selectedSegmentStyle(state: ContourState, id: string): StrokeSty
   const source = findSegment(state, origin?.sourceSegmentId ?? id)
   if (!source) return undefined
   const override =
-    origin?.kind === 'avoidance'
-      ? state.avoidances.find((a) => a.id === origin.avoidanceId)?.partStyles?.[origin.part]
-      : undefined
+    origin?.kind === 'gap'
+      ? pieceAppearance(source, origin.piece)?.style
+      : origin?.kind === 'avoidance'
+        ? state.avoidances.find((a) => a.id === origin.avoidanceId)?.partStyles?.[origin.part]
+        : undefined
+  if (origin?.kind === 'avoidance' && origin.parentAvoidanceId) {
+    const parent = state.avoidances.find((a) => a.id === origin.parentAvoidanceId)
+    const bank = origin.part === 'bank-entry' ? 'entry' : 'exit'
+    return {
+      ...state.appearance.stroke,
+      ...source.style,
+      ...parent?.partStyles?.[bank],
+      ...override,
+    }
+  }
   return { ...state.appearance.stroke, ...source.style, ...override }
 }
 
@@ -88,6 +116,12 @@ export function selectionWorkspaceAction(
   if (!id) return action
   const origin = segmentOrigin(state, id)
   if (!origin) return action
+  if (origin.kind === 'gap') {
+    const common = { sourceId: origin.sourceSegmentId, boundary: origin.piece }
+    if (action.type === 'stroke')
+      return { type: 'sourcePieceStyle', ...common, patch: action.patch }
+    if (action.type === 'label') return { type: 'sourcePieceLabel', ...common, label: action.label }
+  }
   if (action.type === 'label' && action.target.kind === 'segment')
     return origin.kind === 'avoidance'
       ? { type: 'avoidanceLabel', id: origin.avoidanceId, part: origin.part, label: action.label }

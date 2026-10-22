@@ -21,7 +21,7 @@ function reduce(state: ContourState, action: AvoidanceAction | ContourAction) {
   return contourReducer(state, action)
 }
 
-function twoBindings(): ContourState {
+function twoBindings(): ReturnType<typeof createAvoidanceFixture> {
   const state = createAvoidanceFixture()
   return {
     ...state,

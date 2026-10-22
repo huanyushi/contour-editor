@@ -100,17 +100,14 @@ it('shows exactly two derived radius handles, hides them with handles off and om
   expect(handles(container)).toHaveLength(0)
 })
 
-it('keeps small radius hit areas away from their bound pole center', () => {
+it('keeps the real pole selectable inside overlapping small-radius hit areas', () => {
   const state = fixture('line')
   state.avoidances[0].radius = 0.2
-  const { container } = editor(state)
-  for (const handle of handles(container)) {
-    const point = position(handle)
-    const distance = Math.hypot(point.re, point.im) * 40
-    expect(Number(handle.querySelector('circle')!.getAttribute('r'))).toBeLessThanOrEqual(
-      distance / 2,
-    )
-  }
+  const { container, svg, current } = editor(state)
+  fireEvent.pointerDown(handles(container)[0], { button: 0, clientX: 400, clientY: 300 })
+  fireEvent.pointerUp(svg)
+  expect(current().present.selection).toEqual({ kind: 'marker', id: 'pole' })
+  expect(current().past).toHaveLength(0)
 })
 
 it('does not expose hidden bindings and supports keyboard inspection without creating history', () => {
@@ -153,7 +150,9 @@ it.each(['line', 'offline', 'arc', 'corner'])(
         clientY: 300 - target.im * 40 - 1,
       })
       expect(current().present.avoidances[0].radius).toBeCloseTo(0.75, 10)
-      expect(current().present.avoidances[0].side).toBe(initial.avoidances[0].side)
+      if (mode === 'offline')
+        expect(current().present.avoidances[0]).toMatchObject({ kind: 'corridor', gap: 0.5 })
+      else expect(current().present.avoidances[0].side).toBe(initial.avoidances[0].side)
       expect(current().present.vertices).toBe(initial.vertices)
       expect(current().present.markers).toBe(initial.markers)
       for (const endpoint of handles(container).map(position)) {

@@ -85,7 +85,6 @@ it('returns the rectangle corner quarter-circle by default and the other three-q
     expect(result.exitT).toBeCloseTo(1 / 6, 12)
     expect(result.geometry.footprint[0]).toBeCloseTo(1.5, 12)
     expect(result.geometry.footprint[1]).toBeCloseTo(2, 12)
-    expect(result.geometry.projectedCenter).toBeCloseTo(2, 12)
     expect(result.geometry.arc.center).toEqual(p(0, 0))
     expect(result.geometry.arc.radius).toBe(0.5)
     expect(result.geometry.entryBase).toEqual(result.geometry.entry)

@@ -125,7 +125,7 @@ describe('actual avoidance SVG export', () => {
       expect(Number(command[10])).toBeCloseTo(end.y)
 
       const arrows = svg.querySelectorAll('line[marker-end]')
-      expect(arrows).toHaveLength(5) // Four logical source arrows plus the entry override.
+      expect(arrows).toHaveLength(8) // Five independent replacement objects plus three uncut sides.
       for (const line of arrows) {
         const x1 = Number(line.getAttribute('x1'))
         const y1 = Number(line.getAttribute('y1'))
@@ -210,11 +210,12 @@ describe('actual avoidance SVG export', () => {
       const before = JSON.stringify(state)
       const layout = computeExportLayout(state, options)
       const svg = parseSvg(renderExport(state, options))
-      // Symmetry puts both source-chain and arc midpoints at the circle bottom.
+      // The inherited source label belongs to the first retained piece, not the detour arc.
       const bottom = toSvg({ re: 0, im: -3.5 }, layout.state.viewport)
+      const retained = toSvg({ re: -2.125, im: 0 }, layout.state.viewport)
       const entry = toSvg({ re: -0.25, im: (-3 + Math.sqrt(3) / 4) / 2 }, layout.state.viewport)
       const exit = toSvg({ re: 0.25, im: (-3 + Math.sqrt(3) / 4) / 2 }, layout.state.viewport)
-      expectLabelInside(svg, 'S', { x: bottom.x - 700, y: bottom.y - 450 })
+      expectLabelInside(svg, 'S', { x: retained.x - 700, y: retained.y - 450 })
       expectLabelInside(svg, 'D', { x: bottom.x + 650, y: bottom.y + 450 })
       expectLabelInside(svg, 'E', { x: entry.x - 800, y: entry.y + 280 })
       expectLabelInside(svg, 'X', { x: exit.x + 720, y: exit.y - 700 })

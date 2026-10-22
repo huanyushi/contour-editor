@@ -71,7 +71,7 @@ describe('resolved scene views', () => {
     expect(canProjectScene(state, state.viewport)).toBe(false)
   })
 
-  it('fits source-label pixel offsets from the resolved logical-chain anchor', () => {
+  it('fits inherited source-label offsets from the retained-piece anchor', () => {
     const state = createAvoidanceFixture()
     state.closed = false
     state.vertices = [
@@ -82,7 +82,7 @@ describe('resolved scene views', () => {
     state.markers[0].im = 1
     const view = fitScene(state)!
     expect(view).not.toBeNull()
-    const anchor = toSvg({ re: 0, im: 1.5 }, view)
+    const anchor = toSvg({ re: -0.5, im: 0 }, view)
     expect(anchor.y - 200).toBeGreaterThanOrEqual(83)
     expect(toSvg({ re: 0, im: 0 }, view).y).toBeLessThanOrEqual(517)
   })

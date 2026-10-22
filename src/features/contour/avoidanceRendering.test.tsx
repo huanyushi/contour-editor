@@ -7,6 +7,12 @@ import { CanvasScene } from './CanvasScene'
 import { contourReducer } from './model'
 import type { AvoidanceWorkflow } from './useAvoidanceDraft'
 import { validateAvoidances } from './avoidanceValidation'
+import { sourcePieceId } from './sourcePieces'
+
+const retainedLabelId = sourcePieceId('edge-a', {
+  startAvoidanceId: null,
+  endAvoidanceId: 'avoid-1',
+})
 
 describe('actual scene rendering', () => {
   it.each(['line', 'arc', 'corner'] as const)(
@@ -35,9 +41,11 @@ describe('actual scene rendering', () => {
       const workflow: AvoidanceWorkflow = {
         draft: { kind: 'configure', avoidance },
         preview: validateAvoidances(applied),
+        previewDocument: applied,
         start() {},
         pickTarget() {},
         patch() {},
+        patchParentGap() {},
         apply() {},
         cancel() {},
       }
@@ -96,7 +104,7 @@ describe('actual scene rendering', () => {
     expect(
       container.querySelectorAll('.segment-hit[data-source-segment-id="edge-a"]'),
     ).toHaveLength(3)
-    expect(container.querySelectorAll('[data-testid^="arrow-"]')).toHaveLength(4)
+    expect(container.querySelectorAll('[data-testid^="arrow-"]')).toHaveLength(6)
   })
 
   it('renders each source and part label once at its resolved anchor and restores vanished labels', () => {
@@ -107,15 +115,17 @@ describe('actual scene rendering', () => {
       entry: defaultLabel('in'),
     }
     const { container, rerender } = render(<CanvasScene state={state} />)
-    expect(container.querySelectorAll('[data-testid="label-edge-a"]')).toHaveLength(1)
-    expect(container.querySelector('[data-testid="label-edge-a"]')?.getAttribute('transform')).toBe(
-      'translate(400 280) scale(1)',
-    )
+    expect(container.querySelectorAll(`[data-testid="label-${retainedLabelId}"]`)).toHaveLength(1)
+    expect(
+      container
+        .querySelector(`[data-testid="label-${retainedLabelId}"]`)
+        ?.getAttribute('transform'),
+    ).toBe('translate(310 300) scale(1)')
     expect(container.querySelectorAll('[data-testid="label-avoid:avoid-1:arc"]')).toHaveLength(1)
     expect(container.querySelector('[data-testid="label-avoid:avoid-1:entry"]')).toBeNull()
     rerender(<CanvasScene state={{ ...state, markers: [{ ...state.markers[0], im: 1 }] }} />)
     expect(container.querySelectorAll('[data-testid="label-avoid:avoid-1:entry"]')).toHaveLength(1)
-    expect(container.querySelectorAll('[data-testid="label-edge-a"]')).toHaveLength(1)
+    expect(container.querySelectorAll(`[data-testid="label-${retainedLabelId}"]`)).toHaveLength(1)
   })
 
   it('retains ordinary three-point arc handles and existing source test IDs', () => {
@@ -156,14 +166,16 @@ describe('actual scene rendering', () => {
       ])
       rerender(
         <CanvasScene
-          state={{ ...selected, selection: { kind: 'segment', id: 'edge-a', part: 'label' } }}
+          state={{
+            ...selected,
+            selection: { kind: 'segment', id: retainedLabelId, part: 'label' },
+          }}
         />,
       )
       expect(highlightedIds()).toEqual([])
-      expect(container.querySelector('[data-testid="label-handle-edge-a"]')).toHaveAttribute(
-        'stroke',
-        '#238b8b',
-      )
+      expect(
+        container.querySelector(`[data-testid="label-handle-${retainedLabelId}"]`),
+      ).toHaveAttribute('stroke', '#238b8b')
       rerender(
         <CanvasScene
           state={{
@@ -171,7 +183,7 @@ describe('actual scene rendering', () => {
             selection: {
               kind: 'multiple',
               items: [
-                { kind: 'segment', id: 'edge-a', part: 'label' },
+                { kind: 'segment', id: retainedLabelId, part: 'label' },
                 { kind: 'segment', id: 'avoid:avoid-1:arc' },
               ],
             },

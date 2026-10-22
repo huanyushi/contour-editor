@@ -6,6 +6,7 @@ import { dashArray } from './appearance'
 import { isSelected, selectionItems } from './selectionModel'
 import { DraggableLabel } from './DraggableLabel'
 import { MathLabel } from './MathLabel'
+import { logicalSegmentId } from './sceneObjects'
 
 /** Shared applied/preview drawing; neither branch constructs its own geometry. */
 export function ScenePaths({
@@ -53,8 +54,24 @@ export function ScenePaths({
         const origin = scene.origins.get(segment.id)!
         const selected =
           editable &&
-          (isSelected(state.selection, { kind: 'segment', id: segment.id }) ||
-            isSelected(state.selection, { kind: 'segment', id: origin.sourceSegmentId }))
+          (isSelected(state.selection, {
+            kind: 'segment',
+            id: logicalSegmentId(state, segment.id),
+          }) ||
+            (origin.sourceSegmentIds ?? [origin.sourceSegmentId]).some((id) =>
+              isSelected(state.selection, { kind: 'segment', id }),
+            ) ||
+            selectionItems(state.selection).some((item) => {
+              const selectedOrigin =
+                item.kind === 'segment' ? scene.origins.get(item.id) : undefined
+              if (selectedOrigin?.kind !== 'avoidance' || origin.kind !== 'avoidance') return false
+              return (
+                (selectedOrigin.avoidanceId === origin.avoidanceId &&
+                  selectedOrigin.part === origin.part) ||
+                (origin.parentAvoidanceId === selectedOrigin.avoidanceId &&
+                  `bank-${selectedOrigin.part}` === origin.part)
+              )
+            }))
         const direction = `${prefix}direction-${segment.id}`
         return (
           <g key={segment.id}>

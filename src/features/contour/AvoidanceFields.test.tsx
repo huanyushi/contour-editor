@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { useReducer, useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import { buildAvoidance } from '../../lib/avoidanceGeometry'
-import type { Avoidance } from './avoidanceTypes'
+import { isLegacyAvoidance, type LegacyAvoidance } from './avoidanceTypes'
 import { AvoidanceFields } from './AvoidanceFields'
 import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
 import { createHistory, historyReducer } from './history'
@@ -10,7 +10,7 @@ import { findPoint, findSegment } from './sceneObjects'
 import { constructAvoidance } from './avoidanceConstruction'
 
 function Fields({ im = 0.1, radius = 1 }: { im?: number; radius?: number }) {
-  const [value, setValue] = useState<Avoidance>({
+  const [value, setValue] = useState<LegacyAvoidance>({
     id: 'avoid-1',
     markerId: 'pole',
     targetSegmentId: 'edge-a',
@@ -43,6 +43,7 @@ function AcceptedFields() {
   )
   const state = history.present
   const value = state.avoidances[0]
+  if (!isLegacyAvoidance(value)) throw new Error('Expected legacy fixture')
   const source = findSegment(state, value.targetSegmentId)!
   const result = buildAvoidance({
     start: findPoint(state, source.startId)!,

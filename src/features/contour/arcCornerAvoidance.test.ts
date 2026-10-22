@@ -10,8 +10,9 @@ import { createHistory, historyReducer } from './history'
 import { translationSources } from './avoidanceSelection'
 import { segmentOrigin } from './sceneObjects'
 import { buildContourGeometry } from './pathGeometry'
+import { isLegacyAvoidance, type LegacyAvoidance } from './avoidanceTypes'
 
-function arcFixture(): ContourState {
+function arcFixture(): ContourState & { avoidances: LegacyAvoidance[] } {
   return {
     ...createInitialState(),
     closed: false,
@@ -43,7 +44,7 @@ function arcFixture(): ContourState {
   }
 }
 
-function cornerFixture(): ContourState {
+function cornerFixture(): ContourState & { avoidances: LegacyAvoidance[] } {
   const state = createInitialState()
   return {
     ...state,
@@ -150,7 +151,7 @@ describe('source arc and shared corner integration', () => {
   })
 
   it('uses the same mathematical-kind action for vertices without duplicating points or binding', () => {
-    let state = cornerFixture()
+    let state: ContourState = cornerFixture()
     state.avoidances = []
     state.vertices[1].mathematicalKind = 'ordinary'
     state = contourReducer(state, { type: 'mathematicalKind', id: 'b', value: 'branch' })
@@ -401,7 +402,7 @@ describe('source arc and shared corner integration', () => {
     const geometry = buildContourGeometry(state)
     expect(geometry.path.match(/M /g)).toHaveLength(1)
     expect(geometry.path.endsWith(' Z')).toBe(true)
-    expect(geometry.segments.filter((s) => s.arrow)).toHaveLength(4)
+    expect(geometry.segments.filter((s) => s.arrow)).toHaveLength(5)
     expect(
       geometry.segments.find((s) => s.segment.id === 'avoid:corner:arc')!.segment.style!.color,
     ).toBe('#abcdef')
@@ -437,6 +438,7 @@ describe('source arc and shared corner integration', () => {
     const reversed = contourReducer(state, { type: 'reverse' })
     expect(reversed.error).toBe('')
     expect(reversed.avoidances[0].side).toBe('left')
+    if (!isLegacyAvoidance(reversed.avoidances[0])) throw new Error('Expected legacy fixture')
     const after = constructAvoidance(reversed, reversed.avoidances[0])
     if (!before.ok || !after.ok) throw new Error('invalid arc construction')
     expect(after.value.geometry.entry).toEqual(before.value.geometry.exit)

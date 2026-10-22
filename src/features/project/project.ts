@@ -27,6 +27,7 @@ import {
   stroke,
 } from './schema'
 import { projectSceneError } from './validation'
+import { readSourcePieces } from './sourcePieceSchema'
 import {
   MAX_PROJECT_BYTES,
   MAX_VERTICES,
@@ -102,8 +103,15 @@ export function parseProject(text: string): ContourState {
   const root = record(parsed, '项目文件')
   if (root.format !== 'complex-contour-editor')
     throw new Error('这不是 Complex Contour Editor 项目文件。')
-  if (root.version !== 1 && root.version !== 2 && root.version !== 3)
-    throw new Error('不支持此项目文件版本，请使用版本 1、2 或 3。')
+  if (
+    root.version !== 1 &&
+    root.version !== 2 &&
+    root.version !== 3 &&
+    root.version !== 4 &&
+    root.version !== 5 &&
+    root.version !== 6
+  )
+    throw new Error('不支持此项目文件版本，请使用版本 1、2、3、4、5 或 6。')
   const doc = record(root.document, '文档')
   const ids = new Set<string>()
   const readId = (value: unknown, path: string) => {
@@ -130,12 +138,14 @@ export function parseProject(text: string): ContourState {
   const endpoints = new Map(vertices.map((vertex) => [vertex.id, vertex]))
   const readSegment = (value: unknown, path: string): PathSegment => {
     const item = record(value, path)
+    const pieces = readSourcePieces(item.pieces, path, root.version as number)
     const common = {
       id: readId(item.id, path),
       startId: string(item.startId, `${path}起点`, 80),
       endId: string(item.endId, `${path}终点`, 80),
       ...(item.label === undefined ? {} : { label: label(item.label, `${path}标签`) }),
       ...(item.style === undefined ? {} : { style: stroke(item.style, `${path}样式`, true) }),
+      ...(pieces ? { pieces } : {}),
     }
     const start = endpoints.get(common.startId),
       end = endpoints.get(common.endId)
@@ -192,9 +202,12 @@ export function parseProject(text: string): ContourState {
     }
     return segment
   })
-  const avoidances = readAvoidances(doc.avoidances, readId, MAX_AVOIDANCES)
+  const avoidances = readAvoidances(doc.avoidances, readId, MAX_AVOIDANCES, root.version)
   if (
     root.version !== 3 &&
+    root.version !== 4 &&
+    root.version !== 5 &&
+    root.version !== 6 &&
     (avoidances.length ||
       [...vertices, ...markers].some((m) => (m.mathematicalKind ?? 'ordinary') !== 'ordinary'))
   )

@@ -4,6 +4,7 @@ import { defaultLabel } from '../src/features/contour/appearance'
 import { serializeProject } from '../src/features/project/format'
 import { showCanvas } from './navigation'
 import { clickPoint, savedProject, screenPoint } from './selection'
+import { sourcePieceId } from '../src/features/contour/sourcePieces'
 
 async function loadAvoidance(page: Page, labels = false) {
   const state = createAvoidanceFixture()
@@ -118,7 +119,8 @@ test('source and generated part labels drag independently and Delete only hides 
   page,
 }) => {
   await loadAvoidance(page, true)
-  for (const id of ['edge-a', 'avoid:avoid-1:arc']) {
+  const retainedId = sourcePieceId('edge-a', { startAvoidanceId: null, endAvoidanceId: 'avoid-1' })
+  for (const id of [retainedId, 'avoid:avoid-1:arc']) {
     await showCanvas(page)
     const handle = page.getByTestId(`label-handle-${id}`)
     const box = (await handle.boundingBox())!
@@ -130,7 +132,8 @@ test('source and generated part labels drag independently and Delete only hides 
     await page.mouse.up()
   }
   const moved = await savedProject(page)
-  expect(moved.document.segments[0].label).toMatchObject({ dx: -64, dy: -68 })
+  expect(moved.document.segments[0].pieces?.[0].label).toMatchObject({ dx: -64, dy: -68 })
+  expect(moved.document.segments[0].label).toMatchObject({ dx: -80, dy: -60 })
   expect(moved.document.avoidances?.[0].partLabels?.arc).toMatchObject({ dx: 56, dy: -68 })
   await showCanvas(page)
   await page.getByTestId('label-handle-avoid:avoid-1:arc').click()

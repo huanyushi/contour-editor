@@ -15,7 +15,7 @@ import { SelectionOverlay } from './SelectionOverlay'
 import { resolvedScene } from './sceneObjects'
 import type { AvoidanceWorkflow } from './useAvoidanceDraft'
 import { ScenePaths } from './ScenePaths'
-import { avoidanceRadiusHandles } from './avoidanceHandles'
+import { AvoidanceHandles } from './AvoidanceHandles'
 
 interface Props {
   state: ContourState
@@ -39,7 +39,8 @@ export function CanvasScene({
     avoidanceWorkflow?.draft.kind === 'configure' ? avoidanceWorkflow.draft.avoidance.id : null
   const showingPreview = !!(preview?.ok && previewId)
   const scene = showingPreview && preview?.ok ? preview.scene : appliedScene
-  const geometry = buildSceneGeometry(scene, state)
+  const drawingState = showingPreview ? (avoidanceWorkflow?.previewDocument ?? state) : state
+  const geometry = buildSceneGeometry(scene, drawingState)
   const fill = state.appearance.fill
   const selectedItems = selectionItems(state.selection)
   const selectedBounds =
@@ -90,7 +91,7 @@ export function CanvasScene({
         pointerEvents={showingPreview ? 'none' : undefined}
       >
         <ScenePaths
-          state={state}
+          state={drawingState}
           scene={scene}
           geometry={geometry}
           interaction={interaction}
@@ -240,41 +241,9 @@ export function CanvasScene({
           </g>
         )
       })}
-      {state.handles &&
-        (!avoidanceWorkflow || avoidanceWorkflow.draft.kind === 'idle') &&
-        avoidanceRadiusHandles(scene).map(({ avoidanceId, end, point, center }) => {
-          const p = toSvg(point, state.viewport)
-          const c = toSvg(center, state.viewport)
-          const hitRadius = Math.min(10, Math.hypot(p.x - c.x, p.y - c.y) / 2)
-          return (
-            <g
-              key={`${avoidanceId}-${end}`}
-              data-avoidance-handle=""
-              data-export-omit=""
-              data-testid={`avoidance-radius-${avoidanceId}-${end}`}
-              className="vertex avoidance-radius-handle"
-              transform={`translate(${p.x} ${p.y})`}
-              role="button"
-              tabIndex={interaction?.radiusHandlesInteractive ? 0 : undefined}
-              pointerEvents={interaction?.radiusHandlesInteractive === false ? 'none' : undefined}
-              aria-label={`调整绕行 ${avoidanceId} 的${end === 'entry' ? '入口' : '出口'}半径`}
-              onPointerDown={(event) =>
-                interaction?.beginAvoidanceRadiusDrag(event, avoidanceId, point)
-              }
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
-                  event.stopPropagation()
-                  interaction?.inspectAvoidance(avoidanceId)
-                }
-              }}
-            >
-              <title>拖动调整半径，两端联动</title>
-              <circle r={hitRadius} fill="transparent" />
-              <circle r="4" fill="#fff" stroke="#237b6d" strokeWidth="1.5" pointerEvents="none" />
-            </g>
-          )
-        })}
+      {state.handles && (!avoidanceWorkflow || avoidanceWorkflow.draft.kind === 'idle') && (
+        <AvoidanceHandles state={state} scene={scene} interaction={interaction} />
+      )}
       {interaction?.marquee && (
         <rect
           data-export-omit=""

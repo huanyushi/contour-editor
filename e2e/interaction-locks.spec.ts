@@ -4,6 +4,62 @@ import { loadBoxFixture, screenPoint, savedProject } from './selection'
 import { createAvoidanceFixture } from '../src/test/avoidanceFixtures'
 import { defaultLabel } from '../src/features/contour/appearance'
 import { openAvoidanceProject } from './avoidance'
+import {
+  createConnectedFixture,
+  createRectangleConnectedFixture,
+} from '../src/test/connectedAvoidanceFixtures'
+
+test(
+  'source positioning and independent spacing drags preserve template and global control paints',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/')
+    await openAvoidanceProject(page, createRectangleConnectedFixture())
+    await page.getByRole('button', { name: '示例模板', exact: true }).click()
+    for (const [id, dx, dy] of [
+      ['avoidance-port-parent-entry', 4, 0],
+      ['avoidance-gap-parent', 4, 0],
+    ] as const) {
+      const from = await page.getByTestId(id).evaluate((node) => {
+        const p = new DOMPoint(0, 0).matrixTransform((node as SVGGraphicsElement).getScreenCTM()!)
+        return { x: p.x, y: p.y }
+      })
+      await stableDrag(page, from, { x: from.x + dx, y: from.y + dy })
+    }
+  },
+)
+
+test(
+  'connected parent and child radius handles preserve all template paints',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    const state = createConnectedFixture({ clearanceRadius: 0.1 })
+    state.viewport = { ...state.viewport, scaleX: 200, scaleY: 200 }
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/')
+    await openAvoidanceProject(page, state)
+    await page.getByRole('button', { name: '示例模板', exact: true }).click()
+    await expect(page.locator('.template-thumbnail')).toHaveCount(9)
+    for (const [handleId, centerX] of [
+      ['avoidance-radius-parent-entry', 400],
+      ['avoidance-radius-clearance-bank-exit-entry', 500],
+    ] as const) {
+      const handle = page.getByTestId(handleId)
+      const point = await handle.evaluate((element) => {
+        const m = (element as SVGGElement).transform.baseVal.getItem(0).matrix
+        return { x: m.e, y: m.f }
+      })
+      const from = await screenPoint(page, (point.x - 400) / 40, (300 - point.y) / 40)
+      const to = await screenPoint(
+        page,
+        (centerX + 1.4 * (point.x - centerX) - 400) / 40,
+        (-1.4 * (point.y - 300)) / 40,
+      )
+      await stableDrag(page, from, to)
+    }
+  },
+)
 
 async function paint(page: Page) {
   return page

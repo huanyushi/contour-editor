@@ -28,7 +28,7 @@ test(
     await configureAvoidance(page, 1, -1)
     // Freeze the applied UI value BEFORE any pole or source-endpoint movement.
     const appliedRadius = Number(await page.getByLabel('绕行半径', { exact: true }).inputValue())
-    expect(appliedRadius).toBe(0.2) // four-unit source / 20
+    expect(appliedRadius).toBe(0.2) // Common source-scale rule, independent of zoom or source placement.
     let expected: BoundArcExpectation = {
       radius: appliedRadius,
       side: 'left',
@@ -77,12 +77,16 @@ test(
         await page.getByLabel('绕行侧', { exact: true }).selectOption('right')
         expected = { ...expected, side: 'right' }
       } else {
-        const width = to[1] < 0 ? '0.12' : from[1] < 0 ? '0.18' : '0.15'
         await expect(page.getByLabel('绕行侧', { exact: true })).toHaveCount(0)
-        await page.getByLabel('偏好开口宽度', { exact: true }).fill(width)
-        await page.getByLabel('偏好开口宽度', { exact: true }).press('Enter')
-        await expect(page.getByLabel('实际开口宽度', { exact: true })).toHaveText(width)
-        expected = { ...expected, preferredOpeningWidth: Number(width) }
+        await expect(page.getByLabel('偏好开口宽度', { exact: true })).toHaveCount(0)
+        await expect(page.getByLabel('两岸间距', { exact: true })).toHaveValue(
+          String(expected.preferredOpeningWidth),
+        )
+        // Viewing a legacy binding must not convert it; separate tests cover geometry edits.
+        expect((await savedProject(page)).document).toEqual(moved.document)
+        before = moved
+        from = to
+        continue
       }
       const edited = await savedProject(page)
       await expectBoundCircle(page, edited, to, expected)
@@ -175,7 +179,7 @@ test(
 )
 
 test(
-  'two explicit bindings share a source without endpoint creation; side/radius/removal are isolated and source versus part selection paints the correct chain',
+  'two explicit bindings share a source without endpoint creation; retained pieces and detours select independently and edits stay isolated',
   { tag: '@desktop-only' },
   async ({ page }) => {
     const state = createAvoidanceFixture()
@@ -194,7 +198,7 @@ test(
     expect(original.document.avoidances).toHaveLength(2)
     expect(original.document.vertices).toEqual(state.vertices)
     expect(original.document.segments).toEqual(state.segments)
-    await selectObject(page, '选择路径段 1')
+    await selectObject(page, '选择路径段 1 的保留段 1')
     await showCanvas(page)
     const painted = () =>
       page
@@ -203,9 +207,9 @@ test(
         .locator('[data-testid^="segment-"]')
         .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-testid')))
     const sourcePaint = await painted()
-    expect(sourcePaint).toHaveLength(5)
-    expect(sourcePaint).toContain(`segment-avoid:${original.document.avoidances![0].id}:arc`)
-    expect(sourcePaint).toContain(`segment-avoid:${original.document.avoidances![1].id}:arc`)
+    expect(sourcePaint).toEqual([
+      `segment-gap:edge-a:before:${original.document.avoidances![0].id}`,
+    ])
     await clickPoint(page, -1, 0.6)
     expect(await painted()).toEqual([`segment-avoid:${original.document.avoidances![0].id}:arc`])
     await page.getByLabel('绕行侧', { exact: true }).selectOption('right')

@@ -17,7 +17,6 @@ export interface AvoidanceGeometry {
   exitBase: ComplexPoint
   through: ComplexPoint
   arc: CircularArc
-  projectedCenter: number
   signedDistance: number
   preferredOpeningWidth: number
   actualOpeningWidth: number
@@ -151,7 +150,6 @@ export function buildAvoidance(input: AvoidanceInput): AvoidanceResult {
         radius,
         startAngle: Math.atan2(entry.im - center.im, entry.re - center.re),
       },
-      projectedCenter: s * scale,
       signedDistance: h * scale,
       preferredOpeningWidth: preferred * radius,
       actualOpeningWidth: width * radius,

@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { useReducer } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAvoidanceFixture, createHugeOrdinaryArcFixture } from '../../test/avoidanceFixtures'
 import { MAX_PROJECT_BYTES, serializeProject } from '../project/format'
 import { parseProject } from '../project/project'
@@ -10,6 +10,9 @@ import { avoidanceDraftReducer } from './avoidanceDraft'
 import { createHistory, historyReducer, type EditorAction } from './history'
 import { contourReducer, type ContourState } from './model'
 import { useAvoidanceDraft } from './useAvoidanceDraft'
+import * as targets from './avoidanceTarget'
+
+afterEach(() => vi.restoreAllMocks())
 
 function sourceFixture() {
   const source = createAvoidanceFixture()
@@ -18,7 +21,18 @@ function sourceFixture() {
 }
 
 function delayedCornerFixture() {
+  // Automatic fitting now repairs this default. Seed an intentionally invalid
+  // initial candidate to retain the regression for deferred side initialization.
+  const makeTarget = targets.makeAvoidanceTarget
+  vi.spyOn(targets, 'makeAvoidanceTarget').mockImplementation((...args) => {
+    const result = makeTarget(...args)
+    if (result.ok && (result.value.kind === undefined || result.value.kind === 'local'))
+      return { ok: true, value: { ...result.value, radius: 5, side: 'left' } }
+    return result
+  })
   const source = sourceFixture()
+  // At this overview scale the preferred visible radius still exceeds the short edge.
+  source.viewport = { ...source.viewport, scaleX: 4.8, scaleY: 4.8 }
   source.markers = []
   source.vertices = [
     { id: 'a', re: 0, im: 100 },
@@ -74,7 +88,7 @@ describe('avoidance draft', () => {
 
   it.each([
     { target: 'edge-a', center: { re: 0, im: 0 }, radius: 0.4, length: 8 },
-    { target: 'edge-d', center: { re: -4, im: 1.5 }, radius: 0.15, length: 3 },
+    { target: 'edge-d', center: { re: -4, im: 1.5 }, radius: 0.4, length: 3 },
   ])(
     'suggests radius $radius for source length $length, committing only on explicit apply',
     ({ target, center, radius }) => {
@@ -231,6 +245,7 @@ describe('avoidance draft', () => {
     const { result } = renderHook(() => useAvoidanceDraft(source, dispatch))
     act(() => result.current.start('pole'))
     act(() => result.current.pickTarget('edge-a'))
+    act(() => result.current.patch({ radius: 0.6 }))
     expect(result.current.preview).toMatchObject({
       ok: false,
       error: expect.stringMatching(/重叠|接近/),
@@ -308,6 +323,9 @@ describe('avoidance draft', () => {
     act(() => result.current.apply())
     expect(dispatch).not.toHaveBeenCalled()
     act(() => result.current.patch({ radius: 0.1 }))
+    // Radius edits do not silently shrink the independently chosen bank spacing.
+    expect(result.current.preview?.ok).toBe(false)
+    act(() => result.current.patch({ gap: 0.06 }))
     expect(result.current.preview?.ok).toBe(true)
   })
 
@@ -390,7 +408,7 @@ describe('avoidance draft', () => {
     expect(result.current.draft.kind).toBe('configure')
     expect(result.current.preview).toMatchObject({
       ok: false,
-      error: expect.stringContaining('edge-a'),
+      error: expect.stringMatching(/接入区间|源路径/),
     })
     act(() => result.current.patch({ radius: 3 }))
     expect(result.current.draft).toMatchObject({ kind: 'configure', avoidance: { radius: 3 } })

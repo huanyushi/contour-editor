@@ -9,7 +9,9 @@ import {
 } from './appearance'
 import { activeSegments, isSingleCycle } from './pathTopology'
 import { workspaceReducer, type WorkspaceAction } from './workspace'
-import { segmentOrigin } from './sceneObjects'
+import { segmentOrigin, findSegment } from './sceneObjects'
+import { sourcePieceId } from './sourcePieces'
+import { pruneAvoidances } from './avoidanceDependencies'
 import {
   selectedSegmentLabel,
   selectedSegmentStyle,
@@ -17,7 +19,7 @@ import {
   type SelectionWorkspaceEdit,
 } from './avoidanceSelection'
 
-export interface SelectionStylePatch {
+interface SelectionStylePatch {
   color?: string
   width?: number
   radius?: number
@@ -45,16 +47,17 @@ export function cleanupRemovedAvoidanceSelection(
   const live = new Set(candidate.avoidances.map((a) => a.id))
   const removed = before.avoidances.filter((a) => !live.has(a.id))
   if (!removed.length) return candidate
-  const stale = (id: string) =>
-    removed.some(
+  const stale = (id: string) => {
+    const origin = id.startsWith('piece:') ? segmentOrigin(before, id) : undefined
+    return removed.some(
       (a) =>
         id.startsWith(`avoid:${a.id}:`) ||
-        id === `gap:${a.targetSegmentId}:before:${a.id}` ||
-        id === `gap:${a.targetSegmentId}:after:${a.id}` ||
-        (a.exitSegmentId !== undefined &&
-          (id === `gap:${a.exitSegmentId}:before:${a.id}` ||
-            id === `gap:${a.exitSegmentId}:after:${a.id}`)),
+        (origin?.kind === 'gap' &&
+          [origin.piece.startAvoidanceId, origin.piece.endAvoidanceId].includes(a.id)) ||
+        (id.startsWith('gap:') &&
+          (id.endsWith(`:before:${a.id}`) || id.endsWith(`:after:${a.id}`))),
     )
+  }
   const items = selectionItems(candidate.selection)
   const kept = items.filter((item) => item.kind === 'contour' || !stale(item.id))
   const selection =
@@ -72,8 +75,43 @@ export function cleanupRemovedAvoidanceSelection(
   }
 }
 
-export function selectionKey(item: SelectionItem): string {
+function selectionKey(item: SelectionItem): string {
   return item.kind === 'contour' ? 'contour' : `${item.kind}:${item.id}:${item.part ?? ''}`
+}
+
+/** Direction reversal changes boundary roles, not the physical selected object. */
+export function reverseSourcePieceSelection(
+  before: ContourState,
+  candidate: ContourState,
+): ContourState {
+  const remapId = (id: string) => {
+    const origin = segmentOrigin(before, id)
+    if (origin?.kind !== 'gap') return id
+    const old = findSegment(before, origin.sourceSegmentId)
+    const current = findSegment(candidate, origin.sourceSegmentId)
+    if (!old || !current || old.startId !== current.endId || old.endId !== current.startId)
+      return id
+    return sourcePieceId(current.id, {
+      startAvoidanceId: origin.piece.endAvoidanceId,
+      endAvoidanceId: origin.piece.startAvoidanceId,
+    })
+  }
+  const remapItem = (item: SelectionItem): SelectionItem => {
+    if (item.kind !== 'segment') return item
+    const id = remapId(item.id)
+    return id === item.id ? item : { ...item, id }
+  }
+  const selectedSegmentId = remapId(candidate.selectedSegmentId)
+  let selection = candidate.selection
+  if (selection.kind === 'multiple') {
+    const original = selection
+    const items = original.items.map(remapItem)
+    if (items.some((item, index) => item !== original.items[index]))
+      selection = { ...original, items }
+  } else if (selection.kind !== 'none') selection = remapItem(selection)
+  return selection === candidate.selection && selectedSegmentId === candidate.selectedSegmentId
+    ? candidate
+    : { ...candidate, selection, selectedSegmentId }
 }
 
 export function isSelected(selection: Selection, target: SelectionItem): boolean {
@@ -267,13 +305,16 @@ export function deleteItems(state: ContourState, items: SelectionItem[]): Contou
     (s) =>
       !edgesToDelete.has(s.id) && remainingPoints.has(s.startId) && remainingPoints.has(s.endId),
   )
-  const liveSegments = new Set([...segments, ...connections].map((s) => s.id))
-  const avoidances = next.avoidances.filter(
-    (a) =>
-      !bindingsToDelete.has(a.id) &&
-      liveSegments.has(a.targetSegmentId) &&
-      (a.exitSegmentId === undefined || liveSegments.has(a.exitSegmentId)) &&
-      remainingPoints.has(a.markerId),
+  const avoidances = pruneAvoidances(
+    state,
+    {
+      ...next,
+      vertices,
+      segments,
+      connections,
+      markers: next.markers.filter((m) => !markers.has(m.id)),
+    },
+    bindingsToDelete,
   )
   return {
     ...next,

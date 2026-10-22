@@ -2,7 +2,15 @@ import { useRef, useState, type Dispatch } from 'react'
 import { constructAvoidance } from './avoidanceConstruction'
 import { defaultLabel } from './appearance'
 import { AvoidanceFields } from './AvoidanceFields'
-import type { Avoidance, AvoidancePart } from './avoidanceTypes'
+import type { LegacyAvoidance, ParentAvoidancePart } from './avoidanceTypes'
+import { isLegacyAvoidance } from './avoidanceTypes'
+import {
+  avoidanceSelectionId,
+  avoidanceSourceIds,
+  relatedAvoidanceIds,
+} from './avoidanceDependencies'
+import { ConnectedAvoidanceProperties } from './ConnectedAvoidanceProperties'
+import { editableAvoidance } from './avoidanceParameters'
 import type { EditorAction } from './history'
 import { focusInspector } from './inspectorFocus'
 import { LabelForm } from './LabelForm'
@@ -19,7 +27,7 @@ import { StrokeFields } from './StyleFields'
 import type { AvoidanceWorkflow } from './useAvoidanceDraft'
 import { mathematicalCategories, mathematicalCategory, mathematicalNames } from './mathematicalKind'
 
-export interface AvoidancePropertiesProps {
+interface AvoidancePropertiesProps {
   state: ContourState
   dispatch: Dispatch<EditorAction>
   workflow: AvoidanceWorkflow
@@ -27,7 +35,7 @@ export interface AvoidancePropertiesProps {
   markerId?: string
 }
 
-const partNames: Record<AvoidancePart, string> = {
+const partNames: Record<ParentAvoidancePart, string> = {
   entry: '进入连接段',
   arc: '绕行圆弧',
   exit: '离开连接段',
@@ -45,11 +53,11 @@ function BindingEditor({
   state: ContourState
   dispatch: Dispatch<EditorAction>
   workflow: AvoidanceWorkflow
-  value: Avoidance
+  value: LegacyAvoidance
   creating?: boolean
 }) {
   const content = useRef<HTMLDivElement>(null)
-  const [hiddenPart, setHiddenPart] = useState<AvoidancePart>('arc')
+  const [hiddenPart, setHiddenPart] = useState<ParentAvoidancePart>('arc')
   const source = findSegment(state, value.targetSegmentId)!
   const start = findPoint(state, source.startId)!
   const end = findPoint(state, source.endId)!
@@ -258,36 +266,59 @@ export function AvoidanceProperties({
       </div>
     )
   if (draft.kind === 'configure')
-    return (
-      <BindingEditor
-        key={draft.avoidance.id}
-        state={state}
-        dispatch={dispatch}
-        workflow={workflow}
-        value={draft.avoidance}
-        creating
-      />
-    )
-  const avoidance = state.avoidances.find((a) => a.id === avoidanceId)
+    if (!isLegacyAvoidance(draft.avoidance))
+      return (
+        <ConnectedAvoidanceProperties
+          key={draft.avoidance.id}
+          state={state}
+          dispatch={dispatch}
+          workflow={workflow}
+          value={draft.avoidance}
+          creating
+        />
+      )
+    else
+      return (
+        <BindingEditor
+          key={draft.avoidance.id}
+          state={state}
+          dispatch={dispatch}
+          workflow={workflow}
+          value={draft.avoidance}
+          creating
+        />
+      )
+  const stored = state.avoidances.find((a) => a.id === avoidanceId)
+  const avoidance = stored && editableAvoidance(state, stored)
   if (avoidance)
-    return (
-      <BindingEditor
-        key={avoidance.id}
-        state={state}
-        dispatch={dispatch}
-        workflow={workflow}
-        value={avoidance}
-      />
-    )
+    if (!isLegacyAvoidance(avoidance))
+      return (
+        <ConnectedAvoidanceProperties
+          key={avoidance.id}
+          state={state}
+          dispatch={dispatch}
+          workflow={workflow}
+          value={avoidance}
+        />
+      )
+    else
+      return (
+        <BindingEditor
+          key={avoidance.id}
+          state={state}
+          dispatch={dispatch}
+          workflow={workflow}
+          value={avoidance}
+        />
+      )
   const marker = markerId ? findPoint(state, markerId) : undefined
   const category = mathematicalCategory(marker?.mathematicalKind)
   const selection = state.selection
   const sourceId =
     selection.kind === 'segment' ? segmentOrigin(state, selection.id)?.sourceSegmentId : undefined
+  const related = new Set(sourceId ? relatedAvoidanceIds(state, sourceId) : [])
   const bindings = state.avoidances.filter((a) =>
-    marker
-      ? a.markerId === marker.id
-      : a.targetSegmentId === sourceId || a.exitSegmentId === sourceId,
+    marker ? a.markerId === marker.id : related.has(a.id),
   )
   return (
     <div className="property-group">
@@ -323,7 +354,7 @@ export function AvoidanceProperties({
           className="full-width"
           aria-label={`编辑绕行 ${index + 1}`}
           onClick={() => {
-            const id = `avoid:${a.id}:arc`
+            const id = avoidanceSelectionId(a)
             if (segmentOrigin(state, id)) dispatch({ type: 'selectSegment', id })
             else onInspectHidden?.(a.id)
             focusInspector()
@@ -331,14 +362,18 @@ export function AvoidanceProperties({
         >
           绕行 {index + 1} ·{' '}
           {marker
-            ? `原路径 ${a.targetSegmentId}${a.exitSegmentId ? `、${a.exitSegmentId}` : ''}`
+            ? a.kind === 'bank-clearance'
+              ? `父绕行 ${a.parentAvoidanceId}`
+              : `原路径 ${avoidanceSourceIds(state, a.id).join('、')}`
             : `奇点 ${a.markerId}`}
         </button>
       ))}
       {marker && marker.mathematicalKind && marker.mathematicalKind !== 'ordinary' && (
-        <button className="full-width" onClick={() => workflow.start(marker.id)}>
-          添加绕行
-        </button>
+        <>
+          <button className="full-width" onClick={() => workflow.start(marker.id)}>
+            添加绕行
+          </button>
+        </>
       )}
       {!marker && sourceId && findSegment(state, sourceId) && (
         <>

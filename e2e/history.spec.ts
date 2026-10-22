@@ -32,7 +32,7 @@ async function dragTo(page: Page, testId: string, re: number, im: number, steps 
   await page.mouse.up()
 }
 
-test('compact panels fit desktop height and remain reachable in a short viewport', async ({
+test('panels fit the viewport and keep controls reachable across font metrics', async ({
   page,
 }, info) => {
   await page.goto('/')
@@ -41,8 +41,16 @@ test('compact panels fit desktop height and remain reachable in a short viewport
   const content = page.getByLabel('属性面板内容')
   if (info.project.name === 'desktop') {
     expect(await tools.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true)
-    expect(await content.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true)
+    await expect(tools).toBeInViewport({ ratio: 1 })
   }
+  // System fonts change content height. The panel must fit; its content may scroll.
+  await expect(page.getByRole('complementary', { name: '对象属性' })).toBeInViewport({ ratio: 1 })
+  await expect(content).toBeInViewport({ ratio: 1 })
+  await content.hover({ position: { x: 6, y: 20 } })
+  await page.mouse.wheel(0, await content.evaluate((node) => node.scrollHeight))
+  const reverse = content.getByRole('button', { name: '反转方向', exact: true })
+  await expect(reverse).toBeInViewport({ ratio: 1 })
+  await expect(reverse).toBeEnabled()
   await page.screenshot({ path: info.outputPath('compact-sidebar.png'), fullPage: true })
   await selectObject(page, '选择顶点 z1')
   await expect(page.getByLabel('属性面板内容')).toBeFocused()
@@ -50,18 +58,26 @@ test('compact panels fit desktop height and remain reachable in a short viewport
   await expect(page.getByLabel('实部 Re', { exact: true })).toBeHidden()
   if (info.project.name === 'desktop') await page.setViewportSize({ width: 1280, height: 480 })
   await page.getByLabel('LaTeX 标签').fill('a+b')
-  await page.getByRole('button', { name: '应用标签', exact: true }).scrollIntoViewIfNeeded()
-  await expect(page.getByRole('button', { name: '应用标签', exact: true })).toBeInViewport()
+  await content.hover({ position: { x: 6, y: 20 } })
+  await page.mouse.wheel(0, await content.evaluate((node) => node.scrollHeight))
+  await expect(page.getByRole('button', { name: '应用标签', exact: true })).toBeInViewport({
+    ratio: 1,
+  })
   await page.getByRole('button', { name: '应用标签', exact: true }).click()
   await expect(page.getByTestId('label-a')).toHaveAttribute('aria-label', 'a+b')
   await openView(page)
   await page.getByRole('button', { name: '在原点追加顶点', exact: true }).scrollIntoViewIfNeeded()
-  await expect(page.getByRole('button', { name: '在原点追加顶点', exact: true })).toBeInViewport()
+  await expect(page.getByRole('button', { name: '在原点追加顶点', exact: true })).toBeInViewport({
+    ratio: 1,
+  })
   await page.getByRole('button', { name: '在原点追加顶点', exact: true }).click()
   await expect(page.getByLabel('实部 Re', { exact: true })).toHaveValue('0')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight),
+  ).toBe(true)
 })
 
 test(

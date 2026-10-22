@@ -1,10 +1,13 @@
 import { expect, it } from 'vitest'
 import { contourReducer, createInitialState } from './model'
-import { contourTemplates } from './templates'
-import { itemsWithinRect, selectionBounds } from './selectionGeometry'
+import { itemAnchor, itemsWithinRect, selectionBounds } from './selectionGeometry'
+import { createLegacyTemplateFixture } from '../../test/legacyTemplates'
+import { createConnectedFixture } from '../../test/connectedAvoidanceFixtures'
+import { logicalSegmentId } from './sceneObjects'
+import type { SelectionItem } from './appearance'
 
 it('selects only complete segments, including the full extent of major arcs', () => {
-  const state = contourTemplates.find((t) => t.id === 'keyhole')!.create()
+  const state = createLegacyTemplateFixture('keyhole')
   const items = itemsWithinRect(state, { left: 410, right: 550, top: 275, bottom: 325 })
   expect(items).toContainEqual({ kind: 'vertex', id: 'v1' })
   expect(items).toContainEqual({ kind: 'segment', id: 'edge-v2' })
@@ -14,6 +17,39 @@ it('selects only complete segments, including the full extent of major arcs', ()
   expect(bounds.left).toBeLessThan(261)
   expect(bounds.top).toBeLessThan(161)
   expect(bounds.bottom).toBeGreaterThan(439)
+})
+
+it('bounds a split logical bank by all its own visible fragments, excluding its child arcs', () => {
+  const state = createConnectedFixture({ clearanceRadius: 0.1 })
+  const bank: SelectionItem = { kind: 'segment', id: 'avoid:parent:entry' }
+  const bounds = selectionBounds(state, [bank])
+  expect(bounds).not.toBeNull()
+  expect(bounds!.left).toBeLessThan(398)
+  expect(bounds!.right).toBeGreaterThan(445)
+  expect(bounds!.top).toBeCloseTo(294.8)
+  expect(bounds!.bottom).toBeCloseTo(306.8)
+  const anchor = itemAnchor(state, bank)
+  expect(anchor).not.toBeNull()
+  expect(anchor!.y).toBeCloseTo(300.8)
+  expect(anchor!.x).toBeGreaterThan(403)
+  expect(anchor!.x).toBeLessThan(440)
+  const hidden = { ...state, closed: false }
+  expect(selectionBounds(hidden, [bank])).toBeNull()
+  expect(itemAnchor(hidden, bank)).toBeNull()
+})
+
+it('requires every visible fragment before marquee-selecting a logical bank and returns it only once', () => {
+  const state = createConnectedFixture({ clearanceRadius: 0.1 })
+  const bank: SelectionItem = { kind: 'segment', id: 'avoid:parent:entry' }
+  const partial = itemsWithinRect(state, { left: 417, right: 447, top: 294, bottom: 308 })
+  expect(
+    partial.flatMap((item) => (item.kind === 'segment' ? [logicalSegmentId(state, item.id)] : [])),
+  ).not.toContain(bank.id)
+  // The child arc extends below this rectangle; the two parent line fragments
+  // fit completely, so they select their bank, not the independently editable child.
+  const complete = itemsWithinRect(state, { left: 397, right: 447, top: 294, bottom: 308 })
+  expect(complete.filter((item) => item.kind === 'segment' && item.id === bank.id)).toEqual([bank])
+  expect(complete).not.toContainEqual({ kind: 'segment', id: 'avoid:clearance:bank-entry' })
 })
 
 it('uses the visible formula bounds instead of its mathematical anchor when box-selecting', () => {

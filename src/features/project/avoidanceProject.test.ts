@@ -5,7 +5,7 @@ import { contourReducer, createInitialState } from '../contour/model'
 import { defaultLabel } from '../contour/appearance'
 import { resolveScene } from '../contour/resolvedScene'
 import { canProjectScene } from '../contour/sceneView'
-import { projectCapacityError } from './format'
+import { validateProjectCapacity } from './format'
 import { MAX_PROJECT_BYTES, parseProject, serializeProject, type ProjectFile } from './project'
 
 interface RawFile {
@@ -337,7 +337,7 @@ describe('version 3 source documents', () => {
       markerId: marker.id,
       radius: 0.001,
     }))
-    expect(projectCapacityError(source)).toBe('')
+    expect(validateProjectCapacity(source).ok).toBe(true)
     const restored = parseProject(serializeProject(source))
     expect(restored.vertices).toHaveLength(4)
     expect(restored.avoidances).toHaveLength(1000)
@@ -349,7 +349,10 @@ describe('version 3 source documents', () => {
     // A second target can reuse the first marker. This retained closing edge is
     // hidden, so the 1001st declaration is geometrically valid but over capacity.
     source.avoidances.push({ ...source.avoidances[0], id: 'extra', targetSegmentId: 'edge-d' })
-    expect(projectCapacityError(source)).toMatch(/1000/)
+    expect(validateProjectCapacity(source)).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/1000/),
+    })
     const rejected = contourReducer(restored, { type: 'loadProject', state: source })
     expect(rejected.avoidances).toBe(restored.avoidances)
     expect(rejected.error).toMatch(/1000/)
@@ -403,13 +406,19 @@ describe('version 3 source documents', () => {
       MAX_PROJECT_BYTES,
     )
     expect(() => parseProject(serializeProject(source))).toThrow(/2 MB/)
-    expect(projectCapacityError(source)).toMatch(/2 MB/)
+    expect(validateProjectCapacity(source)).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/2 MB/),
+    })
   })
 
   it('validates invalid bindings before attempting scene capacity/projection queries', () => {
     const source = createAvoidanceFixture()
     source.avoidances[0].targetSegmentId = 'missing'
-    expect(projectCapacityError(source)).toMatch(/avoid-1.*missing/)
-    expect(projectCapacityError(createInitialState())).toBe('')
+    expect(validateProjectCapacity(source)).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/avoid-1.*missing/),
+    })
+    expect(validateProjectCapacity(createInitialState()).ok).toBe(true)
   })
 })

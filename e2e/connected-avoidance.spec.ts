@@ -66,7 +66,7 @@ test(
     await selectObject(page, '选择标记点 2')
     await page.getByRole('button', { name: '添加绕行', exact: true }).click()
     await click(page, 0.75, -0.02)
-    await number(page, '绕行半径', '0.1')
+    await expect(page.getByLabel('绕行半径', { exact: true })).toHaveValue('0.1')
     await page.getByRole('button', { name: '应用绕行', exact: true }).click()
     const file = await savedProject(page)
     const child = file.document.avoidances!.find((a) => a.kind === 'bank-clearance')!
@@ -187,6 +187,47 @@ test(
       await page.mouse.up()
       expect((await savedProject(page)).document).toEqual(original)
     }
+  },
+)
+
+test(
+  'marquee selects an entire split bank once and its selection frame remains draggable',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    const state = createConnectedFixture({ clearanceRadius: 0.1 })
+    state.viewport = { ...state.viewport, scaleX: 200, scaleY: 200 }
+    await page.goto('/')
+    await openAvoidanceProject(page, state)
+    const before = (await savedProject(page)).document
+    await page.getByRole('button', { name: '框选工具', exact: true }).click()
+    const marquee = async (left: number) => {
+      const start = await at(page, left, 0.015)
+      const end = await at(page, 1.05, -0.055)
+      await page.mouse.move(start.x, start.y)
+      await page.mouse.down()
+      await page.mouse.move(end.x, end.y, { steps: 5 })
+      await page.mouse.up()
+    }
+    await marquee(0.56)
+    await expect(page.getByTestId('selection-rectangle')).toHaveCount(0)
+    await marquee(0.05)
+    await expect(page.getByTestId('selection-toolbar')).toContainText('1 个对象')
+    const frame = page.getByTestId('selection-rectangle')
+    await expect(frame).toBeVisible()
+    const box = (await frame.boundingBox())!
+    const path = page.getByTestId('contour-path')
+    const original = await path.getAttribute('d')
+    await page.mouse.move(box.x + box.width / 3, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 3 + 40, box.y + box.height / 2 - 20, { steps: 5 })
+    await page.mouse.up()
+    await expect(path).not.toHaveAttribute('d', original!)
+    const moved = (await savedProject(page)).document
+    expect(moved.avoidances).toEqual(before.avoidances)
+    expect(moved.markers[0].re).toBeCloseTo(0.2)
+    expect(moved.markers[0].im).toBeCloseTo(0.1)
+    await page.getByRole('button', { name: '撤销', exact: true }).click()
+    expect((await savedProject(page)).document).toEqual(before)
   },
 )
 

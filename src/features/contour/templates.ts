@@ -1,6 +1,9 @@
 import type { ComplexPoint } from '../../lib/geometry'
-import { defaultLabel, defaultPointStyle } from './appearance'
+import { defaultLabel, defaultPointStyle, type LabelSettings } from './appearance'
+import { makeAvoidanceTarget } from './avoidanceTarget'
+import type { AvoidancePart, MathematicalKind } from './avoidanceTypes'
 import type { ContourState, Vertex } from './model'
+import { resolvedScene } from './sceneObjects'
 import { createWorkspaceState, type SceneObject } from './workspace'
 
 export interface ContourTemplate {
@@ -31,8 +34,41 @@ function polarPoint(radius: number, degrees: number, tex = ''): Vertex {
   return point(p.re, p.im, tex)
 }
 
-function marker(id: string, re: number, im: number, tex: string): SceneObject {
-  return { id, re, im, label: defaultLabel(tex), pointStyle: defaultPointStyle() }
+function marker(
+  id: string,
+  re: number,
+  im: number,
+  tex: string,
+  mathematicalKind?: MathematicalKind,
+): SceneObject {
+  return {
+    id,
+    re,
+    im,
+    ...(mathematicalKind ? { mathematicalKind } : {}),
+    label: defaultLabel(tex),
+    pointStyle: defaultPointStyle(),
+  }
+}
+
+function withAvoidance(
+  state: ContourState,
+  markerId: string,
+  target: Parameters<typeof makeAvoidanceTarget>[2],
+  partLabels: Partial<Record<AvoidancePart, LabelSettings>>,
+): ContourState {
+  const result = makeAvoidanceTarget(state, markerId, target)
+  if (!result.ok) throw new Error(`模板绕行创建失败：${result.error}`)
+  return {
+    ...state,
+    avoidances: [
+      ...state.avoidances,
+      {
+        ...result.value,
+        partLabels,
+      },
+    ],
+  }
 }
 
 function contour(
@@ -79,58 +115,55 @@ export function createRectangleState(): ContourState {
 }
 
 function semicircle(indented: boolean): ContourState {
-  return contour(
-    [
-      point(4, 0, 'R'),
-      point(-4, 0, '-R', -28),
-      ...(indented ? [point(-0.5, 0, '-\\delta', -32), point(0.5, 0, '\\delta')] : []),
-    ],
-    {
-      0: { through: { re: 0, im: 4 }, tex: 'C_R' },
-      ...(indented
-        ? { 2: { through: { re: 0, im: 0.5 }, tex: 'C_\\delta', dx: 12, dy: -18 } }
-        : {}),
-    },
+  const state = contour(
+    [point(4, 0, 'R'), point(-4, 0, '-R', -28)],
+    { 0: { through: { re: 0, im: 4 }, tex: 'C_R' } },
+    indented ? [marker('origin', 0, 0, '0', 'isolated')] : [],
   )
+  return indented
+    ? withAvoidance(
+        state,
+        'origin',
+        { renderedId: 'edge-v2' },
+        {
+          arc: { ...defaultLabel('C_\\delta'), dy: -44 },
+        },
+      )
+    : state
 }
 
 function keyhole(indented: boolean): ContourState {
-  // Match the TikZ parallel banks y = ±gap/2. Both inner and outer arcs
-  // meet those banks on their circles, rather than on a common radial ray.
-  const bank = 0.15
-  const outerX = Math.sqrt(3.5 ** 2 - bank ** 2)
-  const innerX = Math.sqrt(0.5 ** 2 - bank ** 2)
-  if (!indented)
-    return contour(
-      [
-        point(outerX, bank, 'R', 10, -28),
-        point(outerX, -bank),
-        point(innerX, -bank, '\\delta', 10, 14),
-        point(innerX, bank),
-      ],
-      {
-        0: { through: { re: -3.5, im: 0 }, tex: 'C_R', dx: -36 },
-        2: { through: { re: -0.5, im: 0 }, tex: 'C_\\delta', dx: -46, dy: -26 },
-      },
-    )
-  return contour(
-    [
-      point(outerX, bank, 'R', 10, -28),
-      point(outerX, -bank),
-      point(2 + innerX, -bank),
-      point(2 - innerX, -bank),
-      point(innerX, -bank, '\\delta', -6, 14),
-      point(innerX, bank),
-      point(2 - innerX, bank),
-      point(2 + innerX, bank),
-    ],
+  // Only the source circle is authored here. The right-hand opening, inner
+  // arc and both banks are derived by the same construction as user drawing.
+  const state = contour(
+    [point(0, 3.5), point(0, -3.5)],
     {
       0: { through: { re: -3.5, im: 0 }, tex: 'C_R', dx: -36 },
-      2: { through: { re: 2, im: -0.5 }, tex: 'C_{\\delta_1}', dx: -15, dy: 12 },
-      4: { through: { re: -0.5, im: 0 }, tex: 'C_\\delta', dx: -46, dy: -26 },
-      6: { through: { re: 2, im: 0.5 }, tex: 'C_{\\delta_2}', dx: -15 },
+      1: { through: { re: 3.5, im: 0 } },
     },
-    [marker('pole', 2, 0, 'z_0')],
+    [
+      marker('origin', 0, 0, '0', 'branch'),
+      ...(indented ? [marker('pole', 2, 0, 'z_0', 'isolated')] : []),
+    ],
+  )
+  const parent = withAvoidance(
+    state,
+    'origin',
+    { renderedId: 'edge-v2', point: { re: 3.5, im: 0 } },
+    { arc: { ...defaultLabel('C_\\delta'), dx: -46 } },
+  )
+  if (!indented) return parent
+  const bank = resolvedScene(parent).contourSegments.find(
+    (segment) => segment.origin.kind === 'avoidance' && segment.origin.part === 'entry',
+  )!
+  return withAvoidance(
+    parent,
+    'pole',
+    { renderedId: bank.id },
+    {
+      'bank-entry': { ...defaultLabel('C_{\\delta_1}'), dx: -15, dy: 12 },
+      'bank-exit': { ...defaultLabel('C_{\\delta_2}'), dx: -15 },
+    },
   )
 }
 
@@ -138,31 +171,22 @@ function bromwich(indented: boolean): ContourState {
   const top = polarPoint(4, 60, 'B')
   top.label = { ...top.label!, dy: -24 }
   const bottom = polarPoint(4, -60, 'A')
-  if (!indented)
-    return contour([top, bottom], {
+  const state = contour(
+    [top, bottom],
+    {
       0: { through: { re: -4, im: 0 }, tex: 'C_R', dx: -38 },
       1: { tex: '\\operatorname{Re} z = \\sigma', dx: 16, dy: -12 },
-    })
-  const bank = 0.15
-  const outerX = Math.sqrt(4 ** 2 - bank ** 2)
-  const innerX = Math.sqrt(0.6 ** 2 - bank ** 2)
-  const outerAngle = (Math.asin(bank / 4) * 180) / Math.PI
-  return contour(
-    [
-      top,
-      point(-outerX, bank, '-R', -28, -28),
-      point(-innerX, bank, '-\\delta', -38, -28),
-      point(-innerX, -bank),
-      point(-outerX, -bank),
-      bottom,
-    ],
-    {
-      0: { through: polar(4, (60 + 180 - outerAngle) / 2), tex: 'C_{R_1}', dx: -36 },
-      2: { through: { re: 0.6, im: 0 }, tex: 'C_\\delta', dx: 12, dy: -18 },
-      4: { through: polar(4, (-180 + outerAngle - 60) / 2), tex: 'C_{R_2}', dy: 14 },
-      5: { tex: '\\operatorname{Re} z = \\sigma', dx: 16, dy: -12 },
     },
+    indented ? [marker('origin', 0, 0, '0', 'branch')] : [],
   )
+  return indented
+    ? withAvoidance(
+        state,
+        'origin',
+        { renderedId: 'edge-v1', point: { re: -4, im: 0 } },
+        { arc: { ...defaultLabel('C_\\delta'), dx: 24 } },
+      )
+    : state
 }
 
 export const contourTemplates: ContourTemplate[] = [

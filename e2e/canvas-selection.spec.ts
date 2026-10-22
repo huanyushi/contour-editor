@@ -26,6 +26,9 @@ test('only actual objects open the inspector; blank space, holes and unfilled in
 }) => {
   await page.goto('/')
   const keyhole = contourTemplates.find((template) => template.id === 'keyhole')!.create()
+  // Leave genuine empty space between the origin marker's 16px hit target
+  // and the inner arc's hit stroke; neither is blank-space navigation.
+  keyhole.avoidances[0].radius = 1
   await page.getByLabel('打开项目文件').setInputFiles({
     name: 'keyhole.json',
     mimeType: 'application/json',
@@ -38,10 +41,15 @@ test('only actual objects open the inspector; blank space, holes and unfilled in
   const original = await path.getAttribute('d')
   await clickPoint(page, 0, -4)
   await expect(inspector).toBeHidden()
-  await clickPoint(page, 0, 0)
+  // The new template has a real branch-point marker at the origin; the
+  // surrounding inner disk is still empty and must not open the Inspector.
+  await clickPoint(page, -0.5, -0.3)
   await expect(inspector).toBeHidden()
   await expect(path).toHaveAttribute('d', original!)
   await expect(page.getByRole('button', { name: '撤销', exact: true })).toBeEnabled()
+  await clickPoint(page, 0, 0)
+  await expect(page.getByRole('heading', { name: '标记点属性', exact: true })).toBeVisible()
+  await closeInspector(page)
   await openView(page)
   await clickPoint(page, 0, -4)
   await expect(page.getByRole('complementary', { name: '视图设置', exact: true })).toBeVisible()
@@ -61,8 +69,8 @@ test('only actual objects open the inspector; blank space, holes and unfilled in
   await clickPoint(page, 0, -4)
   await expect(page.getByRole('heading', { name: '顶点属性', exact: true })).toBeVisible()
   await closeInspector(page)
-  await page.getByTestId('label-handle-v1').click()
-  await expect(page.getByRole('heading', { name: '顶点属性', exact: true })).toBeVisible()
+  await page.getByTestId('label-handle-origin').click()
+  await expect(page.getByRole('heading', { name: '标记点属性', exact: true })).toBeVisible()
 })
 
 test('pointer clicks do not draw a canvas frame and keyboard focus stays visible', async ({

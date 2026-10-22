@@ -71,6 +71,17 @@ function segmentBounds(state: ContourState, segment: PathSegment, scene: Resolve
   return { bounds, anchor: middle }
 }
 
+function segmentChain(state: ContourState, id: string, scene: ResolvedScene) {
+  const logicalId = logicalSegmentId(state, id)
+  const parts = scene.partChains?.get(logicalId)
+  // A parent's traversal chain also contains independently editable child arcs.
+  // Its selection includes only fragments actually owned by that logical part.
+  return parts
+    ? parts.filter((segment) => logicalSegmentId(state, segment.id) === logicalId)
+    : (scene.chains.get(id) ??
+        [...scene.contourSegments, ...scene.connectionSegments].filter((s) => s.id === id))
+}
+
 export function itemAnchor(
   state: ContourState,
   item: SelectionItem,
@@ -81,7 +92,13 @@ export function itemAnchor(
     const label = scene.labels.find((l) => l.target.id === item.id)
     if (label) return toSvg(label.anchor, state.viewport)
     const segment = findResolvedSegment(state, item.id) ?? findSegment(state, item.id)
-    return segment ? segmentBounds(state, segment, scene).anchor : null
+    if (segment) return segmentBounds(state, segment, scene).anchor
+    const bounds = union(
+      segmentChain(state, item.id, scene).map((s) => segmentBounds(state, s, scene).bounds),
+    )
+    return bounds
+      ? { x: bounds.left / 2 + bounds.right / 2, y: bounds.top / 2 + bounds.bottom / 2 }
+      : null
   }
   const object = (
     item.kind === 'vertex'
@@ -111,9 +128,7 @@ function itemBounds(
   }
   if (item.kind === 'segment') {
     const scene = resolvedScene(state)
-    const chain =
-      scene.chains.get(item.id) ??
-      [...scene.contourSegments, ...scene.connectionSegments].filter((s) => s.id === item.id)
+    const chain = segmentChain(state, item.id, scene)
     const hiddenSource = !chain.length ? findSegment(state, item.id) : undefined
     const geometry = union(
       (hiddenSource ? [hiddenSource] : chain).map((s) => segmentBounds(state, s, scene).bounds),
@@ -172,9 +187,15 @@ export function itemsWithinRect(state: ContourState, rect: SelectionRect): Selec
     ...(state.handles
       ? state.vertices.map((v): SelectionItem => ({ kind: 'vertex', id: v.id }))
       : []),
-    ...[...scene.contourSegments, ...scene.connectionSegments].map((s): SelectionItem => ({
+    ...[
+      ...new Set(
+        [...scene.contourSegments, ...scene.connectionSegments].map((s) =>
+          logicalSegmentId(state, s.id),
+        ),
+      ),
+    ].map((id): SelectionItem => ({
       kind: 'segment',
-      id: s.id,
+      id,
     })),
     ...state.markers.map((m): SelectionItem => ({ kind: 'marker', id: m.id })),
     ...state.formulas.map((f): SelectionItem => ({ kind: 'formula', id: f.id })),

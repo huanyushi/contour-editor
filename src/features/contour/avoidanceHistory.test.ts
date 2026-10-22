@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
-import { projectCapacityError } from '../project/format'
+import { validateProjectCapacity } from '../project/format'
 import { parseProject, serializeProject } from '../project/project'
 import { projectSceneError } from '../project/validation'
 import { defaultLabel } from './appearance'
@@ -224,7 +224,10 @@ describe('avoidance history and candidate acceptance', () => {
       expect(serializeProject(before.present)).toBe(saved)
       expect(parseProject(saved).avoidances).toEqual(source.avoidances)
       expect(projectSceneError(candidate)).toMatch(error)
-      expect(projectCapacityError(candidate)).toMatch(error)
+      expect(validateProjectCapacity(candidate)).toMatchObject({
+        ok: false,
+        error: expect.stringMatching(error),
+      })
     },
   )
 

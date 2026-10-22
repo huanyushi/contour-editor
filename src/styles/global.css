@@ -454,15 +454,9 @@ summary::-webkit-details-marker {
   border-left: 1px solid #dce7e1;
 }
 .left-panel {
-  border-right: 1px solid #dce7e1;
-}
-.object-panel {
-  flex-basis: 240px;
-  width: 240px;
-}
-.template-panel {
   flex-basis: 280px;
   width: 280px;
+  border-right: 1px solid #dce7e1;
 }
 .template-intro {
   padding: 16px 14px 4px;
@@ -1078,10 +1072,7 @@ input[type='checkbox'] {
     width: min(312px, calc(100% - 60px));
     box-shadow: -4px 0 16px #173a3a15;
   }
-  .object-panel {
-    width: min(260px, calc(100% - 60px));
-  }
-  .template-panel {
+  .left-panel {
     width: min(280px, calc(100% - 60px));
   }
   .view-toolbar {

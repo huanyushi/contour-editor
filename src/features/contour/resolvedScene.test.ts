@@ -3,7 +3,7 @@ import { createAvoidanceFixture } from '../../test/avoidanceFixtures'
 import { defaultLabel } from './appearance'
 import type { ContourState } from './model'
 import { resolveScene } from './resolvedScene'
-import { contourTemplates } from './templates'
+import { createLegacyTemplateFixture, legacyTemplateIds } from '../../test/legacyTemplates'
 import { sourcePieceId } from './sourcePieces'
 import {
   findPoint,
@@ -115,10 +115,10 @@ describe('source scene resolution', () => {
     expect(scene.chains.get('edge-a')).toHaveLength(3)
   })
 
-  it.each(contourTemplates.map((template) => [template.id, template.create] as const))(
-    'preserves the unbound %s template geometry and source IDs',
-    (_id, create) => {
-      const state = create()
+  it.each(legacyTemplateIds)(
+    'preserves the old unbound %s geometry and source IDs without migrating it',
+    (id) => {
+      const state = createLegacyTemplateFixture(id)
       const snapshot = JSON.stringify(state)
       expect(state.avoidances).toEqual([])
       const scene = resolve(state)

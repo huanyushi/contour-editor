@@ -88,11 +88,6 @@ export function serializeProject(state: ContourState): string {
   return JSON.stringify(project)
 }
 
-export function projectCapacityError(state: ContourState): string {
-  const result = validateProjectCapacity(state)
-  return result.ok ? '' : result.error
-}
-
 /** Validate before consuming a derived scene; share the result with projection checks. */
 export function validateProjectCapacity(state: ContourState): SceneResolution {
   try {

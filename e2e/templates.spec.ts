@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 import type { ProjectFile } from '../src/features/project/project'
-import { openSection, selectObject, setCustomColor } from './navigation'
+import { loadTemplate, openSection, selectObject, setCustomColor, showCanvas } from './navigation'
 
 async function download(page: Page, name: string) {
   const pending = page.waitForEvent('download')
@@ -52,11 +52,18 @@ test('templates share the left sidebar behavior, scroll independently and fit th
   }
   await expect.poll(async () => (await canvas.boundingBox())!.width).toBe(before.width)
   await trigger.click()
+  const templateCanvasBox = (await canvas.boundingBox())!
+  const templatePanelBox = (await panel.boundingBox())!
   await page.getByRole('button', { name: '对象列表', exact: true }).click()
   await expect(panel).toBeHidden()
-  await expect(page.getByRole('complementary', { name: '对象列表', exact: true })).toBeVisible()
+  const objectPanel = page.getByRole('complementary', { name: '对象列表', exact: true })
+  await expect(objectPanel).toBeVisible()
+  expect(await objectPanel.boundingBox()).toEqual(templatePanelBox)
+  expect(await canvas.boundingBox()).toEqual(templateCanvasBox)
   await trigger.click()
-  await expect(page.getByRole('complementary', { name: '对象列表', exact: true })).toBeHidden()
+  await expect(objectPanel).toBeHidden()
+  expect(await panel.boundingBox()).toEqual(templatePanelBox)
+  expect(await canvas.boundingBox()).toEqual(templateCanvasBox)
   await panel.getByRole('button', { name: '载入钥匙孔围道', exact: true }).click()
   if (info.project.name === 'narrow') {
     await expect(panel).toBeHidden()
@@ -90,6 +97,16 @@ test('templates share the left sidebar behavior, scroll independently and fit th
     page.viewportSize()!.width,
   )
   await page.screenshot({ path: info.outputPath('contour-templates.png') })
+  if (info.project.name === 'narrow') {
+    await page.setViewportSize({ width: 320, height: 600 })
+    await trigger.click()
+    const narrowPanelBox = (await panel.boundingBox())!
+    expect(narrowPanelBox.width).toBe(260)
+    expect(narrowPanelBox.x + narrowPanelBox.width).toBeLessThanOrEqual(320)
+    await page.getByRole('button', { name: '对象列表', exact: true }).click()
+    expect(await objectPanel.boundingBox()).toEqual(narrowPanelBox)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
+  }
 })
 
 test(
@@ -103,12 +120,14 @@ test(
     await expect(page.getByTestId('contour-path')).toHaveAttribute('d', / A /)
     const saved = await download(page, '保存项目')
     const project = JSON.parse(saved.toString()) as ProjectFile
-    expect(project.document.segments.map((segment) => segment.kind)).toEqual([
-      'arc',
-      'line',
-      'arc',
-      'line',
+    expect(project.document.segments.map((segment) => segment.kind)).toEqual(['arc', 'arc'])
+    expect(project.document.vertices).toHaveLength(2)
+    expect(project.document.avoidances).toEqual([
+      expect.objectContaining({ kind: 'corridor', radius: 0.5, gap: 0.3 }),
     ])
+    expect(project.document.markers).toContainEqual(
+      expect.objectContaining({ re: 0, im: 0, mathematicalKind: 'branch' }),
+    )
     await page.getByRole('button', { name: '撤销', exact: true }).click()
     const undone = JSON.parse((await download(page, '保存项目')).toString()) as ProjectFile
     expect(undone.document.segments.every((segment) => segment.kind === 'line')).toBe(true)
@@ -135,6 +154,7 @@ test(
     await expect(page.getByTestId('contour-path')).not.toHaveAttribute('d', moved!)
     await selectObject(page, '选择顶点 z1')
     await openSection(page, '标签')
+    await page.getByRole('checkbox', { name: '显示标签', exact: true }).check()
     await page.getByLabel('LaTeX 标签').fill('R_0')
     await page.getByRole('button', { name: '应用标签' }).click()
     await expect(page.getByTestId('label-v1')).toHaveAttribute('aria-label', 'R_0')
@@ -166,6 +186,7 @@ test(
     await page.getByRole('button', { name: '示例模板', exact: true }).click()
     await page.getByRole('button', { name: '载入钥匙孔避让奇点', exact: true }).click()
     const saved = JSON.parse((await download(page, '保存项目')).toString()) as ProjectFile
+    expect(saved.document.avoidances!.map((a) => a.radius)).toEqual([0.5, 0.5])
     const viewport = saved.document.view.viewport!
     await page.locator('summary[aria-label="导出图像"]').click()
     await page.getByLabel('导出范围').selectOption('view')
@@ -188,10 +209,10 @@ test(
           const scale = image.naturalWidth / 800
           return [
             { re: -2, im: 1 },
-            { re: 0, im: 0 },
+            { re: -0.15, im: -0.15 },
             { re: 1, im: 0 },
-            { re: 2, im: 0.3 },
-            { re: 2, im: -0.3 },
+            { re: 2, im: 0.21 },
+            { re: 2, im: -0.21 },
           ].map((point) => {
             const x = (400 + (point.re - viewport.centerRe) * viewport.scaleX) * scale
             const y = (300 - (point.im - viewport.centerIm) * viewport.scaleY) * scale
@@ -201,10 +222,75 @@ test(
         { base64: bytes.toString('base64'), mime, viewport },
       )
       expect(pixels[0][0]).toBeLessThan(250)
-      for (const pixel of pixels.slice(1)) expect(pixel).toEqual([255, 255, 255, 255])
+      for (const [i, pixel] of pixels.slice(1).entries())
+        expect(pixel, `${name} blank sample ${i}`).toEqual([255, 255, 255, 255])
     }
   },
 )
+
+test(
+  'template detours expose editable bindings and preserve their shape after save and reopen',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    await page.goto('/')
+    for (const name of ['半圆凹口围道', '钥匙孔围道', '钥匙孔避让奇点', 'Bromwich 割线围道']) {
+      await loadTemplate(page, name)
+      await selectObject(page, '选择标记点 1')
+      const binding = page.getByRole('button', { name: '编辑绕行 1', exact: true })
+      await binding.click()
+      const before = await page.getByTestId('contour-path').getAttribute('d')
+      await page.getByLabel('绕行半径', { exact: true }).fill('0.6')
+      await page.getByLabel('绕行半径', { exact: true }).press('Enter')
+      await expect(page.getByTestId('contour-path')).not.toHaveAttribute('d', before!)
+      const editedPath = await page.getByTestId('contour-path').getAttribute('d')
+      const bytes = await download(page, '保存项目')
+      const project = JSON.parse(bytes.toString()) as ProjectFile
+      expect(project.document.avoidances![0].radius).toBe(0.6)
+      expect(project.document.vertices).toHaveLength(2)
+      if (name === '钥匙孔避让奇点') {
+        expect(project.document.avoidances).toHaveLength(2)
+        expect(project.document.avoidances![1].kind).toBe('bank-clearance')
+      }
+      await page.getByLabel('打开项目文件').setInputFiles({
+        name: 'bound-template.json',
+        mimeType: 'application/json',
+        buffer: bytes,
+      })
+      await expect(page.getByText('已打开 bound-template.json', { exact: true })).toBeVisible()
+      await expect(page.getByTestId('contour-path')).toHaveAttribute('d', editedPath!)
+    }
+  },
+)
+
+test('template detour labels remain separate from singularity labels at fitted scale', async ({
+  page,
+}, info) => {
+  await page.goto('/')
+  for (const name of ['半圆凹口围道', '钥匙孔围道', '钥匙孔避让奇点', 'Bromwich 割线围道']) {
+    await loadTemplate(page, name)
+    await showCanvas(page)
+    const labels = await page
+      .getByTestId('contour-canvas')
+      .locator(
+        '[data-testid="label-origin"], [data-testid="label-pole"], [data-testid^="label-avoid:"]',
+      )
+      .all()
+    for (let i = 0; i < labels.length; i++) {
+      const a = (await labels[i].boundingBox())!
+      for (let j = i + 1; j < labels.length; j++) {
+        const b = (await labels[j].boundingBox())!
+        expect(
+          a.x + a.width <= b.x ||
+            b.x + b.width <= a.x ||
+            a.y + a.height <= b.y ||
+            b.y + b.height <= a.y,
+          `${name}: ${await labels[i].getAttribute('aria-label')} / ${await labels[j].getAttribute('aria-label')}`,
+        ).toBe(true)
+      }
+    }
+    await page.screenshot({ path: info.outputPath(`${name}-labels.png`) })
+  }
+})
 
 test(
   'switching templates preserves global view preferences and the unlocked axis ratio',

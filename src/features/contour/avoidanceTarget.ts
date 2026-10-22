@@ -103,29 +103,17 @@ export function makeAvoidanceTarget(
     const table = constructAvoidances(state)
     if (!table.ok) return table
     const banks = table.value.parents.get(origin.avoidanceId)?.bankPair
-    if (!banks) return invalid('当前绕行没有两条有效的平行连接段。')
-    const radius = Math.max(
-      banks.gap,
-      Math.min(
-        Math.hypot(
-          banks.entry.end.re - banks.entry.start.re,
-          banks.entry.end.im - banks.entry.start.im,
-        ),
-        Math.hypot(
-          banks.exit.end.re - banks.exit.start.re,
-          banks.exit.end.im - banks.exit.start.im,
-        ),
-      ) / 20,
-    )
+    const parent = state.avoidances.find((a) => a.id === origin.avoidanceId)
+    if (!banks || !parent) return invalid('当前绕行没有两条有效的平行连接段。')
     return {
       ok: true,
-      value: {
+      value: fitInitialRadius(state, {
         kind: 'bank-clearance',
         id,
         markerId,
         parentAvoidanceId: origin.avoidanceId,
-        radius,
-      },
+        radius: parent.radius,
+      }),
     }
   }
   const target = findSegment(state, sourceId)

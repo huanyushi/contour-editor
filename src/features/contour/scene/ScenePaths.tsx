@@ -123,6 +123,11 @@ export function ScenePaths({
                 style={style}
                 prefix={prefix}
                 kind={segment.kind}
+                onPointerDown={
+                  editable && interaction?.arrowsInteractive
+                    ? (event) => interaction.beginArrowDrag(event, segment.id)
+                    : undefined
+                }
               />
             )}
           </g>

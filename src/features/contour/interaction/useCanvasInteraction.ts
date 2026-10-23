@@ -16,11 +16,13 @@ import type { LabelSettings, SelectionItem } from '../appearance'
 import { labelDragEdit, draggedAvoidanceRadius, draggedAvoidanceGap } from './dragCalculations'
 import { createVertex } from '../createVertex'
 import type { DrawingTool } from '../ContourCanvas'
-import type { ContourState } from '../model'
+import type { ContourState, Vertex } from '../model'
 import type { EditorAction, GestureOwner } from '../history'
 import { itemsWithinRect, rectangle, type SelectionRect } from '../selection/selectionGeometry'
 import { translationAnchor } from '../selection/selectionTransform'
-import { scenePoints } from '../scene/sceneObjects'
+import { resolvedScene, scenePoints } from '../scene/sceneObjects'
+import { arrowChain, buildPathArrow, projectArrowPosition } from '../scene/arrowGeometry'
+import type { ResolvedSegment } from '../scene/resolvedScene'
 import type { AvoidanceWorkflow } from '../avoidance/useAvoidanceDraft'
 import { captureMarkerPath, snapPathGrid, sourceSnapPaths, type SourceSnapPath } from './pathSnap'
 import type { AvoidancePart } from '../avoidance/avoidanceTypes'
@@ -36,6 +38,7 @@ interface Drag {
   kind:
     | PointKind
     | 'label'
+    | 'arrow'
     | 'pan'
     | 'marquee'
     | 'selection'
@@ -63,6 +66,7 @@ interface Drag {
     gap: number
   }
   portControl?: { document: ContourState; outward: -1 | 1 }
+  arrowControl?: { chain: readonly ResolvedSegment[]; points: ReadonlyMap<string, Vertex> }
 }
 interface Props {
   state: ContourState
@@ -266,7 +270,7 @@ export function useCanvasInteraction({
     event.preventDefault()
     svgRef.current?.focus({ preventScroll: true })
     if (kind === 'vertex') dispatch({ type: 'select', id })
-    else if (kind === 'through') dispatch({ type: 'selectSegment', id })
+    else if (kind === 'through' || kind === 'arrow') dispatch({ type: 'selectSegment', id })
     else if (kind === 'avoidance-radius' || kind === 'avoidance-gap' || kind === 'avoidance-port') {
       const binding = state.avoidances.find((a) => a.id === id)
       if (binding) dispatch({ type: 'selectSegment', id: avoidanceSelectionId(binding) })
@@ -353,6 +357,34 @@ export function useCanvasInteraction({
     marquee,
     showSelection: !pickingTarget && tool === 'marquee' && state.selectionSource === 'marquee',
     selectionDragEnabled: !modifierHeld,
+    arrowsInteractive:
+      tool === 'select' && (!avoidanceWorkflow || avoidanceWorkflow.draft.kind === 'idle'),
+    beginArrowDrag: (event: PointerEvent<SVGGElement>, id: string) => {
+      if (
+        tool !== 'select' ||
+        event.button !== 0 ||
+        !event.isPrimary ||
+        gestureOwner !== null ||
+        (avoidanceWorkflow && avoidanceWorkflow.draft.kind !== 'idle')
+      )
+        return
+      if (toggle(event, { kind: 'segment', id })) return
+      const scene = resolvedScene(state),
+        chain = arrowChain(scene, id)
+      if (!chain.length) return
+      const first = chain[0]
+      const result = buildPathArrow(
+        chain,
+        scene.points,
+        state.viewport,
+        { ...state.appearance.stroke, ...first.style },
+        first.arrowPosition ?? 0.5,
+      )
+      if (!result) return
+      capture(event, 'arrow', result.arrow.objectId, fromSvg(result.arrow.point, state.viewport))
+      if (drag.current?.kind === 'arrow')
+        drag.current.arrowControl = { chain, points: scene.points }
+    },
     avoidanceHandlesInteractive:
       tool === 'select' && (!avoidanceWorkflow || avoidanceWorkflow.draft.kind === 'idle'),
     beginSelectionDrag: (event: PointerEvent<SVGRectElement>) => {
@@ -705,6 +737,17 @@ export function useCanvasInteraction({
           return
         }
         const raw = fromSvg(point, current.view)
+        if (current.kind === 'arrow' && current.arrowControl) {
+          const control = current.arrowControl
+          const position = projectArrowPosition(
+            control.chain,
+            control.points,
+            { re: raw.re - current.offset.re, im: raw.im - current.offset.im },
+            pathMetric(current.view),
+          )
+          if (position !== null) dispatch({ type: 'arrowPosition', id: current.id, position })
+          return
+        }
         if (current.kind === 'avoidance-port' && current.portControl) {
           const control = current.portControl
           const original = control.document.avoidances.find((a) => a.id === current.id)!

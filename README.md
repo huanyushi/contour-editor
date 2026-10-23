@@ -198,7 +198,9 @@ npm run dev
 
 在线站点由本仓库独立发布到 <https://huanyushi.github.io/contour-editor/>。Vite 的 `base` 配置为 `/contour-editor/`，确保脚本和样式使用正确的项目路径。
 
-向 `main` 分支推送后，[部署工作流](.github/workflows/deploy-pages.yml)会自动安装 npm 依赖、Chromium 及其 Linux 系统依赖，依次进行代码规范、格式、单元／组件测试、生产构建和浏览器测试。所有检查通过后，才将 `dist/` 作为 Pages 产物交给部署任务；任一步失败都会阻止部署。单元与浏览器测试串行运行，各使用两个 worker，限制同时执行的任务数。也可以在仓库的 Actions 页面手动运行“Deploy to GitHub Pages”。构建产物通过工作流上传，无需提交 `dist/`，也无需同步博客仓库。
+向 `main` 分支推送后，[部署工作流](.github/workflows/deploy-pages.yml)会自动安装 npm 依赖，依次进行代码规范、格式、单元／组件测试和生产构建，不再安装 Chromium 或运行完整浏览器测试。以上检查通过后，才将 `dist/` 作为 Pages 产物交给部署任务；任一步失败都会阻止部署。单元／组件测试使用两个 worker。也可以在仓库的 Actions 页面手动运行“Deploy to GitHub Pages”。构建产物通过工作流上传，无需提交 `dist/`，也无需同步博客仓库。
+
+完整浏览器测试由[独立工作流](.github/workflows/browser-tests.yml)运行：针对 `main` 提交或更新 PR（合并请求）时自动触发，也可在 **Actions → Browser tests → Run workflow** 中手动运行。不设置定时任务；直接推送到 `main` 不触发浏览器测试。该工作流安装 Chromium 及其 Linux 系统依赖，并使用两个 worker 运行完整的桌面及窄屏测试，不参与 Pages 部署的依赖关系。浏览器测试失败不会阻止或自动回滚直接推送触发的部署，因此较大改动和正式发布前仍应运行完整检查。
 
 首次启用时，仓库的 **Settings → Pages → Build and deployment → Source** 应选择 **GitHub Actions**。部署结果可在 Actions 中查看：`build` 和 `deploy` 均成功后，通过部署记录中的站点链接访问并刷新确认。
 
@@ -223,4 +225,4 @@ npx playwright install chromium
 
 Linux 系统依赖可通过 `npx playwright install-deps chromium` 安装，或用 `npx playwright install --with-deps chromium` 一并安装浏览器和系统依赖；安装系统库通常需要管理员权限。若提示缺少 `libasound.so.2` 等共享库，应先补齐运行环境，浏览器启动失败不代表产品断言失败。中文截图需要中文字库，例如 `fonts-noto-cjk`。
 
-本地可按工作流顺序运行 `npm run lint`、`npm run format:check`、`npm test -- --maxWorkers=2`、`npm run build` 和 `npm run test:e2e -- --workers=2`。build 已包含 TypeScript 检查。浏览器测试会自动启动**开发服务器**，以桌面覆盖完整流程，并在窄屏下验证与尺寸、焦点或覆盖层有关的交互；失败时保留轨迹供排查。生产构建通过与开发服务器上的交互测试是不同检查，不能据此声称已验证生产构建的全部运行行为。
+本地完整验证可依次运行 `npm run lint`、`npm run format:check`、`npm test -- --maxWorkers=2`、`npm run build` 和 `npm run test:e2e -- --workers=2`。build 已包含 TypeScript 检查。浏览器测试会自动启动**开发服务器**，以桌面覆盖完整流程，并在窄屏下验证与尺寸、焦点或覆盖层有关的交互；失败时保留轨迹供排查。生产构建通过与开发服务器上的交互测试是不同检查，不能据此声称已验证生产构建的全部运行行为。

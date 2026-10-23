@@ -27,8 +27,6 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Install Chromium and system dependencies
-        run: npx playwright install --with-deps chromium
       - name: Check code style
         run: npm run lint
       - name: Check formatting
@@ -39,8 +37,6 @@ jobs:
         uses: actions/configure-pages@v6
       - name: Build site
         run: npm run build
-      - name: Run browser tests
-        run: npm run test:e2e -- --workers=2
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:

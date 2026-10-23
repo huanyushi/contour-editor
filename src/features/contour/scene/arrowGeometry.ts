@@ -18,7 +18,6 @@ export interface PathArrowGeometry {
   tangent: SvgPoint
   path: string
   objectId: string
-  position: number
   bounds: ArrowBounds
 }
 
@@ -65,8 +64,8 @@ function weights(chain: readonly ResolvedSegment[], points: ReadonlyMap<string, 
   )
 }
 
-// Five-point Gauss integration on short angular intervals. Only measurement is
-// numerical: drawing always uses the exact SVG ellipse, never sampled chords.
+// Five-point Gauss integration on short angular intervals. Drawing uses SVG
+// ellipses, with a tangent-matched cubic for minute sweeps, never sampled chords.
 const nodes = [0, -0.5384693101056831, 0.5384693101056831, -0.906179845938664, 0.906179845938664]
 const factors = [
   0.5688888888888889, 0.4786286704993665, 0.4786286704993665, 0.2369268850561891,
@@ -205,7 +204,7 @@ export function buildPathArrow(
   const lengths = weights(chain, points),
     total = lengths.reduce((a, b) => a + b, 0)
   let offset = 0
-  let best: { index: number; t: number; position: number; distance: number } | null = null
+  let best: { index: number; t: number; distance: number } | null = null
   for (let index = 0; index < chain.length; index++) {
     const m = measures[index],
       weight = lengths[index]
@@ -216,7 +215,7 @@ export function buildPathArrow(
       )
       const actual = (offset + t * weight) / total
       const distance = Math.abs(actual - position)
-      if (!best || distance < best.distance) best = { index, t, position: actual, distance }
+      if (!best || distance < best.distance) best = { index, t, distance }
     }
     offset += weight
   }
@@ -248,7 +247,6 @@ export function buildPathArrow(
       tangent,
       path: shaft.path,
       objectId: arrowObjectId(chain[0]),
-      position: best.position,
       bounds,
     },
   }

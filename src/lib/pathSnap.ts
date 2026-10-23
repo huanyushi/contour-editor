@@ -1,10 +1,10 @@
-import { arcThrough, pointOnArc } from './arc'
+import { arcThrough, pointOnArc, type CircularArc } from './arc'
 import type { ComplexPoint } from './geometry'
 
 export type PathGeometry = {
   start: ComplexPoint
   end: ComplexPoint
-} & ({ kind: 'line' } | { kind: 'arc'; through: ComplexPoint })
+} & ({ kind: 'line' } | { kind: 'arc'; through: ComplexPoint; resolvedArc?: CircularArc })
 
 /** Linear map from mathematical displacements to CSS screen pixels. */
 export interface PathScreenMetric {
@@ -59,7 +59,9 @@ export function nearestPathPoint(
       t,
     )
   }
-  const result = arcThrough(path.start, path.end, path.through)
+  const result = path.resolvedArc
+    ? { ok: true as const, arc: path.resolvedArc }
+    : arcThrough(path.start, path.end, path.through)
   if (!result.ok) return null
   const arc = result.arc
   const u = screen(arc.radius, 0),

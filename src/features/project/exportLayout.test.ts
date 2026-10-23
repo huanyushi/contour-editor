@@ -16,6 +16,25 @@ function emptyScene(): ContourState {
 }
 
 describe('content export layout', () => {
+  it('measures the configured arrow instead of reserving a fixed 15px envelope', () => {
+    const state = createArcFixture()
+    state.vertices = state.vertices.map((v) => ({
+      ...v,
+      label: { ...defaultLabel(), visible: false },
+    }))
+    state.segments = [state.segments[0]]
+    state.closed = false
+    state.appearance.stroke.arrowSize = 20
+    state.appearance.stroke.arrowShape = 'open'
+    const before = JSON.stringify(state)
+    expect(computeExportLayout(state, { ...options, endpoints: false }).size.height).toBe(69)
+    const small = {
+      ...state,
+      appearance: { ...state.appearance, stroke: { ...state.appearance.stroke, arrowSize: 6 } },
+    }
+    expect(computeExportLayout(small, { ...options, endpoints: false }).size.height).toBe(57)
+    expect(JSON.stringify(state)).toBe(before)
+  })
   it('can measure resolved endpoints after contour geometry expands a bound source line', () => {
     const state = createAvoidanceFixture()
     state.markers[0].im = 1

@@ -5,6 +5,30 @@ import { createLegacyTemplateFixture } from '../../../test/legacyTemplates'
 import { createConnectedFixture } from '../../../test/connectedAvoidanceFixtures'
 import { logicalSegmentId } from '../scene/sceneObjects'
 import { defaultLabel, type SelectionItem } from '../appearance'
+import { createArcFixture } from '../../../test/fixtures'
+
+it('requires the complete configured arrow head, not just the line, for marquee selection', () => {
+  const state = createArcFixture()
+  state.segments = [state.segments[0]]
+  state.closed = false
+  state.appearance.stroke.arrowSize = 20
+  state.appearance.stroke.arrowShape = 'open'
+  const owner: SelectionItem = { kind: 'segment', id: 'edge-a' }
+  const bounds = selectionBounds(state, [owner])!
+  expect(bounds.top).toBeCloseTo(290.8)
+  expect(bounds.bottom).toBeCloseTo(309.2)
+  expect(
+    itemsWithinRect(state, { left: 310, right: 490, top: 294, bottom: 306 }),
+  ).not.toContainEqual(owner)
+  expect(itemsWithinRect(state, { left: 310, right: 490, top: 290, bottom: 310 })).toContainEqual(
+    owner,
+  )
+  const hidden = {
+    ...state,
+    appearance: { ...state.appearance, stroke: { ...state.appearance.stroke, arrows: false } },
+  }
+  expect(selectionBounds(hidden, [owner])).toMatchObject({ top: 299, bottom: 301 })
+})
 
 it.each(['isolated', 'branch', 'pole', 'ordinary'] as const)(
   'marquee-selects visible semantic vertices with handles hidden: %s',
@@ -52,14 +76,14 @@ it('selects only complete segments, including the full extent of major arcs', ()
 })
 
 it('bounds a split logical bank by all its own visible fragments, excluding its child arcs', () => {
-  const state = createConnectedFixture({ clearanceRadius: 0.1 })
+  const state = createConnectedFixture({ clearanceRadius: 0.2 })
   const bank: SelectionItem = { kind: 'segment', id: 'avoid:parent:entry' }
   const bounds = selectionBounds(state, [bank])
   expect(bounds).not.toBeNull()
-  expect(bounds!.left).toBeLessThan(398)
-  expect(bounds!.right).toBeGreaterThan(445)
-  expect(bounds!.top).toBeCloseTo(294.8)
-  expect(bounds!.bottom).toBeCloseTo(306.8)
+  expect(bounds!.left).toBeLessThan(404)
+  expect(bounds!.right).toBeGreaterThan(440)
+  expect(bounds!.top).toBeCloseTo(295.8)
+  expect(bounds!.bottom).toBeCloseTo(305.8)
   const anchor = itemAnchor(state, bank)
   expect(anchor).not.toBeNull()
   expect(anchor!.y).toBeCloseTo(300.8)
@@ -71,7 +95,7 @@ it('bounds a split logical bank by all its own visible fragments, excluding its 
 })
 
 it('requires every visible fragment before marquee-selecting a logical bank and returns it only once', () => {
-  const state = createConnectedFixture({ clearanceRadius: 0.1 })
+  const state = createConnectedFixture({ clearanceRadius: 0.2 })
   const bank: SelectionItem = { kind: 'segment', id: 'avoid:parent:entry' }
   const partial = itemsWithinRect(state, { left: 417, right: 447, top: 294, bottom: 308 })
   expect(
@@ -79,7 +103,7 @@ it('requires every visible fragment before marquee-selecting a logical bank and 
   ).not.toContain(bank.id)
   // The child arc extends below this rectangle; the two parent line fragments
   // fit completely, so they select their bank, not the independently editable child.
-  const complete = itemsWithinRect(state, { left: 397, right: 447, top: 294, bottom: 308 })
+  const complete = itemsWithinRect(state, { left: 397, right: 447, top: 295, bottom: 306 })
   expect(complete.filter((item) => item.kind === 'segment' && item.id === bank.id)).toEqual([bank])
   expect(complete).not.toContainEqual({ kind: 'segment', id: 'avoid:clearance:bank-entry' })
 })

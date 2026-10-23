@@ -124,21 +124,23 @@ describe('actual avoidance SVG export', () => {
       expect(Number(command[9])).toBeCloseTo(end.x)
       expect(Number(command[10])).toBeCloseTo(end.y)
 
-      const arrows = svg.querySelectorAll('line[marker-end]')
+      const arrows = svg.querySelectorAll('path[marker-end]')
       expect(arrows).toHaveLength(8) // Five independent replacement objects plus three uncut sides.
       for (const line of arrows) {
-        const x1 = Number(line.getAttribute('x1'))
-        const y1 = Number(line.getAttribute('y1'))
-        const x2 = Number(line.getAttribute('x2'))
-        const y2 = Number(line.getAttribute('y2'))
-        const tx = (x2 - x1) / 12
-        const ty = (y2 - y1) / 12
+        const command = line.getAttribute('d')!.split(/\s+/)
+        const x1 = Number(command[1])
+        const y1 = Number(command[2])
+        const x2 = Number(command.at(-2))
+        const y2 = Number(command.at(-1))
         const radius = Number(line.getAttribute('stroke-width')) / 2
         expectInside(svg, { x: x1, y: y1 }, radius)
         expectInside(svg, { x: x2, y: y2 }, radius)
         // Measure the real serialized marker triangle in the shaft's frame.
         const markerId = line.getAttribute('marker-end')!.slice(5, -1)
         const marker = svg.querySelector(`[id="${markerId}"]`)!
+        const angle = (Number(marker.getAttribute('orient')) * Math.PI) / 180
+        const tx = Math.cos(angle),
+          ty = Math.sin(angle)
         expect(marker.getAttribute('markerUnits')).toBe('userSpaceOnUse')
         const refX = Number(marker.getAttribute('refX'))
         const refY = Number(marker.getAttribute('refY'))
@@ -166,8 +168,10 @@ describe('actual avoidance SVG export', () => {
         line.getAttribute('marker-end')?.includes('avoid:avoid-1:arc'),
       )!
       const bottom = toSvg({ re: 0, im: -3.5 }, layout.state.viewport)
-      expect(Number(arcArrow.getAttribute('x1'))).toBeCloseTo(bottom.x - 6)
-      expect(Number(arcArrow.getAttribute('y1'))).toBeCloseTo(bottom.y)
+      const arcCommand = arcArrow.getAttribute('d')!.split(/\s+/)
+      expect(arcCommand[3]).toBe('A')
+      expect(Number(arcCommand.at(-2))).toBeCloseTo(bottom.x)
+      expect(Number(arcCommand.at(-1))).toBeCloseTo(bottom.y)
       expect(svg.querySelectorAll('circle')).toHaveLength(endpoints ? 5 : 1)
       if (endpoints) {
         for (const vertex of state.vertices) {

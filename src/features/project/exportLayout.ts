@@ -85,9 +85,7 @@ function contentBounds(
     const style = { ...state.appearance.stroke, ...segment.style }
     const points = arc ? arcExtrema(arc).map((p) => toSvg(p, state.viewport)) : [start, end]
     bounds.push(...points.map((point) => pointBounds(point, style.width / 2)))
-    // The 12px direction line plus its user-space marker can extend past a
-    // short segment's geometry. This envelope also covers diagonal arrows.
-    if (arrow && style.arrows) bounds.push(pointBounds(arrow.point, 15 + style.width / 2))
+    if (arrow && style.arrows) bounds.push(arrow.bounds)
   }
   for (const label of geometry.labels) addLabel(label.point, label.value)
   state.vertices.forEach((vertex, index) => {

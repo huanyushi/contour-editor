@@ -4,6 +4,22 @@ import { serializeSvg, defaultExportOptions } from './export'
 import { renderExport } from './renderExport'
 
 describe('adaptive standalone SVG export', () => {
+  it('exports the same curved shaft and sized head without editable hit geometry', () => {
+    const state = createArcFixture()
+    state.segments[1].arrowPosition = 0.8
+    state.appearance.stroke.arrowShape = 'open'
+    state.appearance.stroke.arrowSize = 20
+    const before = JSON.stringify(state)
+    const text = renderExport(state, { ...defaultExportOptions(), axes: false })
+    const result = new DOMParser().parseFromString(text, 'image/svg+xml')
+    const shaft = result.querySelector('path[marker-end="url(#direction-edge-b)"]')!
+    expect(shaft.tagName).toBe('path')
+    expect(shaft.getAttribute('d')).toContain(' A 80 80 ')
+    expect(result.querySelector('#direction-edge-b')?.getAttribute('markerHeight')).toBe('20')
+    expect(result.querySelector('#direction-edge-b path')?.getAttribute('fill')).toBe('none')
+    expect(text).not.toContain('arrow-hit-')
+    expect(JSON.stringify(state)).toBe(before)
+  })
   it('exports a wide figure and offset labels at their natural dimensions by default', () => {
     const state = createArcFixture()
     state.vertices[0].re = -15

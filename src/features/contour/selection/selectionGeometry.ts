@@ -17,6 +17,23 @@ import {
   logicalSegmentId,
 } from '../scene/sceneObjects'
 import type { ResolvedScene } from '../scene/resolvedScene'
+import { buildSceneGeometry } from '../scene/pathGeometry'
+
+interface BoundsContext {
+  scene: ResolvedScene
+  arrows: ReadonlyMap<string, SelectionRect>
+}
+
+function boundsContext(state: ContourState): BoundsContext {
+  const scene = resolvedScene(state)
+  const geometry = buildSceneGeometry(scene, state)
+  return {
+    scene,
+    arrows: new Map(
+      geometry.segments.flatMap((s) => (s.arrow ? [[s.segment.id, s.arrow.bounds] as const] : [])),
+    ),
+  }
+}
 
 export interface SelectionRect {
   left: number
@@ -68,10 +85,7 @@ function segmentBounds(state: ContourState, segment: PathSegment, scene: Resolve
       middle = toSvg(pointOnArc(result.arc, 0.5), state.viewport)
     }
   }
-  const pad = Math.max(
-    (segment.style?.width ?? state.appearance.stroke.width) / 2,
-    (segment.style?.arrows ?? state.appearance.stroke.arrows) ? 6 : 0,
-  )
+  const pad = (segment.style?.width ?? state.appearance.stroke.width) / 2
   const bounds = {
     left: Math.min(...points.map((p) => p.x)) - pad,
     right: Math.max(...points.map((p) => p.x)) + pad,
@@ -125,6 +139,7 @@ function itemBounds(
   item: SelectionItem,
   includeLabels: boolean,
   mathRenderer: MathRenderer = renderMath,
+  context: BoundsContext = boundsContext(state),
 ): SelectionRect | null {
   if (item.kind === 'contour') {
     const members: SelectionItem[] = [
@@ -133,16 +148,19 @@ function itemBounds(
     ]
     return union(
       members
-        .map((member) => itemBounds(state, member, includeLabels, mathRenderer))
+        .map((member) => itemBounds(state, member, includeLabels, mathRenderer, context))
         .filter((b): b is SelectionRect => b !== null),
     )
   }
   if (item.kind === 'segment') {
-    const scene = resolvedScene(state)
+    const { scene } = context
     const chain = segmentChain(state, item.id, scene)
     const hiddenSource = !chain.length ? findSegment(state, item.id) : undefined
     const geometry = union(
-      (hiddenSource ? [hiddenSource] : chain).map((s) => segmentBounds(state, s, scene).bounds),
+      (hiddenSource ? [hiddenSource] : chain).flatMap((s) => {
+        const arrow = context.arrows.get(s.id)
+        return [segmentBounds(state, s, scene).bounds, ...(arrow ? [arrow] : [])]
+      }),
     )
     const labels = scene.labels.filter(
       (l) =>
@@ -193,7 +211,8 @@ function itemBounds(
 }
 
 export function itemsWithinRect(state: ContourState, rect: SelectionRect): SelectionItem[] {
-  const scene = resolvedScene(state)
+  const context = boundsContext(state),
+    { scene } = context
   const candidates: SelectionItem[] = [
     ...state.vertices
       .filter((v) => state.handles || (v.mathematicalKind ?? 'ordinary') !== 'ordinary')
@@ -212,7 +231,7 @@ export function itemsWithinRect(state: ContourState, rect: SelectionRect): Selec
     ...state.formulas.map((f): SelectionItem => ({ kind: 'formula', id: f.id })),
   ]
   const contains = (item: SelectionItem) => {
-    const b = itemBounds(state, item, false)
+    const b = itemBounds(state, item, false, renderMath, context)
     return (
       b &&
       b.left >= rect.left - 1e-6 &&
@@ -243,9 +262,10 @@ export function selectionBounds(
   items: SelectionItem[],
   mathRenderer: MathRenderer = renderMath,
 ): SelectionRect | null {
+  const context = boundsContext(state)
   return union(
     items
-      .map((item) => itemBounds(state, item, true, mathRenderer))
+      .map((item) => itemBounds(state, item, true, mathRenderer, context))
       .filter((b): b is SelectionRect => b !== null),
   )
 }

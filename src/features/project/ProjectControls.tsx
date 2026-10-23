@@ -145,7 +145,7 @@ export function ProjectControls({
       <div className="project-buttons">
         <button
           aria-label="保存项目"
-          title="下载项目文件 (.json)"
+          data-tooltip="下载项目文件 (.json)"
           disabled={unavailable}
           {...transientLock(disabled)}
           onClick={saveProject}
@@ -154,7 +154,7 @@ export function ProjectControls({
         </button>
         <button
           aria-label="打开项目"
-          title={canImport ? '导入为新画布' : CANVAS_LIMIT_MESSAGE}
+          data-tooltip={canImport ? '导入为新画布' : CANVAS_LIMIT_MESSAGE}
           disabled={unavailable || !canImport}
           {...transientLock(disabled)}
           onClick={() => input.current?.click()}
@@ -188,7 +188,7 @@ export function ProjectControls({
         >
           <summary
             aria-label="导出图像"
-            title="导出 SVG / PNG"
+            data-tooltip="导出 SVG / PNG"
             aria-expanded={open}
             {...transientLock(locked)}
             data-unavailable={unavailable ? '' : undefined}

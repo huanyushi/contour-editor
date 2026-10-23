@@ -29,7 +29,7 @@ export function LeftPanel({
     >
       <div className="panel-heading">
         <h2>{title}</h2>
-        <button aria-label={`收起${title}`} title={`收起${title}`} onClick={onClose}>
+        <button aria-label={`收起${title}`} data-tooltip={`收起${title}`} onClick={onClose}>
           <PanelLeftClose className="ui-icon" aria-hidden="true" />
         </button>
       </div>

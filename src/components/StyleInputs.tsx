@@ -181,7 +181,7 @@ export function ColorField({
             className="color-field-swatch"
             aria-label={`${name}：${preset.name}`}
             aria-pressed={color === preset.value}
-            title={preset.name}
+            data-tooltip={preset.name}
             onClick={() => selectColor(preset.value)}
           >
             <span style={{ backgroundColor: preset.value }} aria-hidden="true" />
@@ -200,7 +200,7 @@ export function ColorField({
             className="color-field-swatch"
             aria-label={`${name}：自定义 ${saved}`}
             aria-pressed={color === saved}
-            title={`${saved}：选色并编辑`}
+            data-tooltip={`${saved}：选色并编辑`}
             aria-expanded={customOpen && savedTarget === saved}
             aria-controls={`${id}-custom`}
             onClick={() => {
@@ -217,7 +217,7 @@ export function ColorField({
             type="button"
             className="color-field-swatch color-field-add"
             aria-label={`自定义${name}`}
-            title="添加自定义颜色"
+            data-tooltip="添加自定义颜色"
             aria-expanded={customOpen}
             aria-controls={`${id}-custom`}
             onClick={() => {
@@ -260,7 +260,7 @@ export function ColorField({
             <button
               type="button"
               aria-label={`删除自定义${name}`}
-              title="仅从色板删除，不改变图形颜色"
+              data-tooltip="仅从色板删除，不改变图形颜色"
               onClick={() => {
                 finishPending()
                 customPaletteStore.remove(session.current.slot ?? pickerColor)

@@ -320,6 +320,7 @@ export function AvoidanceProperties({
   const bindings = state.avoidances.filter((a) =>
     marker ? a.markerId === marker.id : related.has(a.id),
   )
+  if (!marker && !sourceId && bindings.length === 0) return null
   return (
     <div className="property-group">
       {marker && (
@@ -344,7 +345,7 @@ export function AvoidanceProperties({
           </select>
         </label>
       )}
-      <h3>绕行绑定{bindings.length > 0 ? ` · ${bindings.length}` : ''}</h3>
+      {bindings.length > 0 && <h3>绕行绑定 · {bindings.length}</h3>}
       {sourceId && !visibleSceneSegments(state).some((s) => s.id === sourceId) && (
         <p className="muted small">原路径暂存，部件暂不显示；设置已保留，可继续编辑绕行。</p>
       )}
@@ -369,11 +370,9 @@ export function AvoidanceProperties({
         </button>
       ))}
       {marker && marker.mathematicalKind && marker.mathematicalKind !== 'ordinary' && (
-        <>
-          <button className="full-width" onClick={() => workflow.start(marker.id)}>
-            添加绕行
-          </button>
-        </>
+        <button className="full-width" onClick={() => workflow.start(marker.id)}>
+          添加绕行
+        </button>
       )}
       {!marker && sourceId && findSegment(state, sourceId) && (
         <>

@@ -63,6 +63,38 @@ test(
   },
 )
 
+test('bottom rail icons stay centered and aligned when tools collapse and expand', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: info.project.name === 'narrow' ? 320 : 1280, height: 420 })
+  await page.goto('/')
+  const bottom = page.locator('.tool-palette .rail-bottom')
+  await expect(bottom.getByRole('button')).toHaveCount(3)
+  const expectAlignment = async () => {
+    const centers = await bottom.getByRole('button').evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const bounds = button.getBoundingClientRect()
+        const icon = button.querySelector('svg')!.getBoundingClientRect()
+        return {
+          button: bounds.left + bounds.width / 2,
+          icon: icon.left + icon.width / 2,
+          width: icon.width,
+        }
+      }),
+    )
+    for (const center of centers) {
+      expect(center.width).toBe(20)
+      expect(center.icon).toBeCloseTo(center.button, 1)
+      expect(center.icon).toBeCloseTo(centers[0].icon, 1)
+    }
+  }
+  await expectAlignment()
+  await bottom.getByRole('button', { name: '收起绘图工具', exact: true }).click()
+  await expectAlignment()
+  await bottom.getByRole('button', { name: '展开绘图工具', exact: true }).click()
+  await expectAlignment()
+})
+
 test('grouped tools scroll at low height while bottom actions stay reachable', async ({ page }) => {
   await page.setViewportSize({ width: page.viewportSize()!.width, height: 420 })
   await page.goto('/')

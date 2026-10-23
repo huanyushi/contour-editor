@@ -60,12 +60,17 @@ export function SelectionOverlay({
           <button
             type="button"
             aria-label="删除选中对象"
-            title="删除 · Delete / Backspace"
+            data-tooltip="删除 · Delete / Backspace"
             onClick={onDelete}
           >
             <Trash2 className="ui-icon" aria-hidden="true" />
           </button>
-          <button type="button" aria-label="取消选择" title="取消选择 · Esc" onClick={onClear}>
+          <button
+            type="button"
+            aria-label="取消选择"
+            data-tooltip="取消选择 · Esc"
+            onClick={onClear}
+          >
             <X className="ui-icon" aria-hidden="true" />
           </button>
         </div>

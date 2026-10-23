@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PanelRightOpen, Redo2, Undo2 } from 'lucide-react'
 import { Github } from '../components/Github'
+import { ActionTooltip } from '../components/ActionTooltip'
 import { ContourCanvas, type DrawingTool } from '../features/contour/ContourCanvas'
 import { PropertiesPanel } from '../features/contour/PropertiesPanel'
 import { contourReducer } from '../features/contour/model'
@@ -56,7 +57,12 @@ export default function App() {
         正在恢复画布…
       </div>
     )
-  return <Editor manager={manager} />
+  return (
+    <>
+      <Editor manager={manager} />
+      <ActionTooltip />
+    </>
+  )
 }
 
 function Editor({ manager }: { manager: CanvasWorkspaceManager }) {
@@ -281,11 +287,36 @@ function Editor({ manager }: { manager: CanvasWorkspaceManager }) {
     >
       <header className="site-header">
         <div className="brand">
-          <span className="brand-icon" aria-hidden="true">
-            ∮
-          </span>
+          <a className="brand-icon" href={import.meta.env.BASE_URL} aria-label="刷新页面">
+            <svg viewBox="0 0 34 34" focusable="false" aria-hidden="true">
+              <g
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M10 8C5 10 6 14 9 18C11 22 10 26 16 26C23 26 28 21 26 15C24 10 20 12 18 9C16 6 13 6 10 8Z" />
+                {/* Lower-right cubic at t=0.62: tangent (7.794, -13.9872). */}
+                <path
+                  d="m -3.4 -3.4 3.4 3.4 -3.4 3.4"
+                  transform="translate(25.522 21.187) rotate(-60.872)"
+                  strokeWidth="1.5"
+                />
+                <circle cx="10" cy="8" r="1.8" fill="#155e56" strokeWidth="1.5" />
+              </g>
+            </svg>
+          </a>
           <div className="brand-text">
-            <h1>Complex Contour Editor</h1>
+            <h1>
+              <a
+                className="brand-title"
+                href={import.meta.env.BASE_URL}
+                aria-label="Complex Contour Editor"
+              >
+                Complex Contour Editor
+              </a>
+            </h1>
             <ProjectName
               key={canvasId}
               name={projectName}
@@ -298,7 +329,7 @@ function Editor({ manager }: { manager: CanvasWorkspaceManager }) {
           <div className="history-controls" aria-label="编辑历史">
             <button
               aria-label="撤销"
-              title="撤销 · Ctrl / ⌘ + Z"
+              data-tooltip="撤销 · Ctrl / ⌘ + Z"
               disabled={!history.past.length}
               {...transientLock(editingLocked)}
               onClick={() => dispatch({ type: 'undo' })}
@@ -307,7 +338,7 @@ function Editor({ manager }: { manager: CanvasWorkspaceManager }) {
             </button>
             <button
               aria-label="重做"
-              title="重做 · Ctrl / ⌘ + Shift + Z，或 Ctrl + Y"
+              data-tooltip="重做 · Ctrl / ⌘ + Shift + Z，或 Ctrl + Y"
               disabled={!history.future.length}
               {...transientLock(editingLocked)}
               onClick={() => dispatch({ type: 'redo' })}
@@ -341,7 +372,7 @@ function Editor({ manager }: { manager: CanvasWorkspaceManager }) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="GitHub · 查看源代码"
-              title="GitHub · 查看源代码"
+              data-tooltip="GitHub · 查看源代码"
               {...transientLock(busy)}
             >
               <Github className="ui-icon" aria-hidden="true" />
@@ -439,7 +470,7 @@ function Editor({ manager }: { manager: CanvasWorkspaceManager }) {
               <button
                 className="inspector-restore"
                 aria-label="展开属性面板"
-                title="展开对象属性"
+                data-tooltip="展开对象属性"
                 aria-expanded="false"
                 aria-controls="properties-panel"
                 {...transientLock(editingLocked)}

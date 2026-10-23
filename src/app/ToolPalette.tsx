@@ -128,7 +128,6 @@ export function ToolPalette({
                 className={`tool-button ${tool === item.id ? 'active' : ''}`}
                 aria-label={item.name}
                 aria-pressed={tool === item.id}
-                title={item.hint}
                 data-tooltip={item.hint}
                 onClick={() => {
                   setTool(item.id)
@@ -143,7 +142,6 @@ export function ToolPalette({
           <button
             className="tool-button"
             aria-label="围道属性"
-            title="围道属性 · 编辑填充和整体线条"
             data-tooltip="围道属性 · 编辑填充和整体线条"
             aria-controls="properties-panel"
             onClick={() => {
@@ -160,7 +158,7 @@ export function ToolPalette({
         <button
           className={`tool-button ${templatesOpen ? 'active' : ''}`}
           aria-label="画布与模板"
-          title="画布与模板"
+          data-tooltip="画布与模板"
           aria-expanded={templatesOpen}
           aria-controls="template-panel"
           {...transientLock(busy)}
@@ -171,7 +169,7 @@ export function ToolPalette({
         <button
           className="tool-button"
           aria-label="对象列表"
-          title="对象列表"
+          data-tooltip="对象列表"
           aria-expanded={objectsOpen}
           aria-controls="object-panel"
           onClick={onObjects}
@@ -181,7 +179,7 @@ export function ToolPalette({
         <button
           className="rail-collapse"
           aria-label={collapsed ? '展开绘图工具' : '收起绘图工具'}
-          title={collapsed ? '展开绘图工具' : '收起绘图工具'}
+          data-tooltip={collapsed ? '展开绘图工具' : '收起绘图工具'}
           aria-expanded={!collapsed}
           onClick={onCollapse}
         >

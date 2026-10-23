@@ -138,7 +138,7 @@ export function TemplatePanel({
             <button
               className="primary"
               aria-label="以此模板新建画布"
-              title={
+              data-tooltip={
                 limit
                   ? CANVAS_LIMIT_MESSAGE
                   : selected
@@ -204,7 +204,7 @@ export function TemplatePanel({
                       <div className="canvas-card-actions">
                         <button
                           aria-label={`重命名画布 ${entry.name}`}
-                          title="重命名"
+                          data-tooltip="重命名"
                           {...transientLock(disabled)}
                           onClick={(event) => {
                             returnFocus.current = event.currentTarget
@@ -216,7 +216,7 @@ export function TemplatePanel({
                         </button>
                         <button
                           aria-label={`复制画布 ${entry.name}`}
-                          title={limit ? CANVAS_LIMIT_MESSAGE : '复制'}
+                          data-tooltip={limit ? CANVAS_LIMIT_MESSAGE : '复制'}
                           disabled={limit}
                           {...transientLock(disabled)}
                           onClick={() => onDuplicate(entry.id)}
@@ -225,7 +225,7 @@ export function TemplatePanel({
                         </button>
                         <button
                           aria-label={`删除画布 ${entry.name}`}
-                          title="删除"
+                          data-tooltip="删除"
                           {...transientLock(disabled)}
                           onClick={(event) => {
                             returnFocus.current = event.currentTarget
@@ -269,7 +269,7 @@ export function TemplatePanel({
                   <button
                     className="template-card add-canvas"
                     aria-label="新建空白画布"
-                    title={limit ? CANVAS_LIMIT_MESSAGE : '新建完全空白的画布'}
+                    data-tooltip={limit ? CANVAS_LIMIT_MESSAGE : '新建完全空白的画布'}
                     disabled={limit}
                     {...transientLock(disabled)}
                     onClick={onCreateBlank}
@@ -296,7 +296,7 @@ export function TemplatePanel({
                       className="template-card"
                       aria-label={`预览${item.template.name}`}
                       aria-pressed={selected === item}
-                      title={item.template.description}
+                      data-tooltip={item.template.description}
                       {...transientLock(disabled)}
                       onClick={() => {
                         setSelected(item)

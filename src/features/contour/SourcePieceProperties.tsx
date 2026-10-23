@@ -41,10 +41,7 @@ export function SourcePieceProperties({
       {!segment && !avoidanceWorkflow && (
         <p className="muted small">原路径暂存，当前段不显示；设置已保留。</p>
       )}
-      <fieldset className="property-group">
-        <legend>当前段外观</legend>
-        <StrokeFields value={style} onChange={(patch) => dispatch({ type: 'stroke', id, patch })} />
-      </fieldset>
+      <StrokeFields value={style} onChange={(patch) => dispatch({ type: 'stroke', id, patch })} />
       <LabelForm
         key={id}
         value={selectedSegmentLabel(state, id) ?? defaultLabel()}

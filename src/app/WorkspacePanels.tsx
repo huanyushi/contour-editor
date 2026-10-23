@@ -69,7 +69,7 @@ export function ViewSettingsPanel({
     >
       <div className="panel-heading">
         <h2>视图设置</h2>
-        <button aria-label="关闭视图设置" title="关闭视图设置" onClick={onClose}>
+        <button aria-label="关闭视图设置" data-tooltip="关闭视图设置" onClick={onClose}>
           <X className="ui-icon" aria-hidden="true" />
         </button>
       </div>
@@ -119,7 +119,7 @@ export function ApplicationMenu({
       <button
         ref={triggerRef}
         aria-label="应用设置"
-        title="应用设置"
+        data-tooltip="应用设置"
         aria-expanded={open}
         aria-controls="application-options"
         {...transientLock(busy)}

@@ -26,7 +26,7 @@ export function ViewToolbar({
     <div className="view-toolbar" aria-label="画布视图操作">
       <button
         aria-label="放大视图"
-        title="放大视图"
+        data-tooltip="放大视图"
         {...transientLock(busy)}
         onClick={() => dispatch({ type: 'zoomView', anchor: { x: 400, y: 300 }, factor: 1.25 })}
       >
@@ -34,7 +34,7 @@ export function ViewToolbar({
       </button>
       <button
         aria-label="缩小视图"
-        title="缩小视图"
+        data-tooltip="缩小视图"
         {...transientLock(busy)}
         onClick={() => dispatch({ type: 'zoomView', anchor: { x: 400, y: 300 }, factor: 0.8 })}
       >
@@ -46,7 +46,7 @@ export function ViewToolbar({
       </span>
       <button
         aria-label="适应图形"
-        title="适应图形"
+        data-tooltip="适应图形"
         {...transientLock(busy)}
         onClick={() => {
           const value = fitScene(state, size)
@@ -64,7 +64,7 @@ export function ViewToolbar({
       </button>
       <button
         aria-label="回到原点"
-        title="回到原点 · 保留当前缩放和比例"
+        data-tooltip="回到原点 · 保留当前缩放和比例"
         {...transientLock(busy)}
         onClick={() =>
           dispatch({ type: 'viewport', value: { ...state.viewport, centerRe: 0, centerIm: 0 } })
@@ -74,7 +74,7 @@ export function ViewToolbar({
       </button>
       <button
         aria-label="重置视图"
-        title="重置视图"
+        data-tooltip="重置视图"
         {...transientLock(busy)}
         onClick={() => dispatch({ type: 'viewport', value: defaultViewport() })}
       >
@@ -82,7 +82,7 @@ export function ViewToolbar({
       </button>
       <button
         aria-label="视图设置"
-        title={settingsDisabled ? '新建画布后设置' : '视图设置'}
+        data-tooltip={settingsDisabled ? '新建画布后设置' : '视图设置'}
         disabled={settingsDisabled}
         aria-expanded={settingsOpen}
         aria-controls="view-settings"

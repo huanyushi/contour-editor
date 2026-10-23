@@ -74,7 +74,7 @@ export function PropertiesPanel({
         </div>
         <button
           aria-label="收起属性面板"
-          title="收起属性面板"
+          data-tooltip="收起属性面板"
           aria-expanded="true"
           aria-controls="properties-panel"
           {...transientLock(gestureOwner !== null)}

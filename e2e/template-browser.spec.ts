@@ -29,11 +29,11 @@ test('template browsing uses the central canvas and a stable fixed-footer button
   await canvasesTab.click()
   await expect(page.getByTestId('contour-path')).toHaveAttribute('d', originalPath!)
   await expect(page.getByRole('button', { name: '画布与模板', exact: true })).toHaveAttribute(
-    'title',
+    'data-tooltip',
     '画布与模板',
   )
   await expect(page.getByRole('button', { name: '对象列表', exact: true })).toHaveAttribute(
-    'title',
+    'data-tooltip',
     '对象列表',
   )
 })

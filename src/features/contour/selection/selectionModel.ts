@@ -1,5 +1,5 @@
 import type { ContourState } from '../model'
-import { inRange, validColor, type SelectionItem } from '../appearance'
+import { inRange, validColor, type SelectionItem, type ArrowShape } from '../appearance'
 import { activeSegments, isSingleCycle } from '../pathTopology'
 import { workspaceReducer, type WorkspaceAction } from '../workspace'
 import { segmentOrigin } from '../scene/sceneObjects'
@@ -15,6 +15,8 @@ interface SelectionStylePatch {
   width?: number
   radius?: number
   labelSize?: number
+  arrowShape?: ArrowShape
+  arrowSize?: number
 }
 export type SelectionAction =
   | { type: 'selectMany'; items: SelectionItem[]; additive?: boolean; source?: 'click' | 'marquee' }
@@ -66,7 +68,9 @@ function styleSelection(state: ContourState, patch: SelectionStylePatch): Contou
     (patch.color !== undefined && !validColor(patch.color)) ||
     (patch.width !== undefined && !inRange(patch.width, 0.5, 8)) ||
     (patch.radius !== undefined && !inRange(patch.radius, 2, 10)) ||
-    (patch.labelSize !== undefined && !inRange(patch.labelSize, 10, 40))
+    (patch.labelSize !== undefined && !inRange(patch.labelSize, 10, 40)) ||
+    (patch.arrowSize !== undefined && !inRange(patch.arrowSize, 6, 20)) ||
+    (patch.arrowShape !== undefined && !['latex', 'triangle', 'open'].includes(patch.arrowShape))
   )
     return { ...state, error: '批量外观设置超出有效范围。' }
   const edits: SelectionWorkspaceEdit[] = []
@@ -90,6 +94,8 @@ function styleSelection(state: ContourState, patch: SelectionStylePatch): Contou
       const stroke = {
         ...(patch.color !== undefined ? { color: patch.color } : {}),
         ...(patch.width !== undefined ? { width: patch.width } : {}),
+        ...(patch.arrowShape !== undefined ? { arrowShape: patch.arrowShape } : {}),
+        ...(patch.arrowSize !== undefined ? { arrowSize: patch.arrowSize } : {}),
       }
       if (Object.keys(stroke).length) {
         if (item.kind === 'segment') edit({ type: 'stroke', id: item.id, patch: stroke })
@@ -119,6 +125,8 @@ function styleSelection(state: ContourState, patch: SelectionStylePatch): Contou
             ...s.style,
             ...(patch.color !== undefined ? { color: patch.color } : {}),
             ...(patch.width !== undefined ? { width: patch.width } : {}),
+            ...(patch.arrowShape !== undefined ? { arrowShape: patch.arrowShape } : {}),
+            ...(patch.arrowSize !== undefined ? { arrowSize: patch.arrowSize } : {}),
           },
         })),
       }

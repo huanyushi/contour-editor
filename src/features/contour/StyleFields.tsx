@@ -1,5 +1,51 @@
 import { ColorField, RangeField } from '../../components/StyleInputs'
-import type { FillStyle, PointStyle, StrokeStyle } from './appearance'
+import type { ArrowShape, FillStyle, PointStyle, StrokeStyle } from './appearance'
+
+export function ArrowFields({
+  shape,
+  size,
+  mixedSize = false,
+  name = '方向箭头',
+  onChange,
+}: {
+  shape: ArrowShape | undefined
+  size: number
+  mixedSize?: boolean
+  name?: string
+  onChange: (patch: Partial<Pick<StrokeStyle, 'arrowShape' | 'arrowSize'>>) => void
+}) {
+  return (
+    <>
+      <label className="field-row">
+        箭头形状
+        <select
+          aria-label={`${name}形状`}
+          value={shape ?? ''}
+          onChange={(event) => onChange({ arrowShape: event.target.value as ArrowShape })}
+        >
+          {shape === undefined && (
+            <option value="" disabled>
+              多种
+            </option>
+          )}
+          <option value="latex">LaTeX 风格</option>
+          <option value="triangle">实心三角</option>
+          <option value="open">开放箭头</option>
+        </select>
+      </label>
+      <RangeField
+        label="箭头大小"
+        name={`${name}大小`}
+        value={size}
+        min={6}
+        max={20}
+        step={1}
+        valueLabel={mixedSize ? '多种' : `${size} px`}
+        onChange={(arrowSize) => onChange({ arrowSize })}
+      />
+    </>
+  )
+}
 
 export function StrokeFields({
   value,
@@ -40,6 +86,9 @@ export function StrokeFields({
         />
         显示方向箭头
       </label>
+      {value.arrows && (
+        <ArrowFields shape={value.arrowShape} size={value.arrowSize} onChange={onChange} />
+      )}
     </fieldset>
   )
 }

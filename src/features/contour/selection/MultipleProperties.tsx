@@ -7,6 +7,7 @@ import { selectedSegmentStyle } from '../avoidance/avoidanceSelection'
 import { segmentOrigin, visibleSceneSegments } from '../scene/sceneObjects'
 import { focusInspector } from '../inspectorFocus'
 import { avoidanceSelectionId, avoidanceSourceIds } from '../avoidance/avoidanceDependencies'
+import { ArrowFields } from '../StyleFields'
 
 function common<T>(values: T[]): T | undefined {
   return values.length && values.every((value) => value === values[0]) ? values[0] : undefined
@@ -37,6 +38,13 @@ export function MultipleProperties({
       ? state.segments.map((s) => s.style?.width ?? state.appearance.stroke.width)
       : item.kind === 'segment' && item.part !== 'label'
         ? [selectedSegmentStyle(state, item.id)?.width ?? state.appearance.stroke.width]
+        : [],
+  )
+  const strokes = items.flatMap((item) =>
+    item.kind === 'contour'
+      ? state.segments.map((s) => ({ ...state.appearance.stroke, ...s.style }))
+      : item.kind === 'segment' && item.part !== 'label'
+        ? [selectedSegmentStyle(state, item.id) ?? state.appearance.stroke]
         : [],
   )
   const radii = items.flatMap((item) =>
@@ -108,6 +116,15 @@ export function MultipleProperties({
             value={common(radii) ?? radii[0]}
             valueLabel={common(radii) === undefined ? '多种' : `${radii[0]} px`}
             onChange={(radius) => dispatch({ type: 'selectionStyle', patch: { radius } })}
+          />
+        )}
+        {strokes.some((s) => s.arrows) && (
+          <ArrowFields
+            name="所选方向箭头"
+            shape={common(strokes.map((s) => s.arrowShape))}
+            size={common(strokes.map((s) => s.arrowSize)) ?? strokes[0].arrowSize}
+            mixedSize={common(strokes.map((s) => s.arrowSize)) === undefined}
+            onChange={(patch) => dispatch({ type: 'selectionStyle', patch })}
           />
         )}
         {!!textSizes.length && (

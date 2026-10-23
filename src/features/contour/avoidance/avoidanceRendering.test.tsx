@@ -201,7 +201,8 @@ describe('actual scene rendering', () => {
     const { container, rerender } = render(<CanvasScene state={state} />)
     expect(container.querySelectorAll('[data-testid^="arrow-"]')).toHaveLength(1)
     const arrow = container.querySelector('[data-testid="arrow-avoid:avoid-1:arc"]')!
-    expect(Number(arrow.getAttribute('x2')) - Number(arrow.getAttribute('x1'))).toBeCloseTo(12)
+    expect(arrow.tagName).toBe('path')
+    expect(arrow.getAttribute('d')).toContain(' A 20 20 ')
     rerender(
       <CanvasScene state={{ ...state, viewport: { ...state.viewport, scaleX: 3, scaleY: 3 } }} />,
     )

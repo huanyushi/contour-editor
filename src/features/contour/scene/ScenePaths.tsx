@@ -8,6 +8,7 @@ import { DraggableLabel } from './DraggableLabel'
 import { MathLabel } from './MathLabel'
 import { logicalSegmentId } from './sceneObjects'
 import type { MathRenderer } from '../../../lib/mathRenderingScope'
+import { PathArrow } from './PathArrow'
 
 /** Shared applied/preview drawing; neither branch constructs its own geometry. */
 export function ScenePaths({
@@ -75,23 +76,8 @@ export function ScenePaths({
                   `bank-${selectedOrigin.part}` === origin.part)
               )
             }))
-        const direction = `${prefix}direction-${segment.id}`
         return (
           <g key={segment.id}>
-            <defs>
-              <marker
-                id={direction}
-                viewBox="0 0 10 10"
-                refX="7"
-                refY="5"
-                markerWidth="10"
-                markerHeight="10"
-                markerUnits="userSpaceOnUse"
-                orient="auto"
-              >
-                <path d="M 0 1 L 8 5 L 0 9 Z" fill={style.color} />
-              </marker>
-            </defs>
             {selected && state.handles && (
               <path
                 data-export-omit=""
@@ -131,17 +117,12 @@ export function ScenePaths({
               />
             )}
             {arrow && style.arrows && (
-              <line
-                data-testid={`${prefix}arrow-${segment.id}`}
-                data-segment-kind={segment.kind}
-                x1={arrow.point.x - arrow.tangent.x * 6}
-                y1={arrow.point.y - arrow.tangent.y * 6}
-                x2={arrow.point.x + arrow.tangent.x * 6}
-                y2={arrow.point.y + arrow.tangent.y * 6}
-                stroke={style.color}
-                strokeWidth={style.width}
-                markerEnd={`url(#${direction})`}
-                pointerEvents="none"
+              <PathArrow
+                id={segment.id}
+                arrow={arrow}
+                style={style}
+                prefix={prefix}
+                kind={segment.kind}
               />
             )}
           </g>

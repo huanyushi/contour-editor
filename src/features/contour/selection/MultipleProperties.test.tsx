@@ -5,6 +5,38 @@ import { createAvoidanceFixture } from '../../../test/avoidanceFixtures'
 import { defaultLabel } from '../appearance'
 import { contourReducer } from '../model'
 import { MultipleProperties } from './MultipleProperties'
+import { createHistory, historyReducer, type EditorHistory } from '../history'
+
+it('applies arrow shape and size to selected paths atomically without affecting label or point styles', () => {
+  const initial = createAvoidanceFixture()
+  initial.selection = {
+    kind: 'multiple',
+    items: [
+      { kind: 'segment', id: 'edge-b' },
+      { kind: 'segment', id: 'avoid:avoid-1:arc' },
+      { kind: 'vertex', id: 'a' },
+    ],
+  }
+  let current: EditorHistory
+  function Editor() {
+    const [history, dispatch] = useReducer(historyReducer, initial, createHistory)
+    current = history
+    return <MultipleProperties state={history.present} dispatch={dispatch} />
+  }
+  render(<Editor />)
+  fireEvent.change(screen.getByRole('combobox', { name: '所选方向箭头形状' }), {
+    target: { value: 'open' },
+  })
+  expect(current!.past).toHaveLength(1)
+  expect(current!.present.segments[1].style?.arrowShape).toBe('open')
+  expect(current!.present.avoidances[0].partStyles?.arc?.arrowShape).toBe('open')
+  fireEvent.change(screen.getByRole('slider', { name: '所选方向箭头大小' }), {
+    target: { value: '20' },
+  })
+  expect(current!.past).toHaveLength(2)
+  expect(current!.present.segments[1].style?.arrowSize).toBe(20)
+  expect(current!.present.vertices).toBe(initial.vertices)
+})
 
 it('shows mixed resolved part widths and labels, then applies the shared ColorField and sliders', () => {
   const initial = createAvoidanceFixture()

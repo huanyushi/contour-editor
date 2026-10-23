@@ -32,7 +32,7 @@ const hints: Record<DrawingTool, string> = {
   select: '选择 · 点击对象编辑，拖动调整位置',
   pan: '平移 · 拖动画布，滚轮缩放',
   marquee: '框选 · 拖动选择区域，Ctrl / ⌘ 追加，Delete 删除',
-  add: '围道端点 · 点击追加端点',
+  add: '围道端点 · 点击追加，点击已有端点闭合',
   marker: '独立点 · 点击放置标记点',
   line: '线段 · 依次选择两个点',
   arc: '圆弧 · 选中路径段后点击第三经过点',

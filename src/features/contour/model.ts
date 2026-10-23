@@ -7,6 +7,7 @@ import { workspaceReducer, type WorkspaceAction, type WorkspaceState } from './w
 import { createRectangleState } from './templates'
 import { reconcileSourcePieces, type SourcePieceAppearance } from './sourcePieces'
 import { activeSegments, isSingleCycle, singleChainEnds } from './pathTopology'
+import { closeContourAtVertex } from './pathClosure'
 import { deleteItems, selectionReducer, type SelectionAction } from './selection/selectionModel'
 import { reverseSourcePieceSelection } from './selection/selectionState'
 import { translateSelection } from './selection/selectionTransform'
@@ -63,6 +64,7 @@ export type ContourAction =
   | { type: 'setLine'; id: string }
   | { type: 'add'; vertex: Vertex }
   | { type: 'connectPoints'; startId: string; endId: string }
+  | { type: 'closeAtVertex'; id: string }
   | { type: 'deleteSegment'; id: string }
   | { type: 'delete' | 'toggleClosed' | 'reverse' }
 
@@ -151,7 +153,8 @@ export function contourReducer(state: ContourState, action: ContourAction): Cont
       action = { ...action, item: logicalItem(action.item) }
       break
   }
-  const reversing = action.type === 'reverse' || action.type === 'toggleClosed'
+  const reversing =
+    action.type === 'reverse' || action.type === 'toggleClosed' || action.type === 'closeAtVertex'
   const maintained = reconcileSourcePieces(
     state,
     reconcileAvoidanceDependencies(state, reduceContour(state, action), action),
@@ -180,6 +183,14 @@ export function contourReducer(state: ContourState, action: ContourAction): Cont
 
 function reduceContour(state: ContourState, action: ContourAction): ContourState {
   switch (action.type) {
+    case 'closeAtVertex': {
+      const selected = workspaceReducer(state, {
+        type: 'selectObject',
+        selection: { kind: 'vertex', id: action.id },
+      })
+      const next = closeContourAtVertex(selected, action.id, lineFactory(state))
+      return next.error ? next : acceptGeometry(state, next)
+    }
     case 'mathematicalKind':
     case 'addAvoidance':
     case 'applyAvoidanceCandidate':

@@ -48,6 +48,7 @@ interface Drag {
   offset: ComplexPoint
   view: Viewport
   moved: boolean
+  closeOnClick?: boolean
   label?: LabelSettings
   labelKind?: LabelKind
   implicitLabel?: boolean
@@ -131,6 +132,8 @@ export function useCanvasInteraction({
         }
       }
       dispatch({ type: 'endGesture', owner: 'canvas' })
+      if (current.closeOnClick && !current.moved && !cancelled)
+        dispatch({ type: 'closeAtVertex', id: current.id })
       if (svgRef.current?.hasPointerCapture(current.pointerId))
         svgRef.current.releasePointerCapture(current.pointerId)
       if (inspect) {
@@ -281,6 +284,7 @@ export function useCanvasInteraction({
       offset: point ? { re: raw.re - point.re, im: raw.im - point.im } : { re: 0, im: 0 },
       view: state.viewport,
       moved: false,
+      closeOnClick: tool === 'add' && kind === 'vertex' && !state.closed,
       additive: event.ctrlKey || event.metaKey,
       label,
       labelKind,
@@ -630,6 +634,16 @@ export function useCanvasInteraction({
           })
           onInspect?.()
         } else if (tool === 'add') {
+          const existing = nearby(scenePoints(state), location)
+          if (existing) {
+            capture(
+              event,
+              state.vertices.some((v) => v.id === existing.id) ? 'vertex' : 'marker',
+              existing.id,
+              existing,
+            )
+            return
+          }
           dispatch({
             type: 'add',
             vertex: createVertex(point, state),

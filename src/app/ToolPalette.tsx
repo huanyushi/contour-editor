@@ -55,7 +55,7 @@ const tools: { id: DrawingTool; icon: ReactNode; name: string; hint: string }[] 
     id: 'add',
     icon: <Waypoints className="ui-icon" aria-hidden="true" />,
     name: '添加顶点',
-    hint: '围道端点 · 点击追加端点',
+    hint: '围道端点 · 点击追加，点击已有端点闭合',
   },
   {
     id: 'marker',

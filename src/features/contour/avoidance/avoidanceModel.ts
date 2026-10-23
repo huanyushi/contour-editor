@@ -1,4 +1,5 @@
 import { constructAvoidance } from './avoidanceConstruction'
+import { constructAvoidances } from './avoidanceConstructionTable'
 import type { ComplexPoint } from '../../../lib/geometry'
 import type { SourceAnchor } from '../../../lib/connectedAvoidanceGeometry'
 import type { LabelSettings, StrokeStyle } from '../appearance'
@@ -174,6 +175,7 @@ export function reconcileAvoidanceDependencies(
     action.type === 'add' ||
     action.type === 'reverse' ||
     action.type === 'toggleClosed' ||
+    action.type === 'closeAtVertex' ||
     action.type === 'connectPoints'
   if (!sourceEdit || !candidate.avoidances.length) return candidate
 
@@ -335,9 +337,27 @@ export function reconcileAvoidanceDependencies(
     avoidances.push(next)
   }
   const pruned = destructive ? pruneAvoidances(before, { ...candidate, avoidances }) : avoidances
-  return changed || pruned.length !== candidate.avoidances.length
-    ? cleanupRemovedAvoidanceSelection(before, { ...candidate, avoidances: pruned })
-    : candidate
+  const reconciled =
+    changed || pruned.length !== candidate.avoidances.length
+      ? cleanupRemovedAvoidanceSelection(before, { ...candidate, avoidances: pruned })
+      : candidate
+  // A valid new loop must not silently retarget an existing corridor to its closing edge.
+  if (action.type === 'closeAtVertex' && !before.closed && reconciled.closed) {
+    const previous = constructAvoidances(before)
+    if (!previous.ok) return { ...before, error: previous.error }
+    const next = constructAvoidances(reconciled)
+    if (!next.ok) return { ...before, error: next.error }
+    for (const avoidance of reconciled.avoidances) {
+      const sources = new Set(avoidanceSourceIds(before, avoidance.id, previous.value))
+      const updated = avoidanceSourceIds(reconciled, avoidance.id, next.value)
+      if (sources.size !== updated.length || updated.some((id) => !sources.has(id)))
+        return {
+          ...before,
+          error: `闭合会改变绕行 ${avoidance.id} 的源路径，请先取消该绕行或改选闭合端点。`,
+        }
+    }
+  }
+  return reconciled
 }
 
 function swapBanks<T>(parts: Partial<Record<AvoidancePart, T>>): Partial<Record<AvoidancePart, T>> {

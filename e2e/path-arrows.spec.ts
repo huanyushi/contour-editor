@@ -4,6 +4,47 @@ import { loadArcFixture, openSection, showCanvas } from './navigation'
 import { savedProject, screenPoint } from './selection'
 import { serializeProject } from '../src/features/project/format'
 import { createArcFixture } from '../src/test/fixtures'
+import { defaultLabel, defaultPointStyle } from '../src/features/contour/appearance'
+
+test(
+  'drags a visible arrow even when a later neighbouring path has an overlapping transparent hit area',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    const state = createArcFixture()
+    state.closed = false
+    state.segments = [state.segments[0]]
+    state.appearance.stroke.arrowSize = 6
+    state.markers = ['c', 'd'].map((id, i) => ({
+      id,
+      re: i ? 2 : -2,
+      im: -0.075,
+      label: { ...defaultLabel(), visible: false },
+      pointStyle: defaultPointStyle(),
+    }))
+    state.connections = [
+      {
+        id: 'nearby',
+        kind: 'line',
+        startId: 'c',
+        endId: 'd',
+        style: { width: 0.5, arrows: false },
+      },
+    ]
+    await page.goto('/')
+    await page.getByLabel('打开项目文件').setInputFiles({
+      name: 'neighbours.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(serializeProject(state)),
+    })
+    await expect(page.getByText('已打开 neighbours.json', { exact: true })).toBeVisible()
+    await showCanvas(page)
+    const from = await screenPoint(page, -0.1, 0)
+    await drag(page, from, { x: from.x + 40, y: from.y })
+    const saved = await savedProject(page)
+    expect(saved.document.segments[0].arrowPosition).toBeCloseTo(0.75, 2)
+    expect(saved.document.connections![0].arrowPosition).toBeUndefined()
+  },
+)
 
 async function tip(page: Page, id: string) {
   return page.getByTestId(`arrow-${id}`).evaluate((node) => {
@@ -13,6 +54,34 @@ async function tip(page: Page, id: string) {
     return { x: screen.x, y: screen.y, svgX: p.x, svgY: p.y }
   })
 }
+
+test(
+  'renders a genuinely short shaft for a visible huge-radius arc',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    const state = createArcFixture()
+    state.vertices = [
+      { id: 'a', re: -1e12, im: -1e12 },
+      { id: 'b', re: 1e12, im: -1e12 },
+    ]
+    state.segments[1] = { ...state.segments[1], kind: 'arc', through: { re: 0, im: 0 } }
+    state.viewport.scaleX = 4000
+    state.viewport.scaleY = 4000
+    await page.goto('/')
+    await page.getByLabel('打开项目文件').setInputFiles({
+      name: 'huge-radius.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(serializeProject(state)),
+    })
+    await expect(page.getByText('已打开 huge-radius.json', { exact: true })).toBeVisible()
+    const measured = await page.getByTestId('arrow-edge-b').evaluate((node) => {
+      const path = node as SVGPathElement
+      return { length: path.getTotalLength(), width: path.getBBox().width }
+    })
+    expect(measured.length).toBeCloseTo(12, 1)
+    expect(measured.width).toBeCloseTo(12, 1)
+  },
+)
 
 async function shaftGrip(page: Page, id: string) {
   return page.getByTestId(`arrow-${id}`).evaluate((node) => {
@@ -91,13 +160,11 @@ test(
     state.appearance.stroke.arrowSize = 20
     state.viewport = { ...state.viewport, scaleX: 80, scaleY: 20, locked: false }
     await page.goto('/')
-    await page
-      .getByLabel('打开项目文件')
-      .setInputFiles({
-        name: 'ellipse.json',
-        mimeType: 'application/json',
-        buffer: Buffer.from(serializeProject(state)),
-      })
+    await page.getByLabel('打开项目文件').setInputFiles({
+      name: 'ellipse.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(serializeProject(state)),
+    })
     await expect(page.getByText('已打开 ellipse.json', { exact: true })).toBeVisible()
     await showCanvas(page)
     for (const zoom of [false, true]) {
@@ -127,13 +194,11 @@ test(
     expect(file.version).toBe(7)
     expect(file.document.segments[1].arrowPosition).toBe(0.25)
     expect(file.document.appearance.stroke).toMatchObject({ arrowShape: 'open', arrowSize: 20 })
-    await page
-      .getByLabel('打开项目文件')
-      .setInputFiles({
-        name: 'restored.json',
-        mimeType: 'application/json',
-        buffer: Buffer.from(JSON.stringify(file)),
-      })
+    await page.getByLabel('打开项目文件').setInputFiles({
+      name: 'restored.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(file)),
+    })
     await expect(page.getByText('已打开 restored.json', { exact: true })).toBeVisible()
     expect((await savedProject(page)).document).toEqual(file.document)
   },

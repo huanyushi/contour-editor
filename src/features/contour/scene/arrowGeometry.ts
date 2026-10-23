@@ -1,10 +1,4 @@
-import {
-  arcExtrema,
-  arcThrough,
-  pointOnArc,
-  tangentOnArc,
-  type CircularArc,
-} from '../../../lib/arc'
+import { arcThrough, pointOnArc, tangentOnArc, type CircularArc } from '../../../lib/arc'
 import { toSvg, type ComplexPoint, type SvgPoint } from '../../../lib/geometry'
 import { nearestPathPoint, type PathScreenMetric } from '../../../lib/pathSnap'
 import type { Viewport } from '../../../lib/viewport'
@@ -95,22 +89,22 @@ function measure(segment: ResolvedSegment, points: ReadonlyMap<string, Vertex>, 
   const dx = q.x / scale - p.x / scale,
     dy = q.y / scale - p.y / scale
   const norm = Math.hypot(dx, dy)
-  const length = (a: number, b: number): number => {
-    if (!arc) return norm * ((b - a) * scale)
-    const count = Math.max(1, Math.ceil(Math.abs(arc.sweep * (b - a)) / (Math.PI / 8)))
+  const arcLength = (angle: number, sweep: number): number => {
+    if (!arc) return 0
+    const count = Math.max(1, Math.ceil(Math.abs(sweep) / (Math.PI / 8)))
     let result = 0
     for (let i = 0; i < count; i++) {
-      const half = (b - a) / count / 2,
-        mid = a + (2 * i + 1) * half
+      const half = sweep / count / 2,
+        mid = angle + (2 * i + 1) * half
       for (let j = 0; j < nodes.length; j++) {
-        const angle = arc.startAngle + arc.sweep * (mid + half * nodes[j])
+        const theta = mid + half * nodes[j]
         result +=
           factors[j] *
           Math.hypot(
-            arc.radius * view.scaleX * Math.sin(angle),
-            arc.radius * view.scaleY * Math.cos(angle),
+            arc.radius * view.scaleX * Math.sin(theta),
+            arc.radius * view.scaleY * Math.cos(theta),
           ) *
-          (half * Math.abs(arc.sweep))
+          Math.abs(half)
       }
     }
     return result
@@ -123,49 +117,79 @@ function measure(segment: ResolvedSegment, points: ReadonlyMap<string, Vertex>, 
     const n = Math.hypot(x, y)
     return { x: x / n, y: y / n }
   }
-  const total = length(0, 1)
-  const advance = (end: number, pixels: number): number => {
-    if (!arc) return Math.min(end, pixels / total)
-    if (length(0, end) <= pixels) return end
+  const total = arc ? arcLength(arc.startAngle, arc.sweep) : norm * scale
+  // Solve local angular travel, bounded by the minimum screen speed. Halving
+  // [0, 1] a fixed number of times magnifies roundoff at huge screen radii.
+  const travel = (angle: number, maximum: number, pixels: number, direction: number): number => {
+    if (!arc) return Math.min(maximum, pixels / total)
+    const sweep = direction * arc.sweep
+    if (arcLength(angle, sweep * maximum) <= pixels) return maximum
     let lo = 0,
-      hi = end
-    for (let i = 0; i < 44; i++) {
+      hi = Math.min(
+        maximum,
+        pixels / arc.radius / Math.min(view.scaleX, view.scaleY) / Math.abs(sweep),
+      )
+    for (let i = 0; i < 80; i++) {
       const delta = (lo + hi) / 2
-      if (length(end - delta, end) < pixels) lo = delta
+      const distance = arcLength(angle, sweep * delta)
+      if (Math.abs(distance - pixels) <= 1e-7 || delta === lo || delta === hi) return delta
+      if (distance < pixels) lo = delta
       else hi = delta
     }
     return (lo + hi) / 2
   }
   const minimumTip = (pixels: number): number => {
     if (!arc) return Math.min(1, pixels / total)
-    let lo = 0,
-      hi = 1
-    for (let i = 0; i < 44; i++) {
-      const mid = (lo + hi) / 2
-      if (length(0, mid) < pixels) lo = mid
-      else hi = mid
+    return travel(arc.startAngle, 1, pixels, 1)
+  }
+  const shaft = (t: number, pixels: number) => {
+    const end = point(t)
+    if (!arc) {
+      const start = point(Math.max(0, t - Math.min(t, pixels / total)))
+      return { path: `M ${start.x} ${start.y} L ${end.x} ${end.y}`, extent: [start, end] }
     }
-    return hi
+    const angle = arc.startAngle + arc.sweep * t
+    const delta = travel(angle, t, pixels, -1)
+    const sweep = arc.sweep * delta
+    // Difference identities retain small displacements without subtracting
+    // nearly equal world coordinates or global path parameters.
+    const before = (turn: number): SvgPoint => {
+      const sine = Math.sin(turn),
+        cosineMinusOne = -2 * Math.sin(turn / 2) ** 2
+      return {
+        x:
+          end.x +
+          arc.radius * view.scaleX * (Math.cos(angle) * cosineMinusOne + Math.sin(angle) * sine),
+        y:
+          end.y -
+          arc.radius * view.scaleY * (Math.sin(angle) * cosineMinusOne - Math.cos(angle) * sine),
+      }
+    }
+    const start = delta === t ? p : before(sweep)
+    const extent = [start, end]
+    for (const cardinal of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      const tau = Math.PI * 2
+      const turn = (((Math.sign(sweep) * (angle - cardinal)) % tau) + tau) % tau
+      if (turn <= Math.abs(sweep)) extent.push(before(Math.sign(sweep) * turn))
+    }
+    // Browsers can collapse A commands with enormous radii and minute angles
+    // to an empty path. A tangent-matched cubic retains the curvature here;
+    // at |sweep| < 1e-4 its approximation error is far below a screen pixel.
+    let command: string
+    if (Math.abs(sweep) < 1e-4) {
+      const k = (4 / 3) * Math.tan(sweep / 4)
+      const rx = arc.radius * view.scaleX,
+        ry = arc.radius * view.scaleY
+      command = `C ${start.x - rx * k * Math.sin(angle - sweep)} ${start.y - ry * k * Math.cos(angle - sweep)} ${end.x + rx * k * Math.sin(angle)} ${end.y + ry * k * Math.cos(angle)} ${end.x} ${end.y}`
+    } else {
+      command = `A ${arc.radius * view.scaleX} ${arc.radius * view.scaleY} 0 ${Math.abs(sweep) > Math.PI ? 1 : 0} ${arc.sweep > 0 ? 0 : 1} ${end.x} ${end.y}`
+    }
+    return {
+      path: `M ${start.x} ${start.y} ${command}`,
+      extent,
+    }
   }
-  const path = (a: number, b: number): string => {
-    const start = point(a),
-      end = point(b)
-    return (
-      `M ${start.x} ${start.y} ` +
-      (arc
-        ? `A ${arc.radius * view.scaleX} ${arc.radius * view.scaleY} 0 ${Math.abs(arc.sweep * (b - a)) > Math.PI ? 1 : 0} ${arc.sweep > 0 ? 0 : 1} ${end.x} ${end.y}`
-        : `L ${end.x} ${end.y}`)
-    )
-  }
-  const extrema = (a: number, b: number) =>
-    arc
-      ? arcExtrema({
-          ...arc,
-          startAngle: arc.startAngle + arc.sweep * a,
-          sweep: arc.sweep * (b - a),
-        }).map((p) => toSvg(p, view))
-      : [point(a), point(b)]
-  return { point, tangent, total, advance, minimumTip, path, extrema }
+  return { point, tangent, total, minimumTip, shaft }
 }
 
 export function buildPathArrow(
@@ -199,10 +223,10 @@ export function buildPathArrow(
   if (!best) return null
   const m = measures[best.index],
     t = best.t
-  const start = Math.max(0, t - m.advance(t, Math.max(12, style.arrowSize * 1.2)))
+  const shaft = m.shaft(t, Math.max(12, style.arrowSize * 1.2))
   const point = m.point(t),
     tangent = m.tangent(t)
-  const extent = m.extrema(start, t)
+  const extent = shaft.extent
   // The common marker viewBox has its tip at 0, a 10-unit body and ±4 wings.
   for (const x of [-style.arrowSize, 0])
     for (const y of [-style.arrowSize * 0.4, style.arrowSize * 0.4])
@@ -222,7 +246,7 @@ export function buildPathArrow(
     arrow: {
       point,
       tangent,
-      path: m.path(start, t),
+      path: shaft.path,
       objectId: arrowObjectId(chain[0]),
       position: best.position,
       bounds,

@@ -3,8 +3,26 @@ import { createArcFixture } from '../../../test/fixtures'
 import { createPathArrowFixture } from '../../../test/pathArrowFixtures'
 import { buildContourGeometry } from './pathGeometry'
 import { contourReducer } from '../model'
+import { parseProject, serializeProject } from '../../project/project'
 
 describe('path-following arrow geometry', () => {
+  it('keeps a 12px shaft on a visible huge-radius arc instead of magnifying parameter roundoff', () => {
+    const state = createArcFixture()
+    state.vertices = [
+      { id: 'a', re: -1e12, im: -1e12 },
+      { id: 'b', re: 1e12, im: -1e12 },
+    ]
+    state.segments[1] = { ...state.segments[1], kind: 'arc', through: { re: 0, im: 0 } }
+    state.viewport.scaleX = 4000
+    state.viewport.scaleY = 4000
+    const restored = parseProject(serializeProject(state))
+    const arrow = buildContourGeometry(restored).segments[1].arrow!
+    const coordinates = arrow.path.split(/\s+/)
+    const dx = Number(coordinates[1]) - Number(coordinates.at(-2))
+    const dy = Number(coordinates[2]) - Number(coordinates.at(-1))
+    expect(Math.hypot(dx, dy)).toBeCloseTo(12, 5)
+    expect(arrow.bounds.right - arrow.bounds.left).toBeLessThan(16)
+  })
   it('places the tip at the saved line position and keeps a 12px shaft on the path', () => {
     const state = createArcFixture()
     state.segments[0].arrowPosition = 0.25

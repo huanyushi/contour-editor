@@ -53,7 +53,7 @@ export function ScenePaths({
         }
         onPointerDown={editable ? interaction?.selectContour : undefined}
       />
-      {geometry.segments.map(({ segment, path, arrow }) => {
+      {geometry.segments.map(({ segment, path }) => {
         const style = { ...state.appearance.stroke, ...segment.style }
         const origin = scene.origins.get(segment.id)!
         const selected =
@@ -116,21 +116,28 @@ export function ScenePaths({
                 onPointerDown={(event) => interaction?.selectSegment(event, segment.id)}
               />
             )}
-            {arrow && style.arrows && (
-              <PathArrow
-                id={segment.id}
-                arrow={arrow}
-                style={style}
-                prefix={prefix}
-                kind={segment.kind}
-                onPointerDown={
-                  editable && interaction?.arrowsInteractive
-                    ? (event) => interaction.beginArrowDrag(event, segment.id)
-                    : undefined
-                }
-              />
-            )}
           </g>
+        )
+      })}
+      {/* All arrow hit areas sit above ordinary path hit areas, including later
+          neighbouring paths. Point handles retain their own arbitration. */}
+      {geometry.segments.map(({ segment, arrow }) => {
+        if (!arrow) return null
+        const style = { ...state.appearance.stroke, ...segment.style }
+        return (
+          <PathArrow
+            key={segment.id}
+            id={segment.id}
+            arrow={arrow}
+            style={style}
+            prefix={prefix}
+            kind={segment.kind}
+            onPointerDown={
+              editable && interaction?.arrowsInteractive
+                ? (event) => interaction.beginArrowDrag(event, segment.id)
+                : undefined
+            }
+          />
         )
       })}
       {geometry.labels.map(({ target, point, value }) =>

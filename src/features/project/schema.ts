@@ -80,9 +80,33 @@ export function pointStyle(value: unknown, path: string): PointStyle {
   if (!inRange(result.radius, 2, 10)) throw new Error(`${path} 点半径须在 2–10 之间。`)
   return result
 }
-export function stroke(value: unknown, path: string, partial = false): Partial<StrokeStyle> {
+export function arrowPosition(value: unknown, path: string, version = 7): number {
+  if (version < 7) throw new Error(`${path}需要项目文件版本 7。`)
+  const t = numeric(value, path)
+  if (!inRange(t, 0, 1)) throw new Error(`${path}须在 0–1 之间。`)
+  return t
+}
+
+export function stroke(
+  value: unknown,
+  path: string,
+  partial = false,
+  version = 7,
+): Partial<StrokeStyle> {
   const item = record(value, path)
   const result: Partial<StrokeStyle> = {}
+  if (item.arrowShape !== undefined) {
+    if (item.arrowShape !== 'latex' && item.arrowShape !== 'triangle' && item.arrowShape !== 'open')
+      throw new Error(`${path}箭头形状无效。`)
+    result.arrowShape = item.arrowShape
+  }
+  if (item.arrowSize !== undefined) result.arrowSize = numeric(item.arrowSize, `${path}箭头大小`)
+  if (
+    version < 7 &&
+    ((result.arrowShape !== undefined && result.arrowShape !== 'triangle') ||
+      (result.arrowSize !== undefined && result.arrowSize !== 10))
+  )
+    throw new Error(`${path}箭头设置需要项目文件版本 7。`)
   if (!partial || item.color !== undefined) result.color = color(item.color, `${path}.color`)
   if (!partial || item.width !== undefined) result.width = numeric(item.width, `${path}.width`)
   if (!partial || item.arrows !== undefined) result.arrows = bool(item.arrows, `${path}.arrows`)

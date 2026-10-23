@@ -153,6 +153,16 @@ function swapEnds<T>(parts: Partial<Record<AvoidancePart, T>>): Partial<Record<A
   }
 }
 
+function reverseArrowPositions(a: Avoidance) {
+  if (!a.partArrowPositions) return {}
+  const flipped: Partial<Record<AvoidancePart, number>> = Object.fromEntries(
+    Object.entries(a.partArrowPositions).map(([part, t]) => [part, 1 - t]),
+  )
+  return {
+    partArrowPositions: a.kind === 'bank-clearance' ? swapBanks(flipped) : swapEnds(flipped),
+  }
+}
+
 const samePoint = (a: ComplexPoint, b: ComplexPoint) => a.re === b.re && a.im === b.im
 
 /** Dependency maintenance only builds a candidate; contourReducer owns acceptance. */
@@ -231,12 +241,14 @@ export function reconcileAvoidanceDependencies(
                 : next.anchor,
             ...(next.partStyles ? { partStyles: swapEnds(next.partStyles) } : {}),
             ...(next.partLabels ? { partLabels: swapEnds(next.partLabels) } : {}),
+            ...reverseArrowPositions(next),
           }
         else
           next = {
             ...next,
             ...(next.partStyles ? { partStyles: swapBanks(next.partStyles) } : {}),
             ...(next.partLabels ? { partLabels: swapBanks(next.partLabels) } : {}),
+            ...reverseArrowPositions(next),
           }
       }
       const previousMarker = oldPoints.get(item.markerId)
@@ -312,6 +324,7 @@ export function reconcileAvoidanceDependencies(
           side: next.side === 'left' ? 'right' : 'left',
           ...(next.partStyles === undefined ? {} : { partStyles: swapEnds(next.partStyles) }),
           ...(next.partLabels === undefined ? {} : { partLabels: swapEnds(next.partLabels) }),
+          ...reverseArrowPositions(next),
         }
       }
       const ids = [source.startId, source.endId, item.markerId]

@@ -15,6 +15,7 @@ import type { MarkerObject, SceneObject } from '../contour/workspace'
 import { mathematicalKind, readAvoidances } from './avoidanceSchema'
 import {
   bool,
+  arrowPosition,
   color,
   label,
   list,
@@ -109,9 +110,10 @@ export function parseProject(text: string): ContourState {
     root.version !== 3 &&
     root.version !== 4 &&
     root.version !== 5 &&
-    root.version !== 6
+    root.version !== 6 &&
+    root.version !== 7
   )
-    throw new Error('不支持此项目文件版本，请使用版本 1、2、3、4、5 或 6。')
+    throw new Error('不支持此项目文件版本，请使用版本 1–7。')
   const doc = record(root.document, '文档')
   const ids = new Set<string>()
   const readId = (value: unknown, path: string) => {
@@ -144,7 +146,18 @@ export function parseProject(text: string): ContourState {
       startId: string(item.startId, `${path}起点`, 80),
       endId: string(item.endId, `${path}终点`, 80),
       ...(item.label === undefined ? {} : { label: label(item.label, `${path}标签`) }),
-      ...(item.style === undefined ? {} : { style: stroke(item.style, `${path}样式`, true) }),
+      ...(item.style === undefined
+        ? {}
+        : { style: stroke(item.style, `${path}样式`, true, root.version as number) }),
+      ...(item.arrowPosition === undefined
+        ? {}
+        : {
+            arrowPosition: arrowPosition(
+              item.arrowPosition,
+              `${path}箭头位置`,
+              root.version as number,
+            ),
+          }),
       ...(pieces ? { pieces } : {}),
     }
     const start = endpoints.get(common.startId),
@@ -208,6 +221,7 @@ export function parseProject(text: string): ContourState {
     root.version !== 4 &&
     root.version !== 5 &&
     root.version !== 6 &&
+    root.version !== 7 &&
     (avoidances.length ||
       [...vertices, ...markers].some((m) => (m.mathematicalKind ?? 'ordinary') !== 'ordinary'))
   )
@@ -230,7 +244,7 @@ export function parseProject(text: string): ContourState {
     formulas,
     closed,
     appearance: {
-      stroke: { ...defaultStroke(), ...stroke(appearance.stroke, '默认线条') },
+      stroke: { ...defaultStroke(), ...stroke(appearance.stroke, '默认线条', false, root.version) },
       fill: fill(appearance.fill),
     },
     snap: bool(view.snap, '吸附'),

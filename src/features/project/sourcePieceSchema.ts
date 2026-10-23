@@ -1,7 +1,7 @@
 import type { SourcePieceAppearance } from '../contour/sourcePieces'
 import { sourcePieceId } from '../contour/sourcePieces'
 import type { ContourState } from '../contour/model'
-import { label, list, record, stableId, stroke } from './schema'
+import { arrowPosition, label, list, record, stableId, stroke } from './schema'
 
 export const MAX_SOURCE_PIECES = 2001
 
@@ -21,8 +21,13 @@ export function readSourcePieces(
         item.startAvoidanceId === null ? null : stableId(item.startAvoidanceId, `${at}起始绕行`),
       endAvoidanceId:
         item.endAvoidanceId === null ? null : stableId(item.endAvoidanceId, `${at}结束绕行`),
-      ...(item.style === undefined ? {} : { style: stroke(item.style, `${at}样式`, true) }),
+      ...(item.style === undefined
+        ? {}
+        : { style: stroke(item.style, `${at}样式`, true, version) }),
       ...(item.label === undefined ? {} : { label: label(item.label, `${at}标签`) }),
+      ...(item.arrowPosition === undefined
+        ? {}
+        : { arrowPosition: arrowPosition(item.arrowPosition, `${at}箭头位置`, version) }),
     }
     if (piece.startAvoidanceId === null && piece.endAvoidanceId === null)
       throw new Error(`${at}必须具有绕行边界。`)
@@ -41,7 +46,7 @@ export function validateSourcePieces(
     state.avoidances.filter((a) => a.kind !== 'bank-clearance').map((a) => a.id),
   )
   for (const source of [...state.segments, ...state.connections]) {
-    const pieces = readSourcePieces(source.pieces, `源路径 ${source.id}`, 5)
+    const pieces = readSourcePieces(source.pieces, `源路径 ${source.id}`, 7)
     for (const piece of pieces ?? [])
       if (
         [piece.startAvoidanceId, piece.endAvoidanceId].some((id) => id !== null && !parents.has(id))

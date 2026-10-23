@@ -169,6 +169,9 @@ export function spliceSourcePaths(
         endId,
         style: partStyle,
         origin: origins.get(id)!,
+        ...(declaration.partArrowPositions?.[part] === undefined
+          ? {}
+          : { arrowPosition: declaration.partArrowPositions[part] }),
       }
       let parts: ResolvedSegment[]
       if (part === 'arc')
@@ -209,6 +212,9 @@ export function spliceSourcePaths(
               resolvedArc: cut.arc,
               style: { ...partStyle, ...child.partStyles?.[childPart] },
               origin: origins.get(childPrefix)!,
+              ...(child.partArrowPositions?.[childPart] === undefined
+                ? {}
+                : { arrowPosition: child.partArrowPositions[childPart] }),
             }
             parts.push(childSegment)
             partChains.set(childPrefix, [childSegment])
@@ -283,6 +289,7 @@ export function spliceSourcePaths(
         endId: toId,
         origin,
         style: { ...style, ...own?.style },
+        ...(own?.arrowPosition === undefined ? {} : { arrowPosition: own.arrowPosition }),
       }
       const s: ResolvedSegment =
         edge.kind === 'arc'

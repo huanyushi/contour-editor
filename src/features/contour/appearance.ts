@@ -12,11 +12,14 @@ export interface LabelSettings {
   color: string
   visible: boolean
 }
+export type ArrowShape = 'latex' | 'triangle' | 'open'
 export interface StrokeStyle {
   color: string
   width: number
   dash: 'solid' | 'dashed' | 'dotted'
   arrows: boolean
+  arrowShape: ArrowShape
+  arrowSize: number
 }
 export interface FillStyle {
   mode: 'none' | 'solid' | 'hatch'
@@ -42,6 +45,8 @@ export const defaultStroke = (): StrokeStyle => ({
   width: 2,
   dash: 'solid',
   arrows: true,
+  arrowShape: 'triangle',
+  arrowSize: 10,
 })
 export const defaultFill = (): FillStyle => ({
   mode: 'solid',
@@ -58,7 +63,9 @@ export const validStroke = (style: StrokeStyle): boolean =>
   validColor(style.color) &&
   inRange(style.width, 0.5, 8) &&
   ['solid', 'dashed', 'dotted'].includes(style.dash) &&
-  typeof style.arrows === 'boolean'
+  typeof style.arrows === 'boolean' &&
+  ['latex', 'triangle', 'open'].includes(style.arrowShape) &&
+  inRange(style.arrowSize, 6, 20)
 export const validFill = (style: FillStyle): boolean =>
   validColor(style.color) &&
   ['none', 'solid', 'hatch'].includes(style.mode) &&

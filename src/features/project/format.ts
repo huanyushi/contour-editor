@@ -16,7 +16,7 @@ export const MAX_RESOLVED_SEGMENTS = 10000
 
 export interface ProjectFile {
   format: 'complex-contour-editor'
-  version: 1 | 2 | 3 | 4 | 5 | 6
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7
   document: {
     vertices: Vertex[]
     segments: PathSegment[]
@@ -34,6 +34,22 @@ export interface ProjectFile {
 }
 
 export function serializeProject(state: ContourState): string {
+  const changedStyle = (style: Partial<ContourState['appearance']['stroke']> | undefined) =>
+    !!style &&
+    ((style.arrowShape !== undefined && style.arrowShape !== 'triangle') ||
+      (style.arrowSize !== undefined && style.arrowSize !== 10))
+  const hasArrowData =
+    changedStyle(state.appearance.stroke) ||
+    [...state.segments, ...state.connections].some(
+      (s) =>
+        s.arrowPosition !== undefined ||
+        changedStyle(s.style) ||
+        s.pieces?.some((p) => p.arrowPosition !== undefined || changedStyle(p.style)),
+    ) ||
+    state.avoidances.some(
+      (a) =>
+        a.partArrowPositions !== undefined || Object.values(a.partStyles ?? {}).some(changedStyle),
+    )
   const hasSemanticData =
     state.avoidances.length > 0 ||
     [...state.vertices, ...state.markers].some(
@@ -41,17 +57,19 @@ export function serializeProject(state: ContourState): string {
     )
   const project: ProjectFile = {
     format: 'complex-contour-editor',
-    version: state.avoidances.some((a) => a.kind === 'corridor' && a.alignment)
-      ? 6
-      : [...state.segments, ...state.connections].some((s) => s.pieces?.length)
-        ? 5
-        : state.avoidances.some((a) => a.kind === 'corridor' || a.kind === 'bank-clearance')
-          ? 4
-          : hasSemanticData
-            ? 3
-            : state.connections.length
-              ? 2
-              : 1,
+    version: hasArrowData
+      ? 7
+      : state.avoidances.some((a) => a.kind === 'corridor' && a.alignment)
+        ? 6
+        : [...state.segments, ...state.connections].some((s) => s.pieces?.length)
+          ? 5
+          : state.avoidances.some((a) => a.kind === 'corridor' || a.kind === 'bank-clearance')
+            ? 4
+            : hasSemanticData
+              ? 3
+              : state.connections.length
+                ? 2
+                : 1,
     document: {
       vertices: state.vertices,
       segments: state.segments,

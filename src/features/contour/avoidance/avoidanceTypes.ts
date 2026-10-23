@@ -13,6 +13,7 @@ interface AvoidanceBase {
   radius: number
   partStyles?: Partial<Record<AvoidancePart, Partial<StrokeStyle>>>
   partLabels?: Partial<Record<AvoidancePart, LabelSettings>>
+  partArrowPositions?: Partial<Record<AvoidancePart, number>>
 }
 
 export interface LegacyAvoidance extends AvoidanceBase {

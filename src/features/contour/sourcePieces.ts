@@ -8,6 +8,7 @@ export interface SourcePieceBoundary {
 export interface SourcePieceAppearance extends SourcePieceBoundary {
   style?: Partial<StrokeStyle>
   label?: LabelSettings
+  arrowPosition?: number
 }
 export type SourcePieceAction =
   | {
@@ -91,6 +92,7 @@ export function reconcileSourcePieces(
                 ...p,
                 startAvoidanceId: p.endAvoidanceId,
                 endAvoidanceId: p.startAvoidanceId,
+                ...(p.arrowPosition === undefined ? {} : { arrowPosition: 1 - p.arrowPosition }),
               }))
             : pieces,
         }

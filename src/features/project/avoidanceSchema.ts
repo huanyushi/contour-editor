@@ -4,7 +4,7 @@ import type {
   MathematicalKind,
 } from '../contour/avoidance/avoidanceTypes'
 import { isLegacyAvoidance } from '../contour/avoidance/avoidanceTypes'
-import { label, list, numeric, record, stableId, stroke } from './schema'
+import { arrowPosition, label, list, numeric, record, stableId, stroke } from './schema'
 import type { CorridorAvoidance } from '../contour/avoidance/avoidanceTypes'
 
 export function readAlignment(value: unknown, path: string): CorridorAvoidance['alignment'] {
@@ -46,7 +46,8 @@ function parts<T>(
 export function readAvoidanceAppearance(
   value: unknown,
   path: string,
-): Pick<Avoidance, 'partStyles' | 'partLabels'> {
+  version = 7,
+): Pick<Avoidance, 'partStyles' | 'partLabels' | 'partArrowPositions'> {
   const item = record(value, path)
   const allowed =
     item.kind === 'bank-clearance' ? ['bank-entry', 'bank-exit'] : ['entry', 'arc', 'exit']
@@ -54,11 +55,26 @@ export function readAvoidanceAppearance(
     ...(item.partStyles === undefined
       ? {}
       : {
-          partStyles: parts(item.partStyles, `${path}样式`, (v, p) => stroke(v, p, true), allowed),
+          partStyles: parts(
+            item.partStyles,
+            `${path}样式`,
+            (v, p) => stroke(v, p, true, version),
+            allowed,
+          ),
         }),
     ...(item.partLabels === undefined
       ? {}
       : { partLabels: parts(item.partLabels, `${path}标签`, label, allowed) }),
+    ...(item.partArrowPositions === undefined
+      ? {}
+      : {
+          partArrowPositions: parts(
+            item.partArrowPositions,
+            `${path}箭头位置`,
+            (v, p) => arrowPosition(v, p, version),
+            allowed,
+          ),
+        }),
   }
 }
 
@@ -76,7 +92,7 @@ export function readAvoidances(
       id: readId(item.id, path),
       markerId: stableId(item.markerId, `${path}标记`),
       radius: numeric(item.radius, `${path}.radius`),
-      ...readAvoidanceAppearance(item, path),
+      ...readAvoidanceAppearance(item, path, version),
     }
     if (item.kind === 'corridor' || item.kind === 'bank-clearance') {
       if (version < 4) throw new Error(`${path} 需要项目文件版本 4。`)
@@ -139,6 +155,9 @@ export function writeAvoidance(value: Avoidance): Avoidance {
     radius: value.radius,
     ...(value.partStyles === undefined ? {} : { partStyles: value.partStyles }),
     ...(value.partLabels === undefined ? {} : { partLabels: value.partLabels }),
+    ...(value.partArrowPositions === undefined
+      ? {}
+      : { partArrowPositions: value.partArrowPositions }),
   }
   if (value.kind === 'corridor')
     return {

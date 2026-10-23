@@ -15,10 +15,17 @@ import type { ResolvedScene, SceneResolution } from '../contour/scene/resolvedSc
 import { validateAvoidances } from '../contour/avoidance/avoidanceValidation'
 import { readAvoidanceAppearance, readAlignment } from './avoidanceSchema'
 import { validateSourcePieces } from './sourcePieceSchema'
+import { arrowPosition, stroke } from './schema'
 
 /** Validate before consuming a derived scene; share the result with projection checks. */
 export function validateProjectCapacity(state: ContourState): SceneResolution {
   try {
+    stroke(state.appearance.stroke, '默认线条')
+    for (const segment of [...state.segments, ...state.connections]) {
+      if (segment.style) stroke(segment.style, `路径 ${segment.id}样式`, true)
+      if (segment.arrowPosition !== undefined)
+        arrowPosition(segment.arrowPosition, `路径 ${segment.id}箭头位置`)
+    }
     validateSourcePieces(state)
     state.avoidances.forEach((avoidance, index) => {
       readAvoidanceAppearance(avoidance, `绕行 ${index + 1}（${avoidance.id}）`)

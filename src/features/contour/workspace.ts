@@ -35,6 +35,7 @@ import {
 } from './avoidance/avoidanceSelection'
 import { avoidanceReducer } from './avoidance/avoidanceModel'
 import { sourcePieceReducer } from './sourcePieces'
+import { setArrowPosition } from './interaction/arrowPosition'
 
 export interface SceneObject extends ComplexPoint {
   id: string
@@ -57,6 +58,7 @@ export interface WorkspaceState {
   handles: boolean
 }
 export type WorkspaceAction =
+  | { type: 'arrowPosition'; id: string; position: number }
   | { type: 'clearVertexLabel'; id: string }
   | { type: 'viewport'; value: Viewport }
   | { type: 'zoomView'; anchor: SvgPoint; factor: number }
@@ -106,6 +108,8 @@ export function workspaceReducer(
     return sourcePieceReducer(state, mapped)
   action = mapped
   switch (action.type) {
+    case 'arrowPosition':
+      return setArrowPosition(state, action.id, action.position)
     case 'clearVertexLabel':
       return {
         ...state,

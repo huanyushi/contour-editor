@@ -4,6 +4,22 @@ import { createHistory, historyReducer } from './history'
 import { defaultLabel } from './appearance'
 
 describe('document history', () => {
+  it('merges arrow movement into one step and cancels without retaining a position', () => {
+    let history = createHistory()
+    const original = history.present
+    history = historyReducer(history, { type: 'beginGesture', owner: 'canvas' })
+    for (const position of [0.2, 0.3, 0.8])
+      history = historyReducer(history, { type: 'arrowPosition', id: 'edge-a', position })
+    expect(history.past).toHaveLength(0)
+    expect(history.present.segments[0].arrowPosition).toBe(0.8)
+    const cancelled = historyReducer(history, { type: 'cancelGesture', owner: 'canvas' })
+    expect(cancelled.present).toEqual(original)
+    history = historyReducer(history, { type: 'endGesture', owner: 'canvas' })
+    expect(history.past).toHaveLength(1)
+    expect(historyReducer(history, { type: 'undo' }).present.segments).toEqual(original.segments)
+    const clicked = historyReducer(createHistory(), { type: 'beginGesture', owner: 'canvas' })
+    expect(historyReducer(clicked, { type: 'endGesture', owner: 'canvas' }).past).toHaveLength(0)
+  })
   it('cancels only the owned gesture and preserves the pre-drag document and redo stack', () => {
     let history = historyReducer(createHistory(), {
       type: 'move',

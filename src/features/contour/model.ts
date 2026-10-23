@@ -37,6 +37,7 @@ interface SegmentEndpoints {
   endId: string
   label?: LabelSettings
   style?: Partial<StrokeStyle>
+  arrowPosition?: number
   pieces?: SourcePieceAppearance[]
 }
 type LineSegment = SegmentEndpoints & { kind: 'line' }
@@ -403,7 +404,14 @@ function reduceContour(state: ContourState, action: ContourAction): ContourState
         isSingleCycle(state)
           ? [...state.segments.slice(0, -1).reverse(), state.segments[state.segments.length - 1]]
           : [...state.segments].reverse()
-      ).map((segment) => ({ ...segment, startId: segment.endId, endId: segment.startId }))
+      ).map((segment) => ({
+        ...segment,
+        startId: segment.endId,
+        endId: segment.startId,
+        ...(segment.arrowPosition === undefined
+          ? {}
+          : { arrowPosition: 1 - segment.arrowPosition }),
+      }))
       return { ...state, vertices, segments, error: '' }
     }
     default:

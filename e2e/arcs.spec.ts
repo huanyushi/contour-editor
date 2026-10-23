@@ -61,9 +61,12 @@ test('constructs the acceptance contour through the arc tool from two shared end
     await path.evaluate((node) => (node as SVGPathElement).isPointInFill(new DOMPoint(400, 340))),
   ).toBe(false)
   const arcArrow = page.locator('[data-segment-kind="arc"][data-testid^="arrow-"]')
-  expect(Number(await arcArrow.getAttribute('x2'))).toBeLessThan(
-    Number(await arcArrow.getAttribute('x1')),
-  )
+  const markerId = (await arcArrow.getAttribute('marker-end'))!.slice(5, -1)
+  expect(
+    Math.cos(
+      (Number(await page.locator(`[id="${markerId}"]`).getAttribute('orient')) * Math.PI) / 180,
+    ),
+  ).toBeLessThan(0)
 })
 
 test('drags arc through point and shared endpoint, updates fill, then reverses tangent arrows', async ({
@@ -86,15 +89,17 @@ test('drags arc through point and shared endpoint, updates fill, then reverses t
   // The final arc endpoint and initial M share exactly the same coordinate pair.
   const start = geometry.match(/^M ([^ ]+) ([^ ]+)/)!
   expect(geometry.endsWith(`${start[1]} ${start[2]} Z`)).toBe(true)
-  const arrow = page.getByTestId('arrow-edge-b')
+  const arrow = page.locator('#direction-edge-b')
+  const beforeAngle = (Number(await arrow.getAttribute('orient')) * Math.PI) / 180
   const before = {
-    x: Number(await arrow.getAttribute('x2')) - Number(await arrow.getAttribute('x1')),
-    y: Number(await arrow.getAttribute('y2')) - Number(await arrow.getAttribute('y1')),
+    x: Math.cos(beforeAngle),
+    y: Math.sin(beforeAngle),
   }
   await page.getByRole('button', { name: '反转方向' }).click()
+  const afterAngle = (Number(await arrow.getAttribute('orient')) * Math.PI) / 180
   const after = {
-    x: Number(await arrow.getAttribute('x2')) - Number(await arrow.getAttribute('x1')),
-    y: Number(await arrow.getAttribute('y2')) - Number(await arrow.getAttribute('y1')),
+    x: Math.cos(afterAngle),
+    y: Math.sin(afterAngle),
   }
   expect(after.x).toBeCloseTo(-before.x)
   expect(after.y).toBeCloseTo(-before.y)

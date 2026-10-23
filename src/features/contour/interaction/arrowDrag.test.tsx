@@ -90,6 +90,29 @@ it('moves a curved arrow along the arc and Escape cancels without moving labels 
   expect(history().past).toHaveLength(0)
 })
 
+it('allows grabbing the arrow shaft through an overlapping invisible point hit area, keeping the visible point center usable', () => {
+  const { svg, history } = editor()
+  const before = history().present
+  fireEvent.pointerDown(screen.getByTestId('through-edge-b'), {
+    button: 0,
+    clientX: 411,
+    clientY: 221,
+  })
+  fireEvent.pointerMove(svg, { clientX: 440, clientY: 235 })
+  fireEvent.pointerUp(svg)
+  expect(history().present.segments[1].arrowPosition).toBeDefined()
+  expect(history().present.segments[1]).toMatchObject({ through: { re: 0, im: 2 } })
+  expect(history().present.vertices).toBe(before.vertices)
+  fireEvent.pointerDown(screen.getByTestId('through-edge-b'), {
+    button: 0,
+    clientX: 400,
+    clientY: 220,
+  })
+  fireEvent.pointerMove(svg, { clientX: 400, clientY: 200 })
+  fireEvent.pointerUp(svg)
+  expect(history().present.segments[1]).toMatchObject({ through: { re: 0, im: 2.5 } })
+})
+
 it('keeps Ctrl multi-selection instead of starting an arrow drag', () => {
   const { history } = editor()
   fireEvent.pointerDown(screen.getByTestId('arrow-hit-edge-a'), {

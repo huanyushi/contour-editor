@@ -172,8 +172,8 @@ describe('avoidance selection mapping', () => {
       arc,
     )
     const bounds = selectionBounds(state, [source])!
-    expect(bounds.left).toBeLessThanOrEqual(234)
-    expect(bounds.right).toBeGreaterThanOrEqual(566)
+    expect(bounds.left).toBeLessThanOrEqual(239)
+    expect(bounds.right).toBeGreaterThanOrEqual(561)
     expect(bounds.top).toBeLessThan(220)
     expect(selectionBounds(state, [{ kind: 'contour' }])!.top).toBeLessThanOrEqual(bounds.top)
   })

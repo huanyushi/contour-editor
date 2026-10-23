@@ -414,8 +414,8 @@ describe('connection selection and geometry', () => {
     const id = base.connections[0].id
     expect(itemAnchor(base, { kind: 'segment', id })).toEqual({ x: 440, y: 300 })
     expect(selectionBounds(base, [{ kind: 'segment', id }])).toMatchObject({
-      left: 394,
-      right: 486,
+      left: 399,
+      right: 481,
     })
     expect(itemsWithinRect(base, { left: 393, right: 487, top: 293, bottom: 307 })).toContainEqual({
       kind: 'segment',

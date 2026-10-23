@@ -9,6 +9,22 @@ import {
   createRectangleConnectedFixture,
 } from '../src/test/connectedAvoidanceFixtures'
 import { createInitialState } from '../src/features/contour/model'
+import { createArcFixture } from '../src/test/fixtures'
+
+test(
+  'arrow drags preserve all template previews and global control paints',
+  { tag: '@desktop-only' },
+  async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/')
+    await openAvoidanceProject(page, createArcFixture())
+    await openTemplates(page)
+    await expect(page.locator('.template-grid .scene-thumbnail')).toHaveCount(9)
+    const from = await screenPoint(page, 0, 0)
+    await stableDrag(page, from, { x: from.x + 35, y: from.y })
+    expect((await savedProject(page)).document.segments[0].arrowPosition).toBeGreaterThan(0.5)
+  },
+)
 
 test(
   'marquee selects a semantic vertex with hidden handles without changing template paints',
@@ -165,7 +181,9 @@ test(
     expect(moved.document.markers[0]).toMatchObject({ re: 1, im: 0.5 })
     expect(moved.document.avoidances![0].partLabels!.arc).toMatchObject({ dx: 90, dy: -80 })
     await page.getByRole('button', { name: '框选工具', exact: true }).click()
-    const from = await screenPoint(page, 0, -0.1)
+    // Include the complete arc (bottom y≈298.32), not the two tiny connectors
+    // whose actual strokes extend to y=301; do not rely on old fixed arrow padding.
+    const from = await screenPoint(page, 0, 0.025)
     const to = await screenPoint(page, 2, 3.5)
     await stableDrag(page, from, to)
     await expect(page.getByTestId('selection-toolbar')).toContainText('2 个对象')

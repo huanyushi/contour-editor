@@ -23,6 +23,7 @@ import { translationAnchor } from '../selection/selectionTransform'
 import { resolvedScene, scenePoints } from '../scene/sceneObjects'
 import { arrowChain, buildPathArrow, projectArrowPosition } from '../scene/arrowGeometry'
 import type { ResolvedSegment } from '../scene/resolvedScene'
+import { buildContourGeometry } from '../scene/pathGeometry'
 import type { AvoidanceWorkflow } from '../avoidance/useAvoidanceDraft'
 import { captureMarkerPath, snapPathGrid, sourceSnapPaths, type SourceSnapPath } from './pathSnap'
 import type { AvoidancePart } from '../avoidance/avoidanceTypes'
@@ -350,6 +351,65 @@ export function useCanvasInteraction({
     })
   }
 
+  function beginArrowDrag(event: PointerEvent<SVGGElement>, id: string) {
+    if (
+      tool !== 'select' ||
+      event.button !== 0 ||
+      !event.isPrimary ||
+      Boolean(drag.current) ||
+      space.current ||
+      gestureOwner !== null ||
+      (avoidanceWorkflow && avoidanceWorkflow.draft.kind !== 'idle')
+    )
+      return
+    if (toggle(event, { kind: 'segment', id })) return
+    const scene = resolvedScene(state),
+      chain = arrowChain(scene, id)
+    if (!chain.length) return
+    const first = chain[0]
+    const result = buildPathArrow(
+      chain,
+      scene.points,
+      state.viewport,
+      { ...state.appearance.stroke, ...first.style },
+      first.arrowPosition ?? 0.5,
+    )
+    if (!result) return
+    capture(event, 'arrow', result.arrow.objectId, fromSvg(result.arrow.point, state.viewport))
+    if (drag.current?.kind === 'arrow') drag.current.arrowControl = { chain, points: scene.points }
+  }
+
+  function arrowOverPoint(event: PointerEvent<SVGGElement>, point: ComplexPoint): boolean {
+    if (
+      tool !== 'select' ||
+      drag.current ||
+      space.current ||
+      gestureOwner !== null ||
+      (avoidanceWorkflow && avoidanceWorkflow.draft.kind !== 'idle')
+    )
+      return false
+    const location = svgPoint(event.clientX, event.clientY),
+      matrix = svgRef.current?.getScreenCTM()
+    if (!location || !matrix) return false
+    const center = toSvg(point, state.viewport),
+      dx = location.x - center.x,
+      dy = location.y - center.y
+    // Preserve the visible handle itself; its broad invisible hit circle must
+    // not hide a neighbouring arrow shaft (notably the default arc midpoint).
+    if (Math.hypot(dx * matrix.a + dy * matrix.c, dx * matrix.b + dy * matrix.d) <= 8) return false
+    const hit = buildContourGeometry(state).segments.find(
+      ({ arrow }) =>
+        arrow &&
+        location.x >= arrow.bounds.left &&
+        location.x <= arrow.bounds.right &&
+        location.y >= arrow.bounds.top &&
+        location.y <= arrow.bounds.bottom,
+    )
+    if (!hit?.arrow) return false
+    beginArrowDrag(event, hit.arrow.objectId)
+    return true
+  }
+
   return {
     adding: tool !== 'select' && tool !== 'pan',
     panning: tool === 'pan' || spaceHeld || panActive,
@@ -359,32 +419,7 @@ export function useCanvasInteraction({
     selectionDragEnabled: !modifierHeld,
     arrowsInteractive:
       tool === 'select' && (!avoidanceWorkflow || avoidanceWorkflow.draft.kind === 'idle'),
-    beginArrowDrag: (event: PointerEvent<SVGGElement>, id: string) => {
-      if (
-        tool !== 'select' ||
-        event.button !== 0 ||
-        !event.isPrimary ||
-        gestureOwner !== null ||
-        (avoidanceWorkflow && avoidanceWorkflow.draft.kind !== 'idle')
-      )
-        return
-      if (toggle(event, { kind: 'segment', id })) return
-      const scene = resolvedScene(state),
-        chain = arrowChain(scene, id)
-      if (!chain.length) return
-      const first = chain[0]
-      const result = buildPathArrow(
-        chain,
-        scene.points,
-        state.viewport,
-        { ...state.appearance.stroke, ...first.style },
-        first.arrowPosition ?? 0.5,
-      )
-      if (!result) return
-      capture(event, 'arrow', result.arrow.objectId, fromSvg(result.arrow.point, state.viewport))
-      if (drag.current?.kind === 'arrow')
-        drag.current.arrowControl = { chain, points: scene.points }
-    },
+    beginArrowDrag,
     avoidanceHandlesInteractive:
       tool === 'select' && (!avoidanceWorkflow || avoidanceWorkflow.draft.kind === 'idle'),
     beginSelectionDrag: (event: PointerEvent<SVGRectElement>) => {
@@ -417,6 +452,7 @@ export function useCanvasInteraction({
       const target =
         nearestAvoidanceTarget(state, handles, fromSvg(location, state.viewport), pathMetric()) ??
         handle
+      if (arrowOverPoint(event, target.point)) return
       if (!('avoidanceId' in target)) {
         if (!toggle(event, { kind: target.kind, id: target.id }))
           capture(event, target.kind, target.id, target.point)
@@ -490,6 +526,7 @@ export function useCanvasInteraction({
       point: ComplexPoint,
     ) => {
       if (event.button !== 0 || !event.isPrimary || gestureOwner !== null) return
+      if (kind !== 'formula' && arrowOverPoint(event, point)) return
       if (pickingTarget) {
         event.preventDefault()
         event.stopPropagation()

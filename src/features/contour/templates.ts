@@ -118,7 +118,7 @@ function semicircle(indented: boolean): ContourState {
   const state = contour(
     [point(4, 0, 'R'), point(-4, 0, '-R', -28)],
     { 0: { through: { re: 0, im: 4 }, tex: 'C_R' } },
-    indented ? [marker('origin', 0, 0, '0', 'isolated')] : [],
+    indented ? [marker('origin', 0, 0, '', 'isolated')] : [],
   )
   return indented
     ? withAvoidance(
@@ -142,7 +142,7 @@ function keyhole(indented: boolean): ContourState {
       1: { through: { re: 3.5, im: 0 } },
     },
     [
-      marker('origin', 0, 0, '0', 'branch'),
+      marker('origin', 0, 0, '', 'branch'),
       ...(indented ? [marker('pole', 2, 0, 'z_0', 'isolated')] : []),
     ],
   )
@@ -177,7 +177,7 @@ function bromwich(indented: boolean): ContourState {
       0: { through: { re: -4, im: 0 }, tex: 'C_R', dx: -38 },
       1: { tex: '\\operatorname{Re} z = \\sigma', dx: 16, dy: -12 },
     },
-    indented ? [marker('origin', 0, 0, '0', 'branch')] : [],
+    indented ? [marker('origin', 0, 0, '', 'branch')] : [],
   )
   return indented
     ? withAvoidance(

@@ -1,0 +1,481 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="800"
+  height="600"
+  viewBox="0 0 800 600"
+  role="img"
+  aria-label="钥匙孔围道"
+>
+  <title>钥匙孔围道</title>
+  <rect width="800" height="600" fill="#ffffff" />
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="184.5 98.5 431 403"
+    role="img"
+    aria-label="复平面围道"
+    width="752"
+    height="552"
+    overflow="hidden"
+    x="24"
+    y="24"
+    preserveAspectRatio="xMidYMid meet"
+  >
+    <title>Complex Contour Editor · 复平面围道</title>
+    <defs>
+      <pattern
+        id="grid"
+        width="40"
+        height="40"
+        patternUnits="userSpaceOnUse"
+        x="17.56431526037659"
+        y="20"
+      >
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e7ecef" stroke-width="1" />
+      </pattern>
+      <marker
+        id="axis-arrow"
+        viewBox="-11 -5 12 10"
+        refX="0"
+        refY="0"
+        markerWidth="12"
+        markerHeight="10"
+        markerUnits="userSpaceOnUse"
+        orient="auto"
+      >
+        <path
+          d="M 0 0 L -10 -4 Q -7 0 -10 4 Z"
+          fill="#7b898e"
+          stroke="none"
+          stroke-width="1.2"
+          stroke-linejoin="round"
+        />
+      </marker>
+    </defs>
+    <rect x="184.5" y="98.5" width="431" height="403" fill="#ffffff" />
+    <g>
+      <path
+        d="M 204.5 300 H 595.5"
+        fill="none"
+        stroke="#7b898e"
+        stroke-width="1"
+        marker-end="url(#axis-arrow)"
+      />
+      <path
+        d="M 417.5643152603766 481.5 V 118.5"
+        fill="none"
+        stroke="#7b898e"
+        stroke-width="1"
+        marker-end="url(#axis-arrow)"
+      />
+      <g
+        role="img"
+        aria-label="\mathrm{Re}"
+        transform="translate(568.8 274) scale(1.25)"
+        style="color: #7b898e"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          style="vertical-align: -0.05ex"
+          width="21.36"
+          height="12.76"
+          role="img"
+          focusable="false"
+          viewBox="0 -683 1180 705"
+        >
+          <g stroke="currentColor" fill="currentColor" stroke-width="0" transform="scale(1,-1)">
+            <g>
+              <g>
+                <g>
+                  <path
+                    d="M130 622L130 61C118 49 117 47 60 46L27 46L27 0L38 0C54 3 151 3 181 3C210 3 307 3 323 0L334 0L334 46L301 46C247 47 241 48 232 61L231 192L231 323L297 323L363 322L373 320C408 310 437 282 449 246C460 209 452 118 458 90C473 21 534-18 630-22C650-22 659-21 672-16C705-2 732 41 732 90C732 103 728 105 712 105C695 105 692 102 692 87C690 60 683 41 669 27C661 19 656 16 645 16L640 16C631 16 627 16 623 18C600 26 588 46 578 94C576 102 558 217 556 226C544 273 507 310 467 332C459 335 456 338 456 338C457 339 462 340 467 342C535 364 610 420 610 501C610 506 610 512 609 517C600 570 561 617 500 648C474 662 449 670 420 676C385 683 396 682 202 683L27 683L27 637L60 637C117 636 118 634 130 622M490 539C491 531 491 522 491 499C491 448 487 424 463 400C424 361 375 360 289 360L231 360L231 492C231 622 232 625 234 628C236 632 241 635 250 636C256 636 279 637 304 637C409 637 476 626 490 539Z"
+                  />
+                  <path
+                    d="M415 245C415 370 353 448 229 448C223 448 219 448 215 447C113 434 28 344 28 218C28 192 32 169 40 145C66 67 130 9 206-6C221-9 236-11 250-11C335-11 389 45 412 108C414 114 415 118 415 121C415 129 409 131 395 131C382 131 382 131 379 128C377 126 375 122 373 114C366 94 356 76 342 62C323 41 307 30 270 30C209 30 167 61 146 104C133 129 126 168 126 216L126 231L408 231C412 235 415 235 415 245M333 275L333 267L127 267L127 274C131 314 139 341 153 363C173 392 199 411 238 411C248 410 251 410 259 407C307 390 327 346 333 275Z"
+                    transform="translate(736,0)"
+                  />
+                </g>
+              </g>
+            </g>
+          </g>
+        </svg>
+      </g>
+      <g
+        role="img"
+        aria-label="\mathrm{Im}"
+        transform="translate(431.5643152603766 120.5) scale(1.25)"
+        style="color: #7b898e"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          style="vertical-align: 0"
+          width="21.608"
+          height="12.36"
+          role="img"
+          focusable="false"
+          viewBox="0 -683 1194 683"
+        >
+          <g stroke="currentColor" fill="currentColor" stroke-width="0" transform="scale(1,-1)">
+            <g>
+              <g>
+                <g>
+                  <path
+                    d="M328 0L339 0L339 46L317 46C290 46 260 48 251 49C242 51 237 55 234 60C232 63 232 73 232 342C232 610 232 620 234 623C237 628 242 632 251 634C260 635 290 637 317 637L339 637L339 683L328 683C312 680 210 680 180 680C150 680 48 680 32 683L21 683L21 637L43 637C70 637 100 635 109 634C118 632 123 628 126 623C128 620 128 610 128 342C128 73 128 63 126 60C123 55 118 51 109 49C100 48 70 46 43 46L21 46L21 0L32 0C48 3 150 3 180 3C210 3 312 3 328 0Z"
+                  />
+                  <path
+                    d="M188 60C188 62 187 114 187 168C187 222 188 276 188 282C192 318 205 346 229 370C251 392 269 404 308 404C352 404 369 384 378 343C379 334 379 322 380 200C380 126 380 64 379 62C379 47 351 46 326 46L318 46L302 46L302 0L310 0C323 3 399 3 422 3C445 3 521 3 534 0L542 0L542 46L526 46L512 46C488 46 472 47 465 60C465 62 464 114 464 168C464 222 465 276 465 282C469 318 482 346 506 370C528 392 546 404 585 404C629 404 646 384 655 343C656 334 656 322 657 200C657 126 657 64 656 62C656 47 628 46 603 46L595 46L579 46L579 0L587 0C600 3 676 3 699 3C722 3 798 3 811 0L819 0L819 46L803 46C783 46 761 48 754 49C749 51 744 56 742 60C741 62 741 103 741 190C741 271 741 322 740 329C732 406 687 442 603 442C554 442 515 423 484 394C473 383 465 371 457 361L455 366C440 415 397 440 336 442C260 442 216 412 183 365L182 364C181 364 181 371 181 402L181 442L178 442C176 442 142 439 102 436C61 434 28 431 27 431C25 431 25 429 25 408L25 385L43 385C87 383 98 377 102 351C102 346 103 274 103 203C103 132 102 62 102 60C95 47 79 46 55 46L41 46L25 46L25 0L33 0C46 3 122 3 145 3C168 3 244 3 257 0L265 0L265 46L249 46L235 46C211 46 195 47 188 60Z"
+                    transform="translate(361,0)"
+                  />
+                </g>
+              </g>
+            </g>
+          </g>
+        </svg>
+      </g>
+    </g>
+    <defs>
+      <pattern
+        id="contour-hatch"
+        width="10"
+        height="10"
+        patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)"
+      >
+        <path d="M 0 0 V 10" stroke="#66777c" stroke-width="2" />
+      </pattern>
+    </defs>
+    <g>
+      <path
+        d="M 417.5643152603766 160 A 140 140 0 0 0 417.5643152603766 440 A 139.99999999999997 139.99999999999997 0 0 0 557.4356847396234 306 L 436.6430992887155 306 A 20 20 0 1 1 436.6430992887155 294 L 557.4356847396234 294 A 140.00000000000003 140.00000000000003 0 0 0 417.5643152603766 160 Z"
+        fill="#66777c"
+        fill-opacity="0.18"
+        fill-rule="nonzero"
+        stroke="none"
+      />
+      <g>
+        <path
+          d="M 417.5643152603766 160 A 140 140 0 0 0 417.5643152603766 440"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </g>
+      <g>
+        <path
+          d="M 417.5643152603766 440 A 139.99999999999997 139.99999999999997 0 0 0 557.4356847396234 306"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </g>
+      <g>
+        <path
+          d="M 557.4356847396234 306 L 436.6430992887155 306"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </g>
+      <g>
+        <path
+          d="M 436.6430992887155 306 A 20 20 0 1 1 436.6430992887155 294"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </g>
+      <g>
+        <path
+          d="M 436.6430992887155 294 L 557.4356847396234 294"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </g>
+      <g>
+        <path
+          d="M 557.4356847396234 294 A 140.00000000000003 140.00000000000003 0 0 0 417.5643152603766 160"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </g>
+      <g>
+        <defs>
+          <marker
+            id="direction-edge-v1"
+            viewBox="-11 -5 12 10"
+            refX="0"
+            refY="0"
+            markerWidth="12"
+            markerHeight="10"
+            markerUnits="userSpaceOnUse"
+            orient="90"
+          >
+            <path
+              d="M 0 0 L -10 -4 L -10 4 Z"
+              fill="#263238"
+              stroke="none"
+              stroke-width="1.2"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+          </marker>
+        </defs>
+        <path
+          d="M 278.0782861753042 288.0146885698229 A 140 140 0 0 0 277.5643152603766 300"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          marker-end="url(#direction-edge-v1)"
+        />
+      </g>
+      <g>
+        <defs>
+          <marker
+            id="direction-gap:edge-v2:before:avoidance-0"
+            viewBox="-11 -5 12 10"
+            refX="0"
+            refY="0"
+            markerWidth="12"
+            markerHeight="10"
+            markerUnits="userSpaceOnUse"
+            orient="-43.771857138209"
+          >
+            <path
+              d="M 0 0 L -10 -4 L -10 4 Z"
+              fill="#263238"
+              stroke="none"
+              stroke-width="1.2"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+          </marker>
+        </defs>
+        <path
+          d="M 505.40456143401815 409.01417867485884 A 139.99999999999997 139.99999999999997 0 0 0 514.4147153628026 401.0940156488009"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          marker-end="url(#direction-gap:edge-v2:before:avoidance-0)"
+        />
+      </g>
+      <g>
+        <defs>
+          <marker
+            id="direction-avoid:avoidance-0:entry"
+            viewBox="-11 -5 12 10"
+            refX="0"
+            refY="0"
+            markerWidth="12"
+            markerHeight="10"
+            markerUnits="userSpaceOnUse"
+            orient="180"
+          >
+            <path
+              d="M 0 0 L -10 -4 L -10 4 Z"
+              fill="#263238"
+              stroke="none"
+              stroke-width="1.2"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+          </marker>
+        </defs>
+        <path
+          d="M 509.0393920141695 306 L 497.0393920141695 306"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          marker-end="url(#direction-avoid:avoidance-0:entry)"
+        />
+      </g>
+      <g>
+        <defs>
+          <marker
+            id="direction-avoid:avoidance-0:arc"
+            viewBox="-11 -5 12 10"
+            refX="0"
+            refY="0"
+            markerWidth="12"
+            markerHeight="10"
+            markerUnits="userSpaceOnUse"
+            orient="-90.00000000000001"
+          >
+            <path
+              d="M 0 0 L -10 -4 L -10 4 Z"
+              fill="#263238"
+              stroke="none"
+              stroke-width="1.2"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+          </marker>
+        </defs>
+        <path
+          d="M 401.05760291170003 311.29284939410996 A 20 20 0 0 1 397.5643152603766 300"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          marker-end="url(#direction-avoid:avoidance-0:arc)"
+        />
+      </g>
+      <g>
+        <defs>
+          <marker
+            id="direction-avoid:avoidance-0:exit"
+            viewBox="-11 -5 12 10"
+            refX="0"
+            refY="0"
+            markerWidth="12"
+            markerHeight="10"
+            markerUnits="userSpaceOnUse"
+            orient="0"
+          >
+            <path
+              d="M 0 0 L -10 -4 L -10 4 Z"
+              fill="#263238"
+              stroke="none"
+              stroke-width="1.2"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+          </marker>
+        </defs>
+        <path
+          d="M 485.03939201416944 294 L 497.0393920141695 294"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          marker-end="url(#direction-avoid:avoidance-0:exit)"
+        />
+      </g>
+      <g>
+        <defs>
+          <marker
+            id="direction-gap:edge-v2:after:avoidance-0"
+            viewBox="-11 -5 12 10"
+            refX="0"
+            refY="0"
+            markerWidth="12"
+            markerHeight="10"
+            markerUnits="userSpaceOnUse"
+            orient="-136.22814286179099"
+          >
+            <path
+              d="M 0 0 L -10 -4 L -10 4 Z"
+              fill="#263238"
+              stroke="none"
+              stroke-width="1.2"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+          </marker>
+        </defs>
+        <path
+          d="M 522.7137508808478 207.56842428749587 A 140.00000000000003 140.00000000000003 0 0 0 514.4147153628026 198.9059843511991"
+          fill="none"
+          stroke="#263238"
+          stroke-width="2"
+          stroke-linecap="round"
+          marker-end="url(#direction-gap:edge-v2:after:avoidance-0)"
+        />
+      </g>
+      <g>
+        <g
+          role="img"
+          aria-label="C_\delta"
+          transform="translate(351.5643152603766 276) scale(1)"
+          style="color: #202a30"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            style="vertical-align: -0.363ex"
+            width="20.216"
+            height="15.664"
+            role="img"
+            focusable="false"
+            viewBox="0 -705 1116.9 865.5"
+          >
+            <g stroke="currentColor" fill="currentColor" stroke-width="0" transform="scale(1,-1)">
+              <g>
+                <g>
+                  <g>
+                    <path
+                      d="M651 481C651 465 650 447 649 437C645 417 647 419 653 413L669 413C689 413 690 414 692 421C693 424 709 487 728 561C755 673 760 693 760 698C760 703 753 705 746 705L740 705L725 690C717 682 699 663 684 649C664 627 659 623 657 623C655 623 639 647 633 653C606 679 573 696 532 703C526 704 505 704 490 704C447 704 415 696 382 686C273 650 183 575 125 485C76 411 50 328 50 252C50 230 52 208 57 187C81 69 178-22 319-22C343-22 366-19 389-13C510 15 615 121 647 239C648 243 649 247 649 249C649 256 644 257 628 257C611 257 611 257 606 240C582 153 511 73 433 41C404 30 378 24 350 24C302 24 263 36 232 58C180 92 156 141 156 222C156 232 156 243 157 251C165 327 193 421 226 479C266 550 325 604 395 634C432 649 474 659 510 659C601 659 651 591 651 481Z"
+                    />
+                  </g>
+                  <g transform="translate(748,-153.4) scale(0.707)">
+                    <path
+                      d="M451 662C451 675 444 685 433 690C418 695 326 715 302 717C290 717 287 717 279 715C232 702 195 666 195 609C195 603 195 598 196 593C200 558 214 515 239 462C245 448 249 442 252 434C217 422 182 406 151 382C100 340 54 276 41 206C37 186 36 174 36 153C38 84 73 32 122 8C145-4 163-10 198-10L205-10C227-10 240-6 261 4C302 26 335 66 358 110C384 161 401 215 401 292C401 372 374 413 334 463C265 547 235 597 235 628C235 637 237 642 243 650C253 664 266 671 288 671C292 671 296 671 300 670C315 666 323 662 353 637C366 626 377 618 388 614C392 612 395 612 403 612C433 612 451 639 451 662M112 130C112 157 119 195 132 239C153 314 193 373 259 396L269 400C297 340 316 304 316 232C316 159 285 81 252 48C238 34 230 27 204 27C143 27 112 70 112 130Z"
+                    />
+                  </g>
+                </g>
+              </g>
+            </g>
+          </svg>
+        </g>
+      </g>
+      <g>
+        <g
+          role="img"
+          aria-label="C_R"
+          transform="translate(241.5643152603766 274) scale(1)"
+          style="color: #202a30"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            style="vertical-align: -0.373ex"
+            width="24.16"
+            height="15.744"
+            role="img"
+            focusable="false"
+            viewBox="0 -705 1334.7 869.8"
+          >
+            <g stroke="currentColor" fill="currentColor" stroke-width="0" transform="scale(1,-1)">
+              <g>
+                <g>
+                  <g>
+                    <path
+                      d="M651 481C651 465 650 447 649 437C645 417 647 419 653 413L669 413C689 413 690 414 692 421C693 424 709 487 728 561C755 673 760 693 760 698C760 703 753 705 746 705L740 705L725 690C717 682 699 663 684 649C664 627 659 623 657 623C655 623 639 647 633 653C606 679 573 696 532 703C526 704 505 704 490 704C447 704 415 696 382 686C273 650 183 575 125 485C76 411 50 328 50 252C50 230 52 208 57 187C81 69 178-22 319-22C343-22 366-19 389-13C510 15 615 121 647 239C648 243 649 247 649 249C649 256 644 257 628 257C611 257 611 257 606 240C582 153 511 73 433 41C404 30 378 24 350 24C302 24 263 36 232 58C180 92 156 141 156 222C156 232 156 243 157 251C165 327 193 421 226 479C266 550 325 604 395 634C432 649 474 659 510 659C601 659 651 591 651 481Z"
+                    />
+                  </g>
+                  <g transform="translate(748,-150) scale(0.707)">
+                    <path
+                      d="M287 628C287 605 149 65 146 61C142 54 137 51 127 49C116 48 89 46 67 46L61 46C41 46 42 45 36 24C34 16 33 12 33 10C33 2 37 1 50 1C91 1 133 2 180 2C228 2 275 2 311 0L326 0C332 6 332 5 336 19C341 40 339 38 333 46L302 46C272 47 251 49 247 51C245 52 244 54 244 59C244 60 259 121 277 193L309 323L378 323C456 322 454 323 474 313C499 299 517 277 517 239C517 218 512 204 502 166C490 119 487 117 487 82C488 64 490 55 497 42C517 1 565-21 632-21C650-21 653-21 661-19C687-12 712 8 731 36C742 54 755 84 755 93C755 102 750 105 735 105C719 105 718 104 712 85C702 53 681 27 658 18C654 16 647 16 640 16C605 16 602 38 602 80C602 101 602 111 607 159C610 190 612 218 612 223C612 269 587 309 545 333C540 336 537 338 538 338C542 338 575 350 588 355C667 390 720 441 735 499C737 509 739 519 739 529C739 561 726 592 702 618C670 651 625 671 564 680C550 682 546 682 378 683C240 683 206 683 204 682C200 680 199 677 195 662C192 647 192 647 194 644C196 638 197 637 230 637C260 636 287 637 287 628M614 602C625 590 630 576 630 554C630 515 614 457 592 426C570 396 534 374 492 367C466 361 462 361 388 360C339 360 319 360 319 361C319 364 384 623 386 627C389 632 394 635 404 636C409 636 435 637 462 637C536 637 583 634 614 602Z"
+                    />
+                  </g>
+                </g>
+              </g>
+            </g>
+          </svg>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(417.5643152603766 160)">
+      <circle r="4" fill="#263238" stroke="#fff" stroke-width="1" />
+    </g>
+    <g transform="translate(417.5643152603766 440)">
+      <circle r="4" fill="#263238" stroke="#fff" stroke-width="1" />
+    </g>
+    <g transform="translate(417.5643152603766 300)">
+      <circle r="4" fill="#263238" />
+    </g>
+  </svg>
+</svg>
